@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Csrf;
+use App\Core\FrontendAssets;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
@@ -20,16 +21,25 @@ final class HomeController
         private readonly Csrf $csrf,
         private readonly Validator $validator,
         private readonly array $appConfig,
+        private readonly FrontendAssets $frontendAssets,
     ) {
     }
 
     public function index(): Response
     {
         return Response::html($this->view->render('pages/home', [
-            'title' => 'Home',
+            'title' => 'Christmas Tree',
             'appName' => $this->appConfig['name'],
             'csrfField' => $this->csrf->field(),
             'flashes' => $this->session->consumeFlash(),
+            'frontend' => $this->frontendAssets->entry('index.html'),
+        ], 'layouts/christmas-tree'));
+    }
+
+    public function credits(): Response
+    {
+        return Response::html($this->view->render('pages/credits', [
+            'title' => 'Créditos open-source',
         ]));
     }
 

@@ -29,6 +29,7 @@ final class HostgatorMirrorBuilderTest extends TestCase
             'config/app.php',
             'config/database.php',
             'public/index.php',
+            'public/assets/app/.vite/manifest.json',
             'resources/views/.keep',
             'routes/web.php',
             'composer.json',
@@ -61,6 +62,7 @@ final class HostgatorMirrorBuilderTest extends TestCase
         $this->builder()->validate();
         self::assertFileExists($this->mirror . '/vendor/autoload.php');
         self::assertFileExists($this->mirror . '/composer.lock');
+        self::assertFileExists($this->mirror . '/public/assets/app/.vite/manifest.json');
     }
 
     #[DataProvider('protectedPathProvider')]

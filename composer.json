@@ -1,6 +1,6 @@
 {
-    "name": "josielviega/modelo-php",
-    "description": "Starter PHP moderno, simples e seguro para aplicações web tradicionais.",
+    "name": "josielviega/christmas-tree",
+    "description": "Aplicativo natalino com uma árvore 3D interativa sobre uma base PHP.",
     "type": "project",
     "license": "MIT",
     "require": {
@@ -36,12 +36,15 @@
         "migrate": "@php bin/migrate.php",
         "lint": "@php bin/lint.php",
         "test": "@php vendor/bin/phpunit",
+        "frontend:install": "npm --prefix frontend ci",
+        "frontend:build": "npm --prefix frontend run build",
         "check": [
             "@composer validate --strict",
             "@lint",
             "@test"
         ],
         "deploy:hostgator": [
+            "@frontend:build",
             "@check",
             "@php bin/build-hostgator-mirror.php"
         ]

@@ -1,5 +1,6 @@
 .env
 /vendor/
+/frontend/node_modules/
 /composer.phar
 /composer-setup.php
 /composer-installer.sig

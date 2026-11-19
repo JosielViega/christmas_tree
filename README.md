@@ -1,184 +1,164 @@
-# Modelo PHP
+# Christmas Tree
 
-Starter reutilizável para aplicações web tradicionais em PHP. Ele oferece uma base pequena, organizada e segura sem framework, ORM, Node.js ou Docker obrigatório. O código privilegia responsabilidades explícitas e é adequado a Apache, MySQL/MariaDB e hospedagem compartilhada.
+Aplicativo natalino com árvores 3D interativas, preparado para evoluir para compartilhamento e mensagens de amigos. A Etapa 01 integra a experiência visual do [Lumière Christmas Tree](https://github.com/gracetyy/christmas-tree) ao backend do `modeloPHP`, sem implementar ainda autenticação, persistência ou recursos sociais.
+
+## Estado da Etapa 01
+
+- árvore, estrela, luzes, neve, presentes, enfeites e polaroids em Three.js;
+- upload local de fotografias, navegação, música, captura de imagem e gravação mantidos;
+- React + TypeScript compilados pelo Vite para arquivos estáticos;
+- PHP continua sendo a aplicação principal e serve o HTML da rota `/`;
+- `/health` continua respondendo JSON;
+- build de produção não requer Node.js no servidor;
+- contador remoto, Vercel Analytics, Instagram e gestos MediaPipe estão fora do fluxo inicial;
+- código dos componentes de Instagram e gestos foi preservado em `frontend/` para avaliação futura.
 
 ## Stack
 
-- PHP 8.2 ou superior, PDO MySQL e Composer 2
-- MySQL 8+ ou MariaDB compatível
-- Apache com `mod_rewrite` e `.htaccess`
-- HTML5, CSS3 e JavaScript puro
+- PHP 8.2+, Composer 2 e PDO MySQL;
+- React 18, TypeScript, Three.js, React Three Fiber e Vite;
+- Tailwind CSS compilado localmente;
+- Apache/HostGator em produção, com somente PHP e assets estáticos.
 
-## Composer
+## Arquitetura
 
-Composer é obrigatório desde o primeiro dia. Há um único `vendor/` na raiz, ignorado pelo Git, e o namespace `App\` usa PSR-4 em `app/`. As dependências são `vlucas/phpdotenv` em produção e PHPUnit em desenvolvimento.
+```text
+Browser
+  -> public/index.php
+  -> Router
+  -> HomeController
+  -> Vite manifest (public/assets/app/.vite/manifest.json)
+  -> view PHP + bundles estáticos versionados
+```
 
-## Instalação
+O código React vive isolado em `frontend/`. `npm run build` grava diretamente em `public/assets/app/`. O PHP lê o manifesto por `App\Core\FrontendAssets`, sem nomes de arquivo fixos, e injeta os arquivos CSS/JS no layout `resources/views/layouts/christmas-tree.php`.
+
+```text
+app/                    núcleo e controllers PHP
+bootstrap/              composição da aplicação
+config/                 configuração e allowlist de deploy
+frontend/               React, TypeScript e código 3D
+public/assets/app/       resultado versionado do Vite
+resources/views/        layouts e páginas PHP
+routes/                  rotas HTTP
+tests/                   testes PHP
+docs/                    arquitetura, roadmap e créditos
+```
+
+Mais detalhes: [arquitetura](docs/ARCHITECTURE.md) e [créditos](docs/OPEN_SOURCE_CREDITS.md).
+
+## Instalação local
+
+Pré-requisitos: PHP 8.2+, extensões PDO/PDO MySQL, Composer 2 e Node.js 22+.
 
 ```bash
-git clone https://github.com/JosielViega/modeloPHP.git
-cd modeloPHP
 composer install
 composer setup
+npm --prefix frontend ci
+npm --prefix frontend run build
 ```
 
-`composer setup` cria `.env` a partir do exemplo somente quando ele não existe, escolhe uma porta local livre e não reservada por outro projeto, grava a reserva local e atualiza o autoload. Um `.env` existente é preservado; quando necessário, somente `APP_PORT` e uma `APP_URL` local podem ser ajustados.
+`composer setup` cria o `.env` local, se necessário, e reserva uma porta PHP livre usando o mecanismo original do `modeloPHP`.
 
-Também é possível criar o arquivo local de ambiente manualmente:
-
-```powershell
-copy .env.example .env
-```
-
-No Linux/macOS:
-
-```bash
-cp .env.example .env
-```
-
-Preencha as configurações locais. Regenere o autoload quando criar classes:
-
-```bash
-composer dump-autoload
-```
-
-O `.env` contém valores locais e nunca deve ser versionado.
-
-## Porta local
-
-Cada projeto recebe uma porta própria. O setup combina duas proteções: a porta não pode estar reservada para outro projeto desligado nem ocupada por um listener ativo. As reservas ficam somente na máquina local em `~/.modeloPHP/ports.json` (no Windows, dentro do perfil do usuário).
-
-```env
-APP_URL=http://localhost:8010
-APP_PORT=8010
-```
-
-`composer serve` valida a faixa, confere divergências com o registro e testa o listener antes de iniciar. Se estiver ocupada, o comando termina sem encerrar o processo existente. Consulte [desenvolvimento local](docs/LOCAL_DEVELOPMENT.md).
-
-## Iniciar a aplicação
+### Executar o build integrado ao PHP
 
 ```bash
 composer serve
 ```
 
-Acesse o endereço mostrado pelo comando. O servidor embutido é apenas uma conveniência local; Apache é o ambiente esperado em produção.
+Abra a URL exibida pelo comando. Esta é a forma mais próxima da produção: o PHP serve o HTML e os assets já compilados.
 
-## Comandos de qualidade
+### Desenvolvimento do frontend
+
+Em um terminal:
 
 ```bash
-composer test
+composer serve
+```
+
+Em outro:
+
+```bash
+npm --prefix frontend run dev
+```
+
+Use a URL informada pelo Vite para trabalhar com hot reload. O backend continua disponível em sua porta própria para `/health` e futuras APIs. Não há proxy nesta etapa porque o frontend não consome endpoints de negócio.
+
+## Comandos
+
+```bash
+# Backend
+composer validate --strict
 composer lint
+composer test
 composer check
-composer port:status
-composer port:release
-```
 
-`port:status` mostra somente a reserva e configuração do projeto atual. `port:release` libera somente sua reserva, sem alterar `.env` ou processos.
+# Frontend
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+npm --prefix frontend audit
 
-`composer check` executa `composer validate --strict`, valida a sintaxe dos arquivos PHP próprios e roda os testes. Para migrations SQL:
-
-```bash
-composer migrate
-```
-
-Para gerar uma pasta local pronta para atualização manual em hospedagem compartilhada:
-
-```bash
+# Pacote HostGator
 composer deploy:hostgator
 ```
 
-O mirror gerado fica em `deploy/hostgator/mirror/`, fora do Git. Consulte [deploy para HostGator/cPanel](deploy/hostgator/README.md).
-
-## Estrutura
-
-```text
-app/                 Núcleo, controllers e código do domínio
-bootstrap/app.php    Composição e inicialização da aplicação
-config/              Configuração derivada do ambiente
-database/            Migrations SQL e seeds opcionais
-docs/                Arquitetura, segurança e ambiente local
-public/              Único Document Root público
-resources/views/     Layouts, componentes e páginas PHP
-routes/web.php       Rotas HTTP explícitas
-storage/             Cache e logs locais
-tests/               Testes unitários sem banco externo
-bin/                 Comandos pequenos do projeto
-deploy/hostgator/     Manifesto e documentação do mirror de produção
-```
-
-## Estudar o projeto
-
-Para compreender a arquitetura, seguir os fluxos reais e revisar segurança, testes, operação local e deploy, use o [Plano de estudo e revisão](docs/PLANO_DE_ESTUDO_E_REVISAO.md).
+`composer deploy:hostgator` recompila o frontend, executa as verificações PHP e gera `deploy/hostgator/mirror/`. Instale antes as dependências com `composer install` e `npm --prefix frontend ci`.
 
 ## Rotas
 
-As rotas ficam em `routes/web.php`:
+- `GET /` — aplicativo 3D;
+- `GET /credits` — atribuições visíveis dos recursos redistribuídos;
+- `GET /health` — `{"status":"ok"}`;
+- `POST /example` — demonstração original do pipeline PHP, mantida sem persistência;
+- demais caminhos — 404 com status correto.
 
-```php
-$router->get('/users/{id}', [$userController, 'show']);
-$router->post('/users', [$userController, 'store']);
-```
+## Deploy HostGator
 
-GET e POST são demonstrados. PUT, PATCH e DELETE estão preparados por `_method` em um POST. A rota inexistente responde com página e status 404.
+O servidor de produção não executa Node.js nem Vite. O build ocorre localmente ou no CI:
 
-## Controllers e views
+1. execute `npm --prefix frontend ci`;
+2. execute `composer deploy:hostgator`;
+3. revise `deploy/hostgator/build-info.json` e o conteúdo de `mirror/`;
+4. copie o mirror para a estrutura privada/pública adequada no cPanel;
+5. crie o `.env` somente no servidor e preserve arquivos controlados pela hospedagem;
+6. aponte preferencialmente o Document Root para `public/`.
 
-Controllers recebem a requisição, validam entradas, chamam serviços ou repositories quando necessários e escolhem uma `Response`. HTML extenso fica em `resources/views`; valores dinâmicos são impressos com `e()`.
+O mirror inclui `public/assets/app/`, mas não inclui `frontend/`, `node_modules/`, `.env`, testes, cache, logs ou uploads. Consulte [o guia HostGator](deploy/hostgator/README.md).
 
-```php
-<h1><?= e($title) ?></h1>
-```
+## Dependências externas
 
-O fluxo inicial demonstra `Router → HomeController → View → Layout`. O POST em `/example` demonstra Request, Validator, CSRF, flash e redirect HTTP sem salvar dados.
+O carregamento inicial funciona sem credenciais e sem APIs pagas. Todos os bundles, a fonte e a música são servidos localmente. A única navegação externa presente é acionada conscientemente pelo usuário ao abrir o repositório original ou links de licença.
 
-## Repositories e services
+Desabilitados nesta etapa:
 
-Crie um repository por assunto do domínio e mantenha SQL nele, por exemplo `UserRepository::findById()`. Não crie acesso genérico a tabelas arbitrárias. Services são opcionais e só devem existir quando coordenarem regra de negócio ou integração real. Models podem ser objetos simples; este projeto não inclui ORM.
+- importação do Instagram e seu webhook;
+- contador CounterAPI;
+- Vercel Analytics;
+- MediaPipe e acesso à câmera;
+- consulta automática à API do GitHub;
+- presets remotos de ambiente (substituídos por iluminação procedural local).
 
-## Banco e migrations
+## Validação visual manual
 
-`App\Core\Database` cria PDO sob demanda com exceptions, fetch associativo, prepared statements nativos e `utf8mb4`. As credenciais vêm exclusivamente do ambiente.
+Como a especificação proíbe automação de mouse/teclado em aplicativos gráficos, valide manualmente em desktop e celular:
 
-Adicione SQL versionado a `database/migrations/` com nomes ordenáveis. `composer migrate` cria a tabela de controle e executa cada arquivo ainda não registrado uma única vez. Não há migration de negócio no template. Faça backup e teste alterações de schema antes de produção.
+- a árvore ocupa a tela e mantém geometria, neve, luzes, estrela, presentes e animações;
+- toque/arraste ou mouse rotacionam a câmera e o zoom permanece suave;
+- `Edit` permite carregar uma ou várias fotos e focar uma polaroid;
+- música inicia após interação e pode ser silenciada;
+- `Image` baixa uma captura legível;
+- as duas opções de vídeo iniciam e finalizam em navegadores compatíveis;
+- os controles não extrapolam a tela em larguras de 320 px, 375 px e 430 px;
+- a experiência funciona no navegador interno do Instagram em um aparelho real;
+- `/credits` abre e permite voltar à árvore;
+- `/health` continua respondendo corretamente.
 
-## Segurança
+## Licenças
 
-- secrets somente no `.env`, nunca no Git;
-- prepared statements e proibição de concatenar input em SQL;
-- escape HTML com `e()`;
-- CSRF baseado em token de sessão e `hash_equals()`;
-- cookies HttpOnly, SameSite=Lax, modo estrito e Secure configurável;
-- mensagens genéricas em produção e detalhes nos logs;
-- uploads ignorados e execução de PHP bloqueada em `public/uploads`;
-- redirects HTTP, validação no backend e ações mutáveis fora de GET.
+O projeto principal permanece sob MIT. O frontend 3D reutilizado conserva sua licença MIT em `frontend/LICENSE`. A fonte Great Vibes usa SIL OFL 1.1, incluída junto ao arquivo da fonte. A música exige atribuição CC BY 4.0 e está creditada na aplicação e na documentação.
 
-Leia a política completa em [docs/SECURITY.md](docs/SECURITY.md).
+Veja [OPEN_SOURCE_CREDITS.md](docs/OPEN_SOURCE_CREDITS.md) para detalhes e ressalvas.
 
-## Produção
+## Escopo futuro
 
-Use pelo menos:
-
-```env
-APP_ENV=production
-APP_DEBUG=false
-SESSION_SECURE=true
-```
-
-Instale dependências com `composer install --no-dev --classmap-authoritative`, conceda escrita apenas a `storage/` e diretórios de upload necessários, configure HTTPS e aponte o Document Root para `public/`.
-
-## Apache, cPanel e hospedagem compartilhada
-
-No cenário ideal, configure o domínio/subdomínio para a pasta `public/`. Mantenha `app`, `bootstrap`, `config`, `database`, `storage`, `tests` e `vendor` fora do diretório servido.
-
-Quando o provedor não permitir alterar o Document Root, mantenha o projeto fora de `public_html`, copie apenas o conteúdo de `public/` para `public_html` e ajuste os caminhos do front controller para a localização privada real. Não copie `.env`, `vendor` ou código interno para uma área publicamente acessível. Confirme com o provedor o caminho absoluto, suporte a PHP 8.2+, Composer, `mod_rewrite` e regras `.htaccess`; não adicione handlers PHP específicos do cPanel ao template.
-
-O comando `composer deploy:hostgator` gera um mirror de atualização com `vendor` de produção. Ele nunca inclui `.env`, `.htaccess`, configurações PHP do servidor, uploads, logs ou cache, e nunca envia ou apaga arquivos remotos. As regras Apache de exemplo devem ser mescladas manualmente na primeira instalação. Migrations também permanecem uma etapa separada.
-
-## Rotas incluídas
-
-- `GET /` — página inicial e formulário demonstrativo
-- `POST /example` — pipeline protegido, sem persistência
-- `GET /health` — `{"status":"ok"}` sem detalhes internos
-- demais caminhos — página 404 com status correto
-
-Veja também [arquitetura](docs/ARCHITECTURE.md), [segurança](docs/SECURITY.md) e [desenvolvimento local](docs/LOCAL_DEVELOPMENT.md).
+Árvores individuais, enfeites persistentes, mensagens secretas e compartilhamento pertencem às próximas etapas e não foram antecipados. Consulte [ROADMAP.md](docs/ROADMAP.md).

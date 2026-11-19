@@ -1,70 +1,68 @@
 # Arquitetura
 
-O projeto usa uma arquitetura em camadas pequena. Cada classe deve existir por uma responsabilidade concreta; Services e Models não são obrigatórios para fluxos simples.
+O Christmas Tree mantém a arquitetura sem framework do `modeloPHP`. O PHP é a aplicação principal, controla rotas e respostas e serve um frontend React compilado como arquivos estáticos.
+
+## Fluxo HTTP
 
 ```text
 Browser
-   ↓
-public/index.php
-   ↓
-Router
-   ↓
-Controller
-   ↓
-Service (quando houver regra que justifique)
-   ↓
-Repository
-   ↓
-PDO / MySQL
+  -> public/index.php
+  -> bootstrap/app.php
+  -> routes/web.php
+  -> HomeController
+  -> FrontendAssets
+  -> manifesto Vite
+  -> View + layout Christmas Tree
 ```
 
-Sem regra intermediária, o Controller chama o Repository diretamente:
+`App\Core\FrontendAssets` lê `public/assets/app/.vite/manifest.json`, localiza a entrada `index.html` e produz URLs sob `/assets/app/`. Assim, hashes gerados pelo Vite podem mudar sem alterações manuais nas views.
+
+As rotas PHP continuam explícitas. Arquivos existentes dentro de `public/` são servidos diretamente pelo Apache ou pelo router do servidor PHP; qualquer outra URL segue para o front controller. Não há roteamento SPA nesta etapa, portanto não existe conflito entre rotas React e PHP.
+
+## Frontend 3D
+
+`frontend/App.tsx` compõe a experiência. Os componentes reutilizados são:
+
+- `Scene`: Canvas, câmera, iluminação, controles e pós-processamento;
+- `TreeMesh`: agulhas da árvore com instancing;
+- `SpiralDecor`: cordão luminoso, bolas e enfeites;
+- `Star`: estrela, brilho e animação;
+- `Snow`: partículas de neve;
+- `Presents`: presentes procedurais;
+- `Polaroid`: fotos e interação;
+- `Overlay`: controles, nome, edição, exportação e gravação.
+
+Texturas decorativas são geradas em Canvas. A iluminação de reflexão usa `Environment` com `Lightformer`, evitando o download do preset remoto original. A fonte e a música são assets locais.
+
+## Recursos externos desativados
+
+O código de `HandController`, `InstagramModal`, `useInstagram` e `useVisitCounter` foi mantido como referência, mas não é importado pelo `App` da Etapa 01. Não há solicitação de câmera, webhook, contador, analytics ou fetch automático para GitHub. A reativação exige uma decisão de produto, análise de privacidade e testes próprios.
+
+## Build e produção
 
 ```text
-Controller
-   ↓
-Repository
+frontend/ --npm run build--> public/assets/app/
+                                  |
+                                  +-- .vite/manifest.json
+                                  +-- assets/*.js
+                                  +-- assets/*.css
+                                  +-- fonts, music, favicon
 ```
 
-A resposta HTML segue:
+O diretório compilado é versionado para que o checkout seja executável em hospedagem PHP mesmo sem Node.js. O processo de mirror recompila antes de empacotar e valida a presença do manifesto.
 
-```text
-Controller
-   ↓
-View
-   ↓
-Layout
-   ↓
-HTML
-```
+`frontend/` e `node_modules/` nunca são necessários em produção. O mirror copia somente os caminhos definidos em `deploy/hostgator/config/deploy.php` e instala `vendor/` sem dependências de desenvolvimento.
 
-## Responsabilidades
+## Evolução backend
 
-- `public/index.php`: front controller mínimo; inicializa e despacha.
-- `bootstrap/app.php`: carrega Composer e ambiente, configura erros, timezone e sessão, e compõe dependências. Não contém negócio.
-- `routes/web.php`: relaciona métodos/caminhos a actions e define o fallback 404.
-- `app/Core`: infraestrutura reutilizável: Request, Response, Router, View, Session, CSRF, PDO, log e erros.
-- `app/Controllers`: coordena cada caso HTTP, sem SQL ou HTML extenso.
-- `app/Validation`: valida entradas no backend.
-- `app/Repositories`: concentra consultas explícitas de cada domínio e seus prepared statements.
-- `app/Services`: coordena regras ou integrações que realmente precisem de uma camada própria.
-- `app/Models`: DTOs ou objetos simples quando o domínio os justificar; não é um ORM.
-- `resources/views`: apresentação PHP, sempre escapando valores dinâmicos por padrão.
-- `config`: arrays de configuração que leem o ambiente.
-- `database`: evolução de schema em SQL versionado e seeds opcionais.
+Futuras funcionalidades devem seguir o fluxo do template:
 
-## Como evoluir um recurso
+1. rota HTTP explícita;
+2. controller pequeno;
+3. validação e autorização no backend;
+4. repository para SQL preparado;
+5. service somente quando houver regra ou integração significativa;
+6. resposta JSON ou view;
+7. teste do comportamento fundamental.
 
-1. Defina a rota e o método HTTP.
-2. Crie uma action pequena no Controller.
-3. Valide dados recebidos e autorização no backend.
-4. Adicione um Repository se houver SQL.
-5. Adicione um Service apenas para regra ou coordenação significativa.
-6. Retorne uma Response ou renderize uma View.
-7. Cubra o comportamento fundamental com teste.
-
-Dependências são montadas explicitamente em `bootstrap/app.php` ou `routes/web.php`. Se o projeto crescer muito, um container pode ser avaliado, mas não é necessário neste starter.
-
-## Ferramentas do template
-
-Os scripts em `bin/` não fazem parte do fluxo HTTP nem das regras de negócio. `composer setup` prepara uma cópia local conservadoramente. `composer deploy:hostgator` gera, a partir de uma allowlist versionada, um espelho descartável de produção. O espelho nunca se torna uma segunda fonte de código.
+Não há migration de domínio, autenticação ou persistência social na Etapa 01.

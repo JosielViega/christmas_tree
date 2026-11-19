@@ -2,3 +2,6 @@
 
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Bundles contain generated GLSL template literals with intentional spaces.
+public/assets/app/assets/*.js -whitespace

@@ -14,11 +14,13 @@ $home = new HomeController(
     $app['csrf'],
     $app['validator'],
     $app['config'],
+    $app['frontendAssets'],
 );
 $health = new HealthController();
 $router = $app['router'];
 
 $router->get('/', [$home, 'index']);
+$router->get('/credits', [$home, 'credits']);
 $router->post('/example', [$home, 'submitExample']);
 $router->get('/health', [$health, 'index']);
 $router->fallback(static function (Request $request) use ($app): Response {

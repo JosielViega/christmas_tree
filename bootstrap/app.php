@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Core\Csrf;
 use App\Core\Database;
 use App\Core\ErrorHandler;
+use App\Core\FrontendAssets;
 use App\Core\Logger;
 use App\Core\Request;
 use App\Core\Router;
@@ -55,6 +56,7 @@ return [
     'request' => Request::capture(),
     'router' => new Router(),
     'view' => new View($root . '/resources/views'),
+    'frontendAssets' => new FrontendAssets($root . '/public/assets/app/.vite/manifest.json'),
     'session' => $session,
     'csrf' => new Csrf($session),
     'validator' => new Validator(),

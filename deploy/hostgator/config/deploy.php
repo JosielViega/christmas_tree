@@ -25,12 +25,14 @@ return [
         'bin',
         'deploy',
         'docs',
+        'frontend',
         'tests',
         'phpunit.xml',
         'public/uploads',
         'storage/cache',
         'storage/logs',
         'vendor',
+        'node_modules',
     ],
 
     // A build fails if one of these names or extensions reaches the generated mirror.

@@ -64,6 +64,7 @@ final class HostgatorMirrorBuilder
             'config/app.php',
             'config/database.php',
             'public/index.php',
+            'public/assets/app/.vite/manifest.json',
             'resources/views',
             'routes/web.php',
             'composer.json',
