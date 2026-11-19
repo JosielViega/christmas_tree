@@ -14,6 +14,7 @@ import { useRecording } from './hooks/useRecording';
 import { useTreeInteraction } from './hooks/useTreeInteraction';
 import { processImageWithPadding } from './utils/image';
 import type { StoryFrameCapture } from './utils/socialSharing';
+import type { StoryVideoSceneCapture } from './utils/videoRecording';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
+  const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
 
   const registerStoryCapture = useCallback((capture: StoryFrameCapture | null) => {
     storyCaptureRef.current = capture;
@@ -53,6 +55,15 @@ const App: React.FC = () => {
   const captureStoryFrame = useCallback(async () => {
     if (!storyCaptureRef.current) throw new Error('A cena 3D ainda não está pronta para captura.');
     return storyCaptureRef.current();
+  }, []);
+
+  const registerStoryVideoCapture = useCallback((capture: StoryVideoSceneCapture | null) => {
+    storyVideoCaptureRef.current = capture;
+  }, []);
+
+  const startStoryVideoCapture: StoryVideoSceneCapture = useCallback(async (options) => {
+    if (!storyVideoCaptureRef.current) throw new Error('A cena 3D ainda não está pronta para gravação.');
+    return storyVideoCaptureRef.current(options);
   }, []);
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
@@ -314,6 +325,7 @@ const App: React.FC = () => {
         newOrnamentId={newOrnamentId}
         onOrnamentSelect={focusOrnament}
         onStoryCaptureReady={registerStoryCapture}
+        onStoryVideoCaptureReady={registerStoryVideoCapture}
       />
 
       <Overlay
@@ -399,6 +411,7 @@ const App: React.FC = () => {
           ornamentCount={ornaments.length}
           publicUrl={publicTreeUrl}
           captureFrame={captureStoryFrame}
+          startVideoCapture={startStoryVideoCapture}
           onClose={() => setShareModalOpen(false)}
         />
       )}

@@ -71,13 +71,19 @@ O código de recuperação aparece uma única vez ao usuário. Quando usado, o b
 
 O Vite grava diretamente em `public/assets/app/`; o diretório compilado é versionado para produção sem Node.js. Em desenvolvimento, o proxy `/api` aponta para o backend PHP.
 
-Os componentes sociais não adicionam dependências. O build da Etapa 05A gera JavaScript minificado de aproximadamente 1.210,3 kB (338,7 kB gzip), crescimento de cerca de 10,7 kB antes de gzip e 2,8 kB após gzip em relação ao build anterior; o custo principal continua sendo Three.js e o pipeline visual original.
+Os componentes sociais não adicionam dependências. O build da Etapa 05B gera JavaScript minificado de aproximadamente 1.225,8 kB (343,1 kB gzip), crescimento de cerca de 12,0 kB antes de gzip e 3,0 kB após gzip em relação à Etapa 05A.1; o custo principal continua sendo Three.js e o pipeline visual original.
 
 ## Compartilhamento social
 
 `ShareTreeModal` oferece cópia, Web Share API e fallback explícito. A geração do cartão é iniciada somente pelo usuário: `socialSharing.ts` captura o `Canvas` já usado pelo React Three Fiber, preserva sua proporção e o compõe em um Canvas 2D de 1080×1920. Nenhuma segunda cena 3D é criada e nenhuma imagem é enviada ao servidor. URLs de objeto temporárias são revogadas após uso.
 
 Compartilhamento de arquivo depende de `navigator.canShare({ files })`; navegadores incompatíveis recebem download PNG. O Instagram não é automatizado: a interface orienta publicar a imagem e inserir manualmente o adesivo de link.
+
+Na Etapa 05B, `StoryCaptureController` também abre uma sessão temporária de gravação sobre a mesma cena. Ele salva câmera, controles, viewport e DPR; aplica a proporção 9:16; e restaura tudo quando a gravação termina, falha ou é cancelada. Um `useFrame` realiza uma órbita simples ou mantém a câmera estática quando `prefers-reduced-motion` está ativo. A sessão nunca cria outra geometria ou renderer permanente.
+
+`videoRecording.ts` compõe os frames da cena em um Canvas 2D separado, acrescentando somente nome público, quantidade de participações, convite e marca. Esse canvas fornece o stream ao `MediaRecorder`. Codecs são escolhidos exclusivamente por `MediaRecorder.isTypeSupported`; o resultado pode ser MP4 ou WebM. O ciclo compartilhado pelo gravador original e pelo vídeo social limita duração, trata cancelamento/erros e encerra todas as tracks. URLs de objeto pertencem à interface e são revogadas ao substituir a prévia, desmontar o modal ou concluir downloads.
+
+Nenhum vídeo, frame, mensagem ou credencial é enviado ao PHP. Dispositivos modestos usam 720×1280 a 24 FPS; o perfil superior usa 1080×1920 a 30 FPS. Ausência de `MediaRecorder`, `captureStream` ou compartilhamento de arquivos preserva link e PNG como fallback. Consulte [compartilhamento social](SOCIAL_SHARING.md) para uso e limitações.
 
 `TreePageController` renderiza título, descrição, canonical, Open Graph e Twitter Card antes do JavaScript. A imagem `public/assets/images/christmas-tree-social.jpg` é genérica, estática e compartilhada entre árvores; apenas título e descrição são personalizados. Nenhuma mensagem é consultada para produzir metadados.
 

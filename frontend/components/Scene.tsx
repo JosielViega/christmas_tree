@@ -19,6 +19,8 @@ import {
   withTemporaryCaptureState,
 } from '../utils/socialSharing';
 import type { StoryFrameCapture } from '../utils/socialSharing';
+import type { StoryVideoSceneCapture } from '../utils/videoRecording';
+import { STORY_VIDEO_DURATION_MS } from '../utils/videoRecording';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -38,6 +40,7 @@ interface SceneProps {
   newOrnamentId: string | null;
   onOrnamentSelect: (ornament: SocialOrnamentData) => void;
   onStoryCaptureReady?: (capture: StoryFrameCapture | null) => void;
+  onStoryVideoCaptureReady?: (capture: StoryVideoSceneCapture | null) => void;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -355,7 +358,8 @@ const nextRenderedFrame = (): Promise<void> => new Promise((resolve) => requestA
 const StoryCaptureController: React.FC<{
   captureActive: React.MutableRefObject<boolean>;
   onReady?: (capture: StoryFrameCapture | null) => void;
-}> = ({ captureActive, onReady }) => {
+  onVideoReady?: (capture: StoryVideoSceneCapture | null) => void;
+}> = ({ captureActive, onReady, onVideoReady }) => {
   const camera = useThree((current) => current.camera);
   const controls = useThree((current) => current.controls);
   const gl = useThree((current) => current.gl);
@@ -363,82 +367,133 @@ const StoryCaptureController: React.FC<{
   const invalidate = useThree((current) => current.invalidate);
   const setDpr = useThree((current) => current.setDpr);
   const setSize = useThree((current) => current.setSize);
+  const videoAnimation = useRef<{ startedAt: number; durationMs: number; reducedMotion: boolean } | null>(null);
+  const activeStop = useRef<(() => void) | null>(null);
+
+  useFrame(() => {
+    const animation = videoAnimation.current;
+    if (!animation || !(camera instanceof THREE.PerspectiveCamera)) return;
+    const progress = Math.min(1, (performance.now() - animation.startedAt) / animation.durationMs);
+    const angle = animation.reducedMotion ? 0 : progress * Math.PI * 2;
+    camera.position.set(Math.sin(angle) * 23.5, 0, Math.cos(angle) * 23.5);
+    camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
+  });
 
   useEffect(() => {
-    if (!onReady || !(camera instanceof THREE.PerspectiveCamera)) return;
+    if ((!onReady && !onVideoReady) || !(camera instanceof THREE.PerspectiveCamera)) return;
 
     const orbitControls = controls as { target?: THREE.Vector3; enabled?: boolean; update?: () => void } | null;
-    const capture: StoryFrameCapture = () => withTemporaryCaptureState<StoryCaptureSnapshot, HTMLCanvasElement>(
-      () => {
-        const current = getState();
-        return {
-          cameraPosition: camera.position.clone(),
-          cameraQuaternion: camera.quaternion.clone(),
-          cameraUp: camera.up.clone(),
-          cameraAspect: camera.aspect,
-          cameraFov: camera.fov,
-          cameraZoom: camera.zoom,
-          controlsTarget: orbitControls?.target?.clone() ?? null,
-          controlsEnabled: typeof orbitControls?.enabled === 'boolean' ? orbitControls.enabled : null,
-          width: current.size.width,
-          height: current.size.height,
-          top: current.size.top,
-          left: current.size.left,
-          dpr: current.viewport.dpr,
-        };
-      },
-      () => {
-        captureActive.current = true;
-        if (orbitControls && typeof orbitControls.enabled === 'boolean') orbitControls.enabled = false;
-        camera.position.set(0, 0, 23.5);
-        camera.up.set(0, 1, 0);
-        camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
-        camera.fov = CAMERA_CONFIG.FOV;
-        camera.zoom = 1;
-        camera.aspect = STORY_SCENE_WIDTH / STORY_SCENE_HEIGHT;
+    const snapshot = (): StoryCaptureSnapshot => {
+      const current = getState();
+      return {
+        cameraPosition: camera.position.clone(),
+        cameraQuaternion: camera.quaternion.clone(),
+        cameraUp: camera.up.clone(),
+        cameraAspect: camera.aspect,
+        cameraFov: camera.fov,
+        cameraZoom: camera.zoom,
+        controlsTarget: orbitControls?.target?.clone() ?? null,
+        controlsEnabled: typeof orbitControls?.enabled === 'boolean' ? orbitControls.enabled : null,
+        width: current.size.width,
+        height: current.size.height,
+        top: current.size.top,
+        left: current.size.left,
+        dpr: current.viewport.dpr,
+      };
+    };
+    const restore = (saved: StoryCaptureSnapshot) => {
+      try {
+        videoAnimation.current = null;
+        camera.position.copy(saved.cameraPosition);
+        camera.quaternion.copy(saved.cameraQuaternion);
+        camera.up.copy(saved.cameraUp);
+        camera.aspect = saved.cameraAspect;
+        camera.fov = saved.cameraFov;
+        camera.zoom = saved.cameraZoom;
         camera.updateProjectionMatrix();
-        setDpr(1);
-        setSize(STORY_SCENE_WIDTH, STORY_SCENE_HEIGHT, false, 0, 0);
-      },
-      async () => {
-        await nextRenderedFrame();
-        await nextRenderedFrame();
-        const source = gl.domElement;
-        if (source.width <= 0 || source.height <= 0) throw new Error('A renderização vertical não produziu uma imagem válida.');
-        const output = document.createElement('canvas');
-        output.width = STORY_SCENE_WIDTH;
-        output.height = STORY_SCENE_HEIGHT;
-        const context = output.getContext('2d');
-        if (!context) throw new Error('O navegador não conseguiu copiar a captura vertical.');
-        context.drawImage(source, 0, 0, output.width, output.height);
-        return output;
-      },
-      (snapshot) => {
-        try {
-          camera.position.copy(snapshot.cameraPosition);
-          camera.quaternion.copy(snapshot.cameraQuaternion);
-          camera.up.copy(snapshot.cameraUp);
-          camera.aspect = snapshot.cameraAspect;
-          camera.fov = snapshot.cameraFov;
-          camera.zoom = snapshot.cameraZoom;
-          camera.updateProjectionMatrix();
-          if (orbitControls) {
-            if (snapshot.controlsTarget && orbitControls.target) orbitControls.target.copy(snapshot.controlsTarget);
-            if (snapshot.controlsEnabled !== null) orbitControls.enabled = snapshot.controlsEnabled;
-            orbitControls.update?.();
-          }
-          setDpr(snapshot.dpr);
-          setSize(snapshot.width, snapshot.height, false, snapshot.top, snapshot.left);
-        } finally {
-          captureActive.current = false;
-          invalidate();
+        if (orbitControls) {
+          if (saved.controlsTarget && orbitControls.target) orbitControls.target.copy(saved.controlsTarget);
+          if (saved.controlsEnabled !== null) orbitControls.enabled = saved.controlsEnabled;
+          orbitControls.update?.();
         }
-      },
-    );
+        setDpr(saved.dpr);
+        setSize(saved.width, saved.height, false, saved.top, saved.left);
+      } finally {
+        captureActive.current = false;
+        activeStop.current = null;
+        invalidate();
+      }
+    };
+    const prepare = (width: number, height: number) => {
+      if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
+      captureActive.current = true;
+      if (orbitControls && typeof orbitControls.enabled === 'boolean') orbitControls.enabled = false;
+      camera.position.set(0, 0, 23.5);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
+      camera.fov = CAMERA_CONFIG.FOV;
+      camera.zoom = 1;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      setDpr(1);
+      setSize(width, height, false, 0, 0);
+    };
+    const capture: StoryFrameCapture = async () => {
+      if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
+      return withTemporaryCaptureState<StoryCaptureSnapshot, HTMLCanvasElement>(
+        snapshot,
+        () => prepare(STORY_SCENE_WIDTH, STORY_SCENE_HEIGHT),
+        async () => {
+          await nextRenderedFrame();
+          await nextRenderedFrame();
+          const source = gl.domElement;
+          if (source.width <= 0 || source.height <= 0) throw new Error('A renderização vertical não produziu uma imagem válida.');
+          const output = document.createElement('canvas');
+          output.width = STORY_SCENE_WIDTH;
+          output.height = STORY_SCENE_HEIGHT;
+          const context = output.getContext('2d');
+          if (!context) throw new Error('O navegador não conseguiu copiar a captura vertical.');
+          context.drawImage(source, 0, 0, output.width, output.height);
+          return output;
+        },
+        restore,
+      );
+    };
 
-    onReady(capture);
-    return () => onReady(null);
-  }, [camera, captureActive, controls, getState, gl, invalidate, onReady, setDpr, setSize]);
+    const startVideo: StoryVideoSceneCapture = async (options) => {
+      if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
+      const saved = snapshot();
+      let stopped = false;
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        restore(saved);
+      };
+      try {
+        prepare(options.width, options.height);
+        videoAnimation.current = {
+          startedAt: performance.now(),
+          durationMs: STORY_VIDEO_DURATION_MS,
+          reducedMotion: options.reducedMotion,
+        };
+        activeStop.current = stop;
+        await nextRenderedFrame();
+        await nextRenderedFrame();
+        return { canvas: gl.domElement, stop };
+      } catch (error) {
+        stop();
+        throw error;
+      }
+    };
+
+    onReady?.(capture);
+    onVideoReady?.(startVideo);
+    return () => {
+      activeStop.current?.();
+      onReady?.(null);
+      onVideoReady?.(null);
+    };
+  }, [camera, captureActive, controls, getState, gl, invalidate, onReady, onVideoReady, setDpr, setSize]);
 
   return null;
 };
@@ -518,6 +573,7 @@ const Scene: React.FC<SceneProps> = ({
   newOrnamentId,
   onOrnamentSelect,
   onStoryCaptureReady,
+  onStoryVideoCaptureReady,
 }) => {
   const captureActive = useRef(false);
 
@@ -546,7 +602,7 @@ const Scene: React.FC<SceneProps> = ({
         photos={photos}
         captureActive={captureActive}
       />
-      <StoryCaptureController captureActive={captureActive} onReady={onStoryCaptureReady} />
+      <StoryCaptureController captureActive={captureActive} onReady={onStoryCaptureReady} onVideoReady={onStoryVideoCaptureReady} />
 
       {/* Procedural environment preserves reflective lighting without a runtime CDN asset. */}
       <Environment resolution={256} background={false}>

@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 05A adiciona compartilhamento por link, cartão vertical para Stories e metadados sociais renderizados pelo PHP.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. As Etapas 05A e 05B adicionam compartilhamento por link, cartão vertical, vídeo local para Stories/Reels e metadados sociais renderizados pelo PHP.
 
-## Estado da Etapa 05A
+## Estado da Etapa 05B
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -26,6 +26,10 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - o cartão pode ser compartilhado como arquivo quando suportado ou salvo no dispositivo;
 - páginas públicas possuem título, descrição, URL canônica e Open Graph personalizados no HTML;
 - depois de decorar, visitantes podem abrir o fluxo existente para criar sua própria árvore.
+- proprietários podem gerar um vídeo vertical de oito segundos usando a mesma cena, câmera e animações 3D;
+- a gravação ocorre inteiramente no navegador, em 720×1280/24 FPS ou 1080×1920/30 FPS conforme o dispositivo;
+- o formato é MP4 ou WebM somente quando confirmado pelo `MediaRecorder` do navegador;
+- gravação incompatível mantém disponíveis o cartão PNG, o link e seus respectivos fallbacks.
 
 ## Stack e estrutura
 
@@ -45,7 +49,7 @@ tests/                   testes unitários, HTTP e integração opcional MySQL
 docs/                    arquitetura, segurança e operação
 ```
 
-Consulte [arquitetura](docs/ARCHITECTURE.md), [segurança](docs/SECURITY.md), [roadmap](docs/ROADMAP.md) e [créditos](docs/OPEN_SOURCE_CREDITS.md).
+Consulte [arquitetura](docs/ARCHITECTURE.md), [compartilhamento social](docs/SOCIAL_SHARING.md), [segurança](docs/SECURITY.md), [roadmap](docs/ROADMAP.md) e [créditos](docs/OPEN_SOURCE_CREDITS.md).
 
 ## Instalação local
 
@@ -84,8 +88,9 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 7. Antes da liberação, tocar no enfeite mostra apenas o remetente e o estado bloqueado.
 8. Após a liberação, o proprietário toca no enfeite para ler a mensagem; visitantes continuam sem acesso.
 9. O proprietário pode remover qualquer participação sem ler antecipadamente seu conteúdo.
-10. O proprietário usa “Compartilhar minha árvore” para copiar o link ou gerar o cartão para Stories.
-11. No Instagram, publique a imagem salva e adicione manualmente o adesivo de link com a URL copiada.
+10. O proprietário usa “Compartilhar minha árvore” para copiar o link, gerar o cartão ou criar um vídeo vertical de oito segundos.
+11. O vídeo pode ser cancelado, visualizado, salvo e compartilhado quando o navegador permite arquivos na Web Share API.
+12. No Instagram, publique a mídia salva e adicione manualmente o adesivo de link com a URL copiada.
 
 ## Rotas e API
 
@@ -129,4 +134,4 @@ No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e
 
 ## Escopo futuro
 
-Vídeos sociais personalizados, fotografias persistentes, rankings e novos cenários pertencem às próximas etapas.
+Upload de mídia, conversão de codecs, fotografias persistentes, rankings e novos cenários pertencem às próximas etapas.

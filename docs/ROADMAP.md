@@ -20,9 +20,9 @@ Mensagens individuais vinculadas aos enfeites, gravação transacional e idempot
 
 Links públicos, Web Share API com fallback, cartão local 9:16 para Stories, convite viral pós-participação e Open Graph renderizado no PHP.
 
-## 5B. Mídia social avançada
+## 5B. Vídeos sociais — concluída
 
-Vídeos personalizados e outras evoluções sociais permanecem fora do MVP 05A.
+Vídeos verticais personalizados de oito segundos, composição local, câmera cinematográfica, progresso, cancelamento, prévia, download, compartilhamento de arquivo e fallback para PNG. Não existe upload nem processamento no servidor.
 
 ## 6. Evolução da árvore
 
@@ -36,4 +36,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04 e o compartilhamento social básico na Etapa 05A.
+Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04 e o compartilhamento social, incluindo vídeo local, nas Etapas 05A e 05B.

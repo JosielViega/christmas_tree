@@ -44,26 +44,26 @@ test('vertical scene capture is tall and fills the story image area without dist
 });
 
 test('temporary capture restores camera-like state after success', async () => {
-  const state = { cameraZ: 32, aspect: 16 / 9, controlsEnabled: true };
+  const state = { cameraZ: 32, aspect: 16 / 9, controlsEnabled: true, width: 1440, height: 900, dpr: 2 };
   const result = await withTemporaryCaptureState(
     () => ({ ...state }),
-    () => { Object.assign(state, { cameraZ: 23.5, aspect: 9 / 11, controlsEnabled: false }); },
+    () => { Object.assign(state, { cameraZ: 23.5, aspect: 9 / 16, controlsEnabled: false, width: 720, height: 1280, dpr: 1 }); },
     async () => 'captured',
     (snapshot) => { Object.assign(state, snapshot); },
   );
   assert.equal(result, 'captured');
-  assert.deepEqual(state, { cameraZ: 32, aspect: 16 / 9, controlsEnabled: true });
+  assert.deepEqual(state, { cameraZ: 32, aspect: 16 / 9, controlsEnabled: true, width: 1440, height: 900, dpr: 2 });
 });
 
 test('temporary capture restores camera-like state when capture fails', async () => {
-  const state = { cameraZ: 32, controlsEnabled: true };
+  const state = { cameraZ: 32, controlsEnabled: true, width: 1440, height: 900, dpr: 2 };
   await assert.rejects(withTemporaryCaptureState(
     () => ({ ...state }),
-    () => { Object.assign(state, { cameraZ: 23.5, controlsEnabled: false }); },
+    () => { Object.assign(state, { cameraZ: 23.5, controlsEnabled: false, width: 720, height: 1280, dpr: 1 }); },
     async () => { throw new Error('capture failed'); },
     (snapshot) => { Object.assign(state, snapshot); },
   ), /capture failed/);
-  assert.deepEqual(state, { cameraZ: 32, controlsEnabled: true });
+  assert.deepEqual(state, { cameraZ: 32, controlsEnabled: true, width: 1440, height: 900, dpr: 2 });
 });
 
 test('story copy contains only public presentation fields', () => {
