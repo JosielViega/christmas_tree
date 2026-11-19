@@ -50,7 +50,7 @@ final class TreeApiControllerTest extends TestCase
 
     public function testCreateReturnsPublicDataAndRecoveryCodeButNoAdminToken(): void
     {
-        $response = $this->controller($this->postRequest(['owner_name' => 'Marta']))->create();
+        $response = $this->controller($this->postRequest(['owner_name' => 'Marta']), 'https://admin:private@christmas.test?debug=1#token')->create();
         $payload = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame(201, $response->status());
@@ -59,6 +59,8 @@ final class TreeApiControllerTest extends TestCase
         self::assertArrayHasKey('recovery_code', $payload['data']);
         self::assertArrayNotHasKey('admin_token', $payload['data']);
         self::assertStringStartsWith('/t/', $payload['data']['public_path']);
+        self::assertSame('https://christmas.test' . $payload['data']['public_path'], $payload['data']['public_url']);
+        self::assertStringNotContainsString('admin:private', $response->body());
     }
 
     public function testCreateRejectsInvalidCsrf(): void
@@ -129,7 +131,7 @@ final class TreeApiControllerTest extends TestCase
         ]);
     }
 
-    private function controller(Request $request): TreeApiController
+    private function controller(Request $request, string $appUrl = 'https://christmas.test'): TreeApiController
     {
         return new TreeApiController(
             $request,
@@ -138,7 +140,7 @@ final class TreeApiControllerTest extends TestCase
             $this->ownerSession,
             new RateLimiter($this->rateLimitDirectory . '/create', 20, 900),
             new RateLimiter($this->rateLimitDirectory . '/recover', 20, 900),
-            ['url' => 'https://christmas.test'],
+            ['url' => $appUrl],
         );
     }
 }

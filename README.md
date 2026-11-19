@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 04 permite que visitantes deixem mensagens secretas vinculadas aos enfeites 3D, sem expor o conteúdo antes do Natal.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 05A adiciona compartilhamento por link, cartão vertical para Stories e metadados sociais renderizados pelo PHP.
 
-## Estado da Etapa 04
+## Estado da Etapa 05A
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -21,6 +21,11 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - em `2026-12-25 00:00:00 America/Sao_Paulo` (`03:00:00Z`), somente o proprietário autenticado pode ler as mensagens;
 - enfeites criados em etapas anteriores continuam válidos e são apresentados como participações sem mensagem;
 - fotografias continuam fora do escopo.
+- proprietários podem copiar ou compartilhar a URL pública usando Web Share API com fallback;
+- o navegador compõe, sob demanda, um cartão PNG 1080×1920 a partir do mesmo canvas 3D;
+- o cartão pode ser compartilhado como arquivo quando suportado ou salvo no dispositivo;
+- páginas públicas possuem título, descrição, URL canônica e Open Graph personalizados no HTML;
+- depois de decorar, visitantes podem abrir o fluxo existente para criar sua própria árvore.
 
 ## Stack e estrutura
 
@@ -79,6 +84,8 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 7. Antes da liberação, tocar no enfeite mostra apenas o remetente e o estado bloqueado.
 8. Após a liberação, o proprietário toca no enfeite para ler a mensagem; visitantes continuam sem acesso.
 9. O proprietário pode remover qualquer participação sem ler antecipadamente seu conteúdo.
+10. O proprietário usa “Compartilhar minha árvore” para copiar o link ou gerar o cartão para Stories.
+11. No Instagram, publique a imagem salva e adicione manualmente o adesivo de link com a URL copiada.
 
 ## Rotas e API
 
@@ -101,6 +108,7 @@ As APIs usam envelopes JSON consistentes: `{ "data": ... }` em sucesso e `{ "err
 
 ```bash
 composer check
+npm --prefix frontend test
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
 npm --prefix frontend audit
@@ -117,8 +125,8 @@ CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRep
 
 O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `composer deploy:hostgator`, revise `deploy/hostgator/build-info.json` e copie manualmente o mirror. O builder não publica arquivos e não executa migrations.
 
-No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
+No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `APP_URL` deve ser a origem HTTPS pública, sem usuário, senha, query ou fragmento, pois define links canônicos e Open Graph. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 
 ## Escopo futuro
 
-Fotografias persistentes, rankings, compartilhamento social avançado e novos cenários pertencem às próximas etapas.
+Vídeos sociais personalizados, fotografias persistentes, rankings e novos cenários pertencem às próximas etapas.

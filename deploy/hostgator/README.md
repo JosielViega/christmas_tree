@@ -59,13 +59,13 @@ Os exemplos em `server-config-examples/` ficam fora do mirror e não se chamam `
 1. Confirme no cPanel o diretório real do domínio. O domínio principal pode usar `public_html`, mas domínios adicionais podem usar outros diretórios.
 2. Prefira manter o projeto fora da área pública e apontar o Document Root para `public/`.
 3. Copie os arquivos de produção para a estrutura correspondente.
-4. Crie o `.env` diretamente no servidor com `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true`, credenciais próprias, `MESSAGE_REVEAL_AT="2026-12-25 00:00:00"` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`.
+4. Crie o `.env` diretamente no servidor com `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true`, credenciais próprias, `APP_URL=https://seu-dominio.example` sem credenciais/query/fragmento, `MESSAGE_REVEAL_AT="2026-12-25 00:00:00"` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`.
 5. Configure a versão adequada do PHP pelo cPanel.
 6. Mescle manualmente as regras necessárias dos exemplos nos `.htaccess` já existentes.
 7. Crie `storage/logs`, `storage/cache` e `public/uploads` quando necessários e aplique permissões mínimas de escrita ao usuário PHP. Os rate limiters de árvore, recuperação e enfeites gravam em `storage/cache/rate-limits`.
 8. Crie o banco e o usuário no painel da hospedagem.
 9. Execute migrations separadamente e de forma consciente, com backup disponível.
-10. Teste criação, URL pública, decoração com mensagem como visitante, estado bloqueado, remoção como proprietário, recuperação em outro navegador, `/credits`, health check, sessão e escrita em cache/log. Valide a revelação em instalação isolada, nunca alterando o relógio ou os dados de produção para antecipá-la.
+10. Teste criação, URL pública, metadados Open Graph, imagem `/assets/images/christmas-tree-social.jpg`, compartilhamento/download do cartão, decoração com mensagem como visitante, estado bloqueado, remoção como proprietário, recuperação em outro navegador, `/credits`, health check, sessão e escrita em cache/log. Valide a revelação em instalação isolada, nunca alterando o relógio ou os dados de produção para antecipá-la.
 
 Não há caminho absoluto de conta embutido no template.
 

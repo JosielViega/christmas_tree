@@ -19,6 +19,7 @@ final class TreePageController
         private readonly Csrf $csrf,
         private readonly ChristmasTreeIdentityService $trees,
         private readonly TreeOwnerSession $ownerSession,
+        private readonly array $appConfig,
     ) {
     }
 
@@ -36,12 +37,23 @@ final class TreePageController
             'csrf_token' => $this->csrf->token(),
             'tree' => $tree->toPublicArray(),
             'is_owner' => $isOwner,
+            'public_url' => public_tree_url((string) $this->appConfig['url'], $tree->publicId),
         ];
 
+        $title = '🎄 Árvore de Natal de ' . $tree->ownerName;
+        $description = 'Decore esta árvore e deixe uma mensagem secreta para ' . $tree->ownerName . ' abrir no Natal!';
+        $canonicalUrl = (string) $bootstrap['public_url'];
+
         return Response::html($this->view->render('pages/home', [
-            'title' => 'Árvore de Natal de ' . $tree->ownerName,
+            'title' => $title,
             'frontend' => $this->frontendAssets->entry('index.html'),
             'frontendBootstrap' => self::encodeBootstrap($bootstrap),
+            'meta' => [
+                'title' => $title,
+                'description' => $description,
+                'canonical_url' => $canonicalUrl,
+                'image_url' => public_app_url((string) $this->appConfig['url'], '/assets/images/christmas-tree-social.jpg'),
+            ],
         ], 'layouts/christmas-tree'));
     }
 

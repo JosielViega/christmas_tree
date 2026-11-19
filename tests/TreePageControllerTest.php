@@ -38,6 +38,10 @@ final class TreePageControllerTest extends TestCase
         self::assertStringContainsString('"is_owner":true', $response->body());
         self::assertStringNotContainsString($creation->adminToken, $response->body());
         self::assertStringNotContainsString($creation->recoveryCode, $response->body());
+        self::assertStringContainsString('property="og:title" content="🎄 Árvore de Natal de Maria &lt;Natal&gt;"', $response->body());
+        self::assertStringContainsString('rel="canonical" href="https://christmas.test/t/' . $creation->tree->publicId . '"', $response->body());
+        self::assertStringContainsString('property="og:image" content="https://christmas.test/assets/images/christmas-tree-social.jpg"', $response->body());
+        self::assertStringNotContainsString('admin:private', $response->body());
     }
 
     public function testUnknownTreeRendersAReal404(): void
@@ -80,6 +84,7 @@ final class TreePageControllerTest extends TestCase
             $csrf,
             $service,
             $ownerSession,
+            ['url' => 'https://admin:private@christmas.test'],
         );
     }
 }

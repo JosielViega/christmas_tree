@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Trash2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
 import OrnamentDecorationModal from './components/OrnamentDecorationModal';
+import ShareTreeModal from './components/ShareTreeModal';
 import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, TreeApiError } from './api/trees';
 import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
 import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(InteractionMode.VIEW);
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [tree, setTree] = useState<ChristmasTreeData | null>(initialBootstrap?.tree ?? null);
+  const [publicTreeUrl, setPublicTreeUrl] = useState(initialBootstrap?.public_url ?? '');
   const [isOwner, setIsOwner] = useState(initialBootstrap?.is_owner ?? false);
   const [csrfToken, setCsrfToken] = useState(initialBootstrap?.csrf_token ?? '');
   const [initializing, setInitializing] = useState(!initialBootstrap);
@@ -37,6 +39,8 @@ const App: React.FC = () => {
   const [ownerMessages, setOwnerMessages] = useState<Record<string, SecretTreeMessage>>({});
   const [messageOverview, setMessageOverview] = useState<{ count: number; revealed: boolean; revealAt: string } | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
 
@@ -144,21 +148,20 @@ const App: React.FC = () => {
   });
 
   const handleAccess = (access: ChristmasTreeAccess) => {
-    const normalizedAccess = {
-      ...access,
-      public_url: new URL(access.public_path, window.location.origin).toString(),
-    };
     setTree(access.tree);
+    setPublicTreeUrl(access.public_url);
     setIsOwner(true);
     setUserName(access.tree.owner_name);
     setIsNameSet(true);
     setInteractionMode(InteractionMode.VIEW);
-    setReceipt(normalizedAccess);
+    setReceipt(access);
     setOrnaments([]);
     loadedOrnamentsFor.current = null;
     loadedMessagesFor.current = null;
     setOwnerMessages({});
     setMessageOverview(null);
+    setCreateOwnTreeOpen(false);
+    setShareModalOpen(false);
     window.history.pushState({}, '', access.public_path);
   };
 
@@ -307,7 +310,6 @@ const App: React.FC = () => {
         interactionMode={interactionMode}
         setInteractionMode={setInteractionMode}
         onBulkUpload={handleBulkUpload}
-        onOpenInstagram={() => undefined}
         onNext={handleNextPhoto}
         onPrev={handlePrevPhoto}
         zoomLevel={zoomLevel}
@@ -322,7 +324,6 @@ const App: React.FC = () => {
         onRecordVideo={handleRecordVideo}
         isRecording={isRecording}
         isExploded={isExploded}
-        visitCount={0}
         canEdit={isOwner}
         treeOwnerName={tree?.owner_name ?? null}
       />
@@ -333,19 +334,32 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {!initializing && (!tree || receipt) && (
-        <TreeOnboarding csrfToken={csrfToken} receipt={receipt} onAccess={handleAccess} onCloseReceipt={() => setReceipt(null)} />
+      {!initializing && (!tree || receipt || createOwnTreeOpen) && (
+        <TreeOnboarding
+          csrfToken={csrfToken}
+          receipt={receipt}
+          onAccess={handleAccess}
+          onCloseReceipt={() => setReceipt(null)}
+          onCancel={tree && !receipt ? () => setCreateOwnTreeOpen(false) : undefined}
+        />
       )}
 
       {tree && !receipt && !isRecording && (
-        <button
-          type="button"
-          onClick={() => setOrnamentModalOpen(true)}
-          disabled={ornamentsLoading || ornaments.length >= ornamentCapacity}
-          className="fixed bottom-24 left-1/2 z-[70] min-h-12 -translate-x-1/2 rounded-full border border-[#fff1a1]/30 bg-[#07120d]/85 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl transition hover:bg-[#10271c] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎁 Decorar esta árvore'}
-        </button>
+        <div className="fixed bottom-32 left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto md:bottom-28">
+          <button
+            type="button"
+            onClick={() => setOrnamentModalOpen(true)}
+            disabled={ornamentsLoading || ornaments.length >= ornamentCapacity}
+            className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎁 Decorar esta árvore'}
+          </button>
+          {isOwner ? (
+            <button type="button" onClick={() => { scrollToTop(); setSelectedOrnament(null); setFocusedPhoto(null); setZoomLevel(ZoomLevel.FULL_TREE); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/30 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><Share2 size={17} /> Compartilhar minha árvore 🎄</button>
+          ) : (
+            <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><TreePine size={17} /> Criar minha árvore</button>
+          )}
+        </div>
       )}
 
       {tree && isOwner && messageOverview && !receipt && (
@@ -363,6 +377,16 @@ const App: React.FC = () => {
           remaining={Math.max(0, ornamentCapacity - ornaments.length)}
           onClose={() => setOrnamentModalOpen(false)}
           onSubmit={handleCreateOrnament}
+          onCreateOwnTree={() => { setOrnamentModalOpen(false); setCreateOwnTreeOpen(true); }}
+        />
+      )}
+
+      {shareModalOpen && tree && isOwner && (
+        <ShareTreeModal
+          ownerName={tree.owner_name}
+          ornamentCount={ornaments.length}
+          publicUrl={publicTreeUrl}
+          onClose={() => setShareModalOpen(false)}
         />
       )}
 

@@ -32,6 +32,7 @@ O proxy do Vite encaminha `/api` ao valor de `APP_URL`; se ele não estiver defi
 
 ```bash
 composer check
+npm --prefix frontend test
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
 npm --prefix frontend audit
@@ -59,5 +60,12 @@ O teste abre uma transação e desfaz os registros criados, mas não cria nem re
 - como proprietário, remover um enfeite; como visitante, confirmar que o controle não aparece;
 - preencher os 60 slots em ambiente isolado e confirmar a mensagem de árvore completa;
 - testar larguras móveis e os controles 3D existentes.
+- como proprietário, copiar o link, testar o compartilhamento nativo e gerar um cartão 1080×1920;
+- confirmar que o fallback salva o PNG quando compartilhamento de arquivos não estiver disponível;
+- abrir o HTML de `/t/{public_id}` e conferir canonical, `og:title`, `og:description` e `og:image` sem mensagens;
+- após decorar como visitante, abrir e fechar “Criar minha árvore” sem perder a árvore visitada;
+- validar o Story em um dispositivo real e adicionar manualmente o adesivo de link no Instagram.
+
+Web Share e compartilhamento de arquivos variam por navegador e normalmente exigem HTTPS em dispositivos reais. O download continua disponível como fallback. O cartão é gerado localmente somente quando solicitado e pode consumir memória temporária em aparelhos antigos.
 
 Não adicione segredos ao frontend: valores compilados pelo Vite tornam-se públicos. A credencial administrativa deve permanecer apenas na sessão PHP.

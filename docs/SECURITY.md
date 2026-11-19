@@ -42,6 +42,15 @@ Os limites padrão podem ser ajustados com `TREE_CREATE_RATE_LIMIT`, `TREE_CREAT
 
 O proprietário pode excluir um enfeite antes ou depois da liberação, e a mensagem é apagada em cascata. Antes do Natal essa moderação é deliberadamente cega: não existe revisão prévia, leitura administrativa antecipada ou serviço externo de moderação. Rate limiting, limites de tamanho, CSRF, idempotência e exclusão oferecem proteção proporcional, mas conteúdo abusivo ainda pode ser recebido e só poderá ser avaliado após a revelação.
 
+## Compartilhamento e metadados
+
+- Somente `/t/{public_id}` é compartilhado; token administrativo, recuperação, cookies e parâmetros não entram na URL.
+- `public_app_url()` reconstrói a origem sem `user:password`, query ou fragmento, mesmo se `APP_URL` estiver configurado incorretamente com esses componentes.
+- Open Graph contém apenas nome público do proprietário, convite, canonical e imagem genérica; mensagens e dados de sessão não são consultados.
+- O cartão usa o canvas 3D local e recebe somente nome público e contagem de enfeites. Mensagens privadas não pertencem ao canvas nem à composição.
+- Blobs e URLs temporárias permanecem no navegador e são liberados após compartilhamento/download. Não há upload, analytics, login do Instagram ou API de terceiros.
+- Textos dinâmicos nos metadados passam por escape HTML e o bootstrap continua usando `JSON_HEX_*`.
+
 ## Regras gerais
 
 1. Nunca versionar `.env`, credenciais, certificados, logs ou dados reais.

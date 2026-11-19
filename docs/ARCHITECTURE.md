@@ -16,6 +16,8 @@ Browser
 
 `App\Core\FrontendAssets` lê o manifesto Vite em `public/assets/app/.vite/manifest.json`. As rotas `/` e `/t/{public_id}` entregam a mesma aplicação React, com um bootstrap JSON contendo apenas dados públicos, estado de proprietário e CSRF.
 
+O bootstrap também entrega a URL pública canônica calculada pelo PHP. `public_app_url()` remove credenciais, query e fragmento de `APP_URL`; a mesma função alimenta respostas de criação/recuperação e metadados, evitando divergência no hot reload do Vite.
+
 ## Modelo da árvore
 
 A migration `202611190001_create_christmas_trees.sql` cria `christmas_trees` com:
@@ -69,7 +71,15 @@ O código de recuperação aparece uma única vez ao usuário. Quando usado, o b
 
 O Vite grava diretamente em `public/assets/app/`; o diretório compilado é versionado para produção sem Node.js. Em desenvolvimento, o proxy `/api` aponta para o backend PHP.
 
-Os componentes de mensagens não adicionam dependências. O build da Etapa 04 gera JavaScript minificado de aproximadamente 1.198,8 kB (335,6 kB gzip), cerca de 4,1 kB acima da Etapa 03 antes de gzip; o custo principal continua sendo Three.js e o pipeline visual original.
+Os componentes sociais não adicionam dependências. O build da Etapa 05A gera JavaScript minificado de aproximadamente 1.210,3 kB (338,7 kB gzip), crescimento de cerca de 10,7 kB antes de gzip e 2,8 kB após gzip em relação ao build anterior; o custo principal continua sendo Three.js e o pipeline visual original.
+
+## Compartilhamento social
+
+`ShareTreeModal` oferece cópia, Web Share API e fallback explícito. A geração do cartão é iniciada somente pelo usuário: `socialSharing.ts` captura o `Canvas` já usado pelo React Three Fiber, preserva sua proporção e o compõe em um Canvas 2D de 1080×1920. Nenhuma segunda cena 3D é criada e nenhuma imagem é enviada ao servidor. URLs de objeto temporárias são revogadas após uso.
+
+Compartilhamento de arquivo depende de `navigator.canShare({ files })`; navegadores incompatíveis recebem download PNG. O Instagram não é automatizado: a interface orienta publicar a imagem e inserir manualmente o adesivo de link.
+
+`TreePageController` renderiza título, descrição, canonical, Open Graph e Twitter Card antes do JavaScript. A imagem `public/assets/images/christmas-tree-social.jpg` é genérica, estática e compartilhada entre árvores; apenas título e descrição são personalizados. Nenhuma mensagem é consultada para produzir metadados.
 
 ## Produção
 

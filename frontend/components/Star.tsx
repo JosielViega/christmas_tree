@@ -1,9 +1,8 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Billboard, Sparkles, Html } from '@react-three/drei';
+import { Billboard, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { COLORS, TREE_CONFIG } from '../constants';
-import { Github } from 'lucide-react';
 
 const GlowTexture = () => {
   const canvas = document.createElement('canvas');
@@ -30,7 +29,6 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.PointLight>(null);
   const explodeProgress = useRef(0);
-  const [hovered, setHovered] = useState(false);
   const glowTexture = useMemo(() => GlowTexture(), []);
 
   // Classic 5-Pointed Star Shape
@@ -105,22 +103,7 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
       </Billboard>
 
       {/* The 3D Star Mesh */}
-      <mesh
-        geometry={starGeometry}
-        onClick={(e) => {
-          e.stopPropagation();
-          window.open('https://github.com/gracetyy/christmas-tree', '_blank');
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = 'auto';
-        }}
-      >
+      <mesh geometry={starGeometry}>
         <meshStandardMaterial
           color={COLORS.STAR}
           emissive={COLORS.STAR_GLOW}
@@ -129,18 +112,6 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
           roughness={0.1}
         />
       </mesh>
-
-      {/* Hover Message */}
-      {hovered && (
-        <Html position={[0, 2.5, 0]} center distanceFactor={10}>
-          <div className="whitespace-nowrap bg-black/90 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 shadow-2xl animate-in zoom-in duration-300 pointer-events-none">
-            <div className="flex items-center gap-3 text-[#fff1a1] font-semibold text-base md:text-lg drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
-              <Github size={18} className="text-white" />
-              <span>Please star our repo! &lt;3</span>
-            </div>
-          </div>
-        </Html>
-      )}
 
       {/* Extra Sparkles for magical feel */}
       <Sparkles count={20} scale={4} size={3} speed={0.4} opacity={0.8} color="#fff" material-toneMapped={false} />

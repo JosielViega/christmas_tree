@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ControlMode, ZoomLevel, InteractionMode } from '../types';
-import { Mouse, Hand, ImagePlus, Music, VolumeX, Eye, EyeOff, Edit3, Download, Maximize, Move, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Github, Video } from 'lucide-react';
+import { Mouse, Hand, ImagePlus, Music, VolumeX, Eye, EyeOff, Edit3, Download, Maximize, Move, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Video } from 'lucide-react';
 
 interface OverlayProps {
   controlMode: ControlMode;
@@ -8,7 +8,6 @@ interface OverlayProps {
   interactionMode: InteractionMode;
   setInteractionMode: (mode: InteractionMode) => void;
   onBulkUpload: (files: FileList) => void;
-  onOpenInstagram: () => void;
   onNext: () => void;
   onPrev: () => void;
   zoomLevel: ZoomLevel;
@@ -23,7 +22,6 @@ interface OverlayProps {
   onRecordVideo: (type: 'FULL' | 'ALBUM') => void;
   isRecording: boolean;
   isExploded?: boolean;
-  visitCount: number;
   canEdit: boolean;
   treeOwnerName: string | null;
 }
@@ -41,7 +39,6 @@ const Overlay: React.FC<OverlayProps> = ({
   interactionMode,
   setInteractionMode,
   onBulkUpload,
-  onOpenInstagram,
   onNext,
   onPrev,
   zoomLevel,
@@ -56,7 +53,6 @@ const Overlay: React.FC<OverlayProps> = ({
   onRecordVideo,
   isRecording,
   isExploded,
-  visitCount,
   canEdit,
   treeOwnerName,
 }) => {
@@ -448,21 +444,6 @@ const Overlay: React.FC<OverlayProps> = ({
                 >
                   <Download className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1cbd62]" />
                   <span className="text-[9px] md:text-sm font-medium whitespace-nowrap text-white/90">Image</span>
-                </button>
-
-                <div className="w-px h-4 md:h-6 bg-white/10 mx-0.5"></div>
-
-                {/* GitHub Star Button */}
-                <button
-                  onClick={() => window.open('https://github.com/gracetyy/christmas-tree', '_blank')}
-                  className="flex items-center gap-1 md:gap-2 px-2.5 md:px-5 py-1.5 md:py-2 rounded-full text-[#f2e24e] hover:bg-white/10 transition-all"
-                  title="Star our repo!"
-                >
-                  <Github className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span className="text-[9px] md:text-sm font-medium whitespace-nowrap text-white/90">
-                    <span className="md:hidden">Star</span>
-                    <span className="hidden md:inline">Please star our repo! &lt;3</span>
-                  </span>
                 </button>
 
                 <div className="w-px h-4 md:h-6 bg-white/10 mx-0.5"></div>

@@ -53,6 +53,7 @@ $treePage = new TreePageController(
     $app['csrf'],
     $treeIdentity,
     $treeOwnerSession,
+    $app['config'],
 );
 $ornamentService = new ChristmasTreeOrnamentService(
     $treeRepository,

@@ -55,7 +55,7 @@ final class TreeApiController
             'tree' => $creation->tree->toPublicArray(),
             'is_owner' => true,
             'public_path' => '/t/' . $creation->tree->publicId,
-            'public_url' => rtrim((string) $this->appConfig['url'], '/') . '/t/' . $creation->tree->publicId,
+            'public_url' => public_tree_url((string) $this->appConfig['url'], $creation->tree->publicId),
             'recovery_code' => $creation->recoveryCode,
         ], 201);
     }
@@ -107,7 +107,7 @@ final class TreeApiController
             'tree' => $recovery->tree->toPublicArray(),
             'is_owner' => true,
             'public_path' => '/t/' . $recovery->tree->publicId,
-            'public_url' => rtrim((string) $this->appConfig['url'], '/') . '/t/' . $recovery->tree->publicId,
+            'public_url' => public_tree_url((string) $this->appConfig['url'], $recovery->tree->publicId),
             'recovery_code' => $recovery->recoveryCode,
         ]);
     }

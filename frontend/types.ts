@@ -62,6 +62,7 @@ export interface ChristmasTreeBootstrap {
   csrf_token: string;
   tree: ChristmasTreeData | null;
   is_owner: boolean;
+  public_url: string | null;
 }
 
 export interface ChristmasTreeAccess {

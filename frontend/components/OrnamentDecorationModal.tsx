@@ -7,6 +7,7 @@ interface OrnamentDecorationModalProps {
   remaining: number;
   onClose: () => void;
   onSubmit: (type: OrnamentType, senderName: string, message: string, idempotencyKey: string) => Promise<SocialOrnamentData>;
+  onCreateOwnTree: () => void;
 }
 
 const choices: Array<{ type: OrnamentType; label: string; color: string; icon?: React.ReactNode }> = [
@@ -23,7 +24,7 @@ const newIdempotencyKey = (): string => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
-const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeOwnerName, remaining, onClose, onSubmit }) => {
+const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeOwnerName, remaining, onClose, onSubmit, onCreateOwnTree }) => {
   const [type, setType] = useState<OrnamentType>('bauble_red');
   const [senderName, setSenderName] = useState('');
   const [message, setMessage] = useState('');
@@ -56,10 +57,11 @@ const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeO
         {success ? (
           <div className="py-5 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f2e24e]/15 text-[#fff1a1]"><Sparkles size={32} /></div>
-            <h2 className="mt-5 text-2xl font-semibold">✨ Sua mensagem foi guardada com carinho!</h2>
-            <p className="mt-2 text-sm leading-relaxed text-white/60">Seu enfeite já está no galho. O presente ficará protegido até o Natal.</p>
-            <button type="button" onClick={onClose} className="mt-6 w-full rounded-full bg-[#f2e24e] px-5 py-3 font-semibold text-black hover:bg-[#fff1a1]">Voltar para a árvore</button>
-            <a href="/" className="mt-3 block w-full rounded-full border border-white/15 px-5 py-3 font-semibold text-white/80 hover:bg-white/10">🎄 Criar minha árvore</a>
+            <h2 className="mt-5 text-2xl font-semibold">🎁 Seu presente foi guardado!</h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/60">Você fez parte do Natal de {treeOwnerName}. ❤️</p>
+            <p className="mt-5 font-semibold text-[#fff1a1]">Que tal criar sua própria árvore?</p>
+            <button type="button" onClick={onCreateOwnTree} className="mt-3 w-full rounded-full bg-[#1cbd62] px-5 py-3 font-semibold text-white hover:bg-[#24cf70]">🎄 Criar minha árvore</button>
+            <button type="button" onClick={onClose} className="mt-3 w-full rounded-full border border-white/15 px-5 py-3 font-semibold text-white/80 hover:bg-white/10">Continuar explorando</button>
           </div>
         ) : (
           <>

@@ -16,9 +16,13 @@ Enfeites sociais persistentes, slots determinísticos, criação idempotente e m
 
 Mensagens individuais vinculadas aos enfeites, gravação transacional e idempotente, privacidade no backend e revelação exclusiva ao proprietário no Natal.
 
-## 5. Compartilhamento social
+## 5A. Compartilhamento social — concluída
 
-Criar metadados, links e fluxos adequados ao Instagram e outros canais.
+Links públicos, Web Share API com fallback, cartão local 9:16 para Stories, convite viral pós-participação e Open Graph renderizado no PHP.
+
+## 5B. Mídia social avançada
+
+Vídeos personalizados e outras evoluções sociais permanecem fora do MVP 05A.
 
 ## 6. Evolução da árvore
 
@@ -32,4 +36,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04; compartilhamento social avançado começa somente na Etapa 05.
+Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04 e o compartilhamento social básico na Etapa 05A.

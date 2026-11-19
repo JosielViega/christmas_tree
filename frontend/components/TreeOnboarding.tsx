@@ -8,6 +8,7 @@ interface TreeOnboardingProps {
   receipt: ChristmasTreeAccess | null;
   onAccess: (access: ChristmasTreeAccess) => void;
   onCloseReceipt: () => void;
+  onCancel?: () => void;
 }
 
 const publicIdFromInput = (value: string): string => {
@@ -20,6 +21,7 @@ const TreeOnboarding: React.FC<TreeOnboardingProps> = ({
   receipt,
   onAccess,
   onCloseReceipt,
+  onCancel,
 }) => {
   const [mode, setMode] = useState<'create' | 'recover'>('create');
   const [ownerName, setOwnerName] = useState('');
@@ -88,7 +90,8 @@ const TreeOnboarding: React.FC<TreeOnboardingProps> = ({
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] pointer-events-auto">
-      <section className="w-full max-w-md rounded-[2rem] border border-white/15 bg-black/75 p-6 md:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.7)] backdrop-blur-2xl text-white">
+      <section className="relative w-full max-w-md rounded-[2rem] border border-white/15 bg-black/75 p-6 md:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.7)] backdrop-blur-2xl text-white">
+        {onCancel && <button type="button" onClick={onCancel} className="absolute right-4 top-4 rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white" aria-label="Fechar criação de árvore"><X size={20} /></button>}
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#fff1a1]/25 bg-[#fff1a1]/10 text-[#fff1a1]">
           {mode === 'create' ? <TreePine size={32} /> : <KeyRound size={30} />}
         </div>

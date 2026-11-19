@@ -31,15 +31,23 @@ final class HomeController
             'csrf_token' => $this->csrf->token(),
             'tree' => null,
             'is_owner' => false,
+            'public_url' => null,
         ]);
 
+        $title = 'Christmas Tree — Crie sua árvore de Natal 3D';
         return Response::html($this->view->render('pages/home', [
-            'title' => 'Christmas Tree',
+            'title' => $title,
             'appName' => $this->appConfig['name'],
             'csrfField' => $this->csrf->field(),
             'flashes' => $this->session->consumeFlash(),
             'frontend' => $this->frontendAssets->entry('index.html'),
             'frontendBootstrap' => $bootstrap,
+            'meta' => [
+                'title' => $title,
+                'description' => 'Crie sua árvore de Natal 3D, convide amigos para decorar e receba mensagens secretas para abrir no Natal.',
+                'canonical_url' => public_app_url((string) $this->appConfig['url']),
+                'image_url' => public_app_url((string) $this->appConfig['url'], '/assets/images/christmas-tree-social.jpg'),
+            ],
         ], 'layouts/christmas-tree'));
     }
 
