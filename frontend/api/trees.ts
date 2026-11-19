@@ -10,6 +10,8 @@ interface ApiErrorBody {
   };
 }
 
+type ApiPayload<T> = ApiErrorBody & { data?: T };
+
 export class TreeApiError extends Error {
   constructor(
     message: string,
@@ -23,27 +25,71 @@ export class TreeApiError extends Error {
 }
 
 const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
-  const response = await fetch(path, {
-    ...options,
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      ...options.headers,
-    },
-  });
-  const payload = await response.json() as ApiErrorBody & { data?: T };
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        ...options.headers,
+      },
+    });
+  } catch (cause) {
+    reportApiFailure(path, 'network_error', 0, cause);
+    throw new TreeApiError('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.', 0, 'network_error');
+  }
+
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (cause) {
+    reportApiFailure(path, 'network_error', response.status, cause);
+    throw new TreeApiError('A conexão foi interrompida durante a resposta. Tente novamente.', 0, 'network_error');
+  }
+  let payload: ApiPayload<T>;
+  try {
+    payload = JSON.parse(body) as ApiPayload<T>;
+  } catch (cause) {
+    reportApiFailure(path, 'invalid_response', response.status, cause);
+    throw new TreeApiError(
+      response.ok
+        ? 'O servidor retornou uma resposta inválida. Tente novamente.'
+        : httpErrorMessage(response.status),
+      response.status,
+      'invalid_response',
+    );
+  }
 
   if (!response.ok || payload.data === undefined) {
+    const code = payload.error?.code ?? (response.ok ? 'invalid_response' : 'http_error');
+    reportApiFailure(path, code, response.status);
     throw new TreeApiError(
-      payload.error?.message ?? 'Não foi possível concluir a solicitação.',
+      payload.error?.message ?? (response.ok ? 'O servidor retornou uma resposta inválida. Tente novamente.' : httpErrorMessage(response.status)),
       response.status,
-      payload.error?.code ?? 'request_failed',
+      code,
       payload.error?.fields ?? {},
       { message_count: payload.error?.message_count, reveal_at: payload.error?.reveal_at },
     );
   }
 
   return payload.data;
+};
+
+const httpErrorMessage = (status: number): string => {
+  if (status === 419) return 'Sua sessão expirou. Recarregue a página e tente novamente.';
+  if (status >= 500) return 'O servidor encontrou um erro interno. Tente novamente mais tarde.';
+  return `A solicitação não pôde ser concluída (HTTP ${status}).`;
+};
+
+const reportApiFailure = (path: string, code: string, status: number, cause?: unknown): void => {
+  if (!import.meta.env.DEV) return;
+  console.error('API request failed', {
+    path: path.split('?')[0],
+    code,
+    status,
+    cause: cause instanceof Error ? cause.name : undefined,
+  });
 };
 
 const formRequest = <T>(path: string, values: Record<string, string>, csrfToken: string): Promise<T> => {

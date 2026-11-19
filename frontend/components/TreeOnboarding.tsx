@@ -43,7 +43,7 @@ const TreeOnboarding: React.FC<TreeOnboardingProps> = ({
     } catch (caught) {
       const message = caught instanceof TreeApiError
         ? caught.fields.owner_name?.[0] ?? caught.message
-        : 'A conexão falhou. Verifique sua internet e tente novamente.';
+        : 'Ocorreu um erro inesperado. Recarregue a página e tente novamente.';
       setError(message);
     } finally {
       setLoading(false);

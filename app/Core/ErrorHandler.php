@@ -33,19 +33,47 @@ final class ErrorHandler
 
     private function render(Throwable $exception): never
     {
+        $this->responseFor($exception)->send();
+    }
+
+    public function responseFor(Throwable $exception, ?string $requestUri = null): Response
+    {
         $reference = bin2hex(random_bytes(6));
-        $this->logger->error($exception->getMessage(), [
+        $this->logger->error($this->sanitizeLogMessage($exception->getMessage()), [
             'reference' => $reference,
             'exception' => $exception::class,
             'file' => $exception->getFile(),
             'line' => $exception->getLine(),
-            'trace' => $exception->getTraceAsString(),
+            'trace' => $this->sanitizeLogMessage($exception->getTraceAsString()),
         ]);
+
+        $path = parse_url($requestUri ?? (string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (is_string($path) && ($path === '/api' || str_starts_with($path, '/api/'))) {
+            return Response::json(['error' => [
+                'code' => 'internal_error',
+                'message' => 'O servidor não conseguiu concluir a solicitação. Tente novamente.',
+                'reference' => $reference,
+            ]], 500)->withHeader('Cache-Control', 'no-store');
+        }
 
         $message = $this->debug
             ? '<h1>Application error</h1><pre>' . e((string) $exception) . '</pre>'
             : '<h1>Unexpected error</h1><p>Please try again later. Reference: ' . e($reference) . '</p>';
 
-        Response::html($message, 500)->send();
+        return Response::html($message, 500);
+    }
+
+    private function sanitizeLogMessage(string $message): string
+    {
+        $sanitized = preg_replace(
+            [
+                '/((?:password|passwd|pwd|authorization|token|secret)\s*[:=]\s*)("[^"]*"|\'[^\']*\'|[^\s,;]+)/i',
+                '/(\/\/[^:\/\s]+:)[^@\s]+@/',
+            ],
+            ['$1<redacted>', '$1<redacted>@'],
+            $message,
+        );
+
+        return is_string($sanitized) ? $sanitized : 'Application failure.';
     }
 }
