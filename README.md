@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 03 permite que visitantes deixem enfeites 3D persistentes, mantendo a identidade e o acesso seguro criados na Etapa 02.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 04 permite que visitantes deixem mensagens secretas vinculadas aos enfeites 3D, sem expor o conteúdo antes do Natal.
 
-## Estado da Etapa 03
+## Estado da Etapa 04
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -16,7 +16,11 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - enfeites reaparecem no mesmo galho e podem ser tocados para identificar quem os deixou;
 - o proprietário pode remover participações após confirmação;
 - transações, índice único de slot, idempotência e rate limiting protegem envios concorrentes;
-- fotografias e mensagens não são persistidas nesta etapa.
+- cada nova participação inclui uma mensagem de 2 a 500 caracteres Unicode, persistida atomicamente com o enfeite;
+- APIs e páginas públicas informam apenas se o enfeite possui mensagem, nunca o conteúdo;
+- em `2026-12-25 00:00:00 America/Sao_Paulo` (`03:00:00Z`), somente o proprietário autenticado pode ler as mensagens;
+- enfeites criados em etapas anteriores continuam válidos e são apresentados como participações sem mensagem;
+- fotografias continuam fora do escopo.
 
 ## Stack e estrutura
 
@@ -71,8 +75,10 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 3. Compartilhe a URL `/t/{public_id}`. O link público não concede edição.
 4. No mesmo navegador, a sessão identifica o responsável.
 5. Para recuperar o acesso em outro navegador, use o link/ID e o código. O código antigo é invalidado e um novo é emitido.
-6. Visitantes usam “Decorar esta árvore”, escolhem o enfeite e informam seu nome.
-7. O proprietário toca em um enfeite para identificá-lo ou removê-lo.
+6. Visitantes usam “Decorar esta árvore”, escolhem o enfeite, informam seu nome e escrevem uma mensagem secreta.
+7. Antes da liberação, tocar no enfeite mostra apenas o remetente e o estado bloqueado.
+8. Após a liberação, o proprietário toca no enfeite para ler a mensagem; visitantes continuam sem acesso.
+9. O proprietário pode remover qualquer participação sem ler antecipadamente seu conteúdo.
 
 ## Rotas e API
 
@@ -86,6 +92,7 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 - `GET /api/trees/{public_id}/ornaments` — lista enfeites e capacidade;
 - `POST /api/trees/{public_id}/ornaments` — adiciona participação com `Idempotency-Key`;
 - `DELETE /api/trees/{public_id}/ornaments/{ornament_id}` — remoção exclusiva do proprietário;
+- `GET /api/trees/{public_id}/messages` — metadados bloqueados ou mensagens reveladas, sempre restritos ao proprietário e sem cache;
 - `GET /credits` e `GET /health` — créditos e health check.
 
 As APIs usam envelopes JSON consistentes: `{ "data": ... }` em sucesso e `{ "error": { "code", "message", "fields?" } }` em erro. Tokens administrativos e hashes nunca fazem parte das respostas públicas.
@@ -110,8 +117,8 @@ CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRep
 
 O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `composer deploy:hostgator`, revise `deploy/hostgator/build-info.json` e copie manualmente o mirror. O builder não publica arquivos e não executa migrations.
 
-No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
+No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 
 ## Escopo futuro
 
-Mensagens secretas, fotografias persistentes, rankings, compartilhamento social avançado e novos cenários pertencem às próximas etapas.
+Fotografias persistentes, rankings, compartilhamento social avançado e novos cenários pertencem às próximas etapas.

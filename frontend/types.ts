@@ -44,6 +44,20 @@ export interface ChristmasTreeData {
   updated_at: string;
 }
 
+export interface SecretTreeMessage {
+  ornament_public_id: string;
+  sender_name: string;
+  message: string;
+  created_at: string;
+}
+
+export interface OwnerMessageCollection {
+  revealed: true;
+  message_count: number;
+  reveal_at: string;
+  messages: SecretTreeMessage[];
+}
+
 export interface ChristmasTreeBootstrap {
   csrf_token: string;
   tree: ChristmasTreeData | null;
@@ -68,6 +82,7 @@ export interface SocialOrnamentData {
   slot_index: number;
   layout_version: 1;
   created_at: string;
+  has_message: boolean;
 }
 
 export interface OrnamentCollection {

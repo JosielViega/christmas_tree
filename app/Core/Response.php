@@ -59,4 +59,9 @@ final class Response
     {
         return $this->headers;
     }
+
+    public function withHeader(string $name, string $value): self
+    {
+        return new self($this->body, $this->status, [...$this->headers, $name => $value]);
+    }
 }

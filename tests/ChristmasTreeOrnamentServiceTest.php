@@ -28,8 +28,8 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
     public function testAddsValidOrnamentsWithDistinctStableSlotsAndPersistsThem(): void
     {
         $tree = $this->trees->create('Helena')->tree;
-        $first = $this->ornaments->create($tree->publicId, 'bauble_red', ' João  Silva ', str_repeat('a', 16));
-        $second = $this->ornaments->create($tree->publicId, 'star', 'Maria', str_repeat('b', 16));
+        $first = $this->ornaments->create($tree->publicId, 'bauble_red', ' João  Silva ', str_repeat('a', 16), 'Feliz Natal!');
+        $second = $this->ornaments->create($tree->publicId, 'star', 'Maria', str_repeat('b', 16), 'Boas festas!');
 
         self::assertNotNull($first);
         self::assertNotNull($second);
@@ -48,7 +48,7 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         $tree = $this->trees->create('Helena')->tree;
 
         try {
-            $this->ornaments->create($tree->publicId, 'script', 'x', str_repeat('a', 16));
+            $this->ornaments->create($tree->publicId, 'script', 'x', str_repeat('a', 16), 'Oi');
             self::fail('Validation should fail.');
         } catch (OrnamentValidationException $exception) {
             self::assertArrayHasKey('ornament_type', $exception->errors);
@@ -61,13 +61,13 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         $firstTree = $this->trees->create('Ana')->tree;
         $secondTree = $this->trees->create('Bia')->tree;
 
-        $first = $this->ornaments->create($firstTree->publicId, 'heart', 'Caio', str_repeat('c', 16));
-        $second = $this->ornaments->create($secondTree->publicId, 'heart', 'Caio', str_repeat('c', 16));
+        $first = $this->ornaments->create($firstTree->publicId, 'heart', 'Caio', str_repeat('c', 16), 'Mensagem um');
+        $second = $this->ornaments->create($secondTree->publicId, 'heart', 'Caio', str_repeat('c', 16), 'Mensagem dois');
 
         self::assertCount(1, $this->ornaments->list($firstTree->publicId));
         self::assertCount(1, $this->ornaments->list($secondTree->publicId));
         self::assertNotSame($first->ornament->publicId, $second->ornament->publicId);
-        self::assertNull($this->ornaments->create('AbCdEf1234_-', 'heart', 'Caio', str_repeat('c', 16)));
+        self::assertNull($this->ornaments->create('AbCdEf1234_-', 'heart', 'Caio', str_repeat('c', 16), 'Mensagem'));
     }
 
     public function testIdempotencyReturnsOriginalOrnament(): void
@@ -75,8 +75,8 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         $tree = $this->trees->create('Lia')->tree;
         $key = str_repeat('d', 16);
 
-        $first = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key);
-        $repeated = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key);
+        $first = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key, 'Mensagem idempotente');
+        $repeated = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key, 'Mensagem idempotente');
 
         self::assertTrue($first->created);
         self::assertFalse($repeated->created);
@@ -89,19 +89,19 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         $tree = $this->trees->create('Nina')->tree;
         for ($index = 0; $index < OrnamentLayout::SLOT_COUNT; $index++) {
             $key = str_pad((string) $index, 16, 'x');
-            $this->ornaments->create($tree->publicId, 'bauble_gold', 'Pessoa', $key);
+            $this->ornaments->create($tree->publicId, 'bauble_gold', 'Pessoa', $key, 'Boas festas');
         }
 
         self::assertCount(60, $this->ornaments->list($tree->publicId));
         $this->expectException(OrnamentCapacityReached::class);
-        $this->ornaments->create($tree->publicId, 'bauble_blue', 'Outra', str_repeat('z', 16));
+        $this->ornaments->create($tree->publicId, 'bauble_blue', 'Outra', str_repeat('z', 16), 'Árvore cheia');
     }
 
     public function testDeletionIsScopedToTree(): void
     {
         $firstTree = $this->trees->create('Ana')->tree;
         $secondTree = $this->trees->create('Bia')->tree;
-        $ornament = $this->ornaments->create($firstTree->publicId, 'star', 'Leo', str_repeat('e', 16))->ornament;
+        $ornament = $this->ornaments->create($firstTree->publicId, 'star', 'Leo', str_repeat('e', 16), 'Mensagem')->ornament;
 
         self::assertFalse($this->ornaments->delete($secondTree->publicId, $ornament->publicId));
         self::assertTrue($this->ornaments->delete($firstTree->publicId, $ornament->publicId));

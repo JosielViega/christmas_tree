@@ -6,7 +6,7 @@ interface OrnamentDecorationModalProps {
   treeOwnerName: string;
   remaining: number;
   onClose: () => void;
-  onSubmit: (type: OrnamentType, senderName: string, idempotencyKey: string) => Promise<SocialOrnamentData>;
+  onSubmit: (type: OrnamentType, senderName: string, message: string, idempotencyKey: string) => Promise<SocialOrnamentData>;
 }
 
 const choices: Array<{ type: OrnamentType; label: string; color: string; icon?: React.ReactNode }> = [
@@ -26,6 +26,7 @@ const newIdempotencyKey = (): string => {
 const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeOwnerName, remaining, onClose, onSubmit }) => {
   const [type, setType] = useState<OrnamentType>('bauble_red');
   const [senderName, setSenderName] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<SocialOrnamentData | null>(null);
@@ -37,7 +38,7 @@ const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeO
     setLoading(true);
     setError('');
     try {
-      const ornament = await onSubmit(type, senderName, idempotencyKey.current);
+      const ornament = await onSubmit(type, senderName, message, idempotencyKey.current);
       setSuccess(ornament);
       idempotencyKey.current = newIdempotencyKey();
     } catch (caught) {
@@ -55,8 +56,8 @@ const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeO
         {success ? (
           <div className="py-5 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f2e24e]/15 text-[#fff1a1]"><Sparkles size={32} /></div>
-            <h2 className="mt-5 text-2xl font-semibold">Você deixou sua marca nesta árvore!</h2>
-            <p className="mt-2 text-sm leading-relaxed text-white/60">Seu enfeite já está no galho e continuará aqui quando a árvore for visitada novamente.</p>
+            <h2 className="mt-5 text-2xl font-semibold">✨ Sua mensagem foi guardada com carinho!</h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/60">Seu enfeite já está no galho. O presente ficará protegido até o Natal.</p>
             <button type="button" onClick={onClose} className="mt-6 w-full rounded-full bg-[#f2e24e] px-5 py-3 font-semibold text-black hover:bg-[#fff1a1]">Voltar para a árvore</button>
             <a href="/" className="mt-3 block w-full rounded-full border border-white/15 px-5 py-3 font-semibold text-white/80 hover:bg-white/10">🎄 Criar minha árvore</a>
           </div>
@@ -89,9 +90,14 @@ const OrnamentDecorationModal: React.FC<OrnamentDecorationModalProps> = ({ treeO
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Seu nome</span>
                   <input value={senderName} onChange={(event) => setSenderName(event.target.value)} minLength={2} maxLength={40} required autoComplete="name" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 outline-none focus:border-[#fff1a1]/50" placeholder="Como você gostaria de aparecer?" />
                 </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Deixe uma mensagem secreta</span>
+                  <textarea value={message} onChange={(event) => setMessage(event.target.value)} minLength={2} maxLength={500} required rows={5} className="w-full resize-none rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 outline-none focus:border-[#fff1a1]/50" placeholder="Escreva uma mensagem para o Natal…" />
+                  <span className="mt-1 flex justify-between text-[11px] text-white/40"><span>Seu presente ficará guardado até o Natal! 🎁</span><span>{message.length}/500</span></span>
+                </label>
                 {error && <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}
                 <button disabled={loading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1cbd62] px-5 py-3 font-semibold hover:bg-[#24cf70] disabled:opacity-55">
-                  {loading && <Loader2 size={18} className="animate-spin" />} Confirmar participação
+                  {loading && <Loader2 size={18} className="animate-spin" />} Guardar minha mensagem 🎄
                 </button>
               </form>
             )}

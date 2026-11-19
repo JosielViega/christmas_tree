@@ -8,6 +8,7 @@ use App\Core\Csrf;
 use App\Core\Request;
 use App\Core\Response;
 use App\Domain\OrnamentCapacityReached;
+use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentValidationException;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
@@ -59,11 +60,14 @@ final class TreeOrnamentApiController
                 is_string($this->request->input('ornament_type')) ? $this->request->input('ornament_type') : '',
                 is_string($this->request->input('sender_name')) ? $this->request->input('sender_name') : '',
                 is_string($this->request->header('Idempotency-Key')) ? $this->request->header('Idempotency-Key') : '',
+                is_string($this->request->input('message')) ? $this->request->input('message') : '',
             );
         } catch (OrnamentValidationException $exception) {
             return $this->error('validation_failed', 'Revise os dados do enfeite.', 422, $exception->errors);
         } catch (OrnamentCapacityReached) {
             return $this->error('tree_full', 'Esta árvore já recebeu o máximo de enfeites permitido.', 409);
+        } catch (IdempotencyConflict) {
+            return $this->error('idempotency_conflict', 'Esta chave de envio já foi utilizada com dados diferentes.', 409);
         }
 
         if ($creation === null) {
@@ -75,6 +79,34 @@ final class TreeOrnamentApiController
             'created' => $creation->created,
             'capacity' => $this->ornaments->capacity(),
         ], $creation->created ? 201 : 200);
+    }
+
+    public function messages(string $treePublicId): Response
+    {
+        $tree = $this->trees->findPublic($treePublicId);
+        if ($tree === null) {
+            return $this->privateError('tree_not_found', 'Árvore não encontrada.', 404);
+        }
+        if (!$this->trees->ownerIsAuthorized($treePublicId, $this->ownerSession->tokenFor($treePublicId))) {
+            return $this->privateError('owner_access_denied', 'Acesso administrativo não autorizado.', 403);
+        }
+
+        $overview = $this->ornaments->messageOverviewForTree($tree);
+        if (!$overview->revealed) {
+            return $this->privateJson(['error' => [
+                'code' => 'messages_locked',
+                'message' => 'As mensagens serão reveladas no Natal.',
+                'message_count' => $overview->messageCount,
+                'reveal_at' => $overview->revealAt,
+            ]], 423);
+        }
+
+        return $this->privateJson(['data' => [
+            'revealed' => true,
+            'message_count' => $overview->messageCount,
+            'reveal_at' => $overview->revealAt,
+            'messages' => array_map(static fn ($message): array => $message->toPrivateArray(), $overview->messages),
+        ]]);
     }
 
     public function destroy(string $treePublicId, string $ornamentPublicId): Response
@@ -126,5 +158,19 @@ final class TreeOrnamentApiController
         }
 
         return Response::json(['error' => $error], $status);
+    }
+
+    private function privateError(string $code, string $message, int $status): Response
+    {
+        return $this->privateJson(['error' => ['code' => $code, 'message' => $message]], $status);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function privateJson(array $payload, int $status = 200): Response
+    {
+        return Response::json($payload, $status)
+            ->withHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->withHeader('Pragma', 'no-cache')
+            ->withHeader('X-Content-Type-Options', 'nosniff');
     }
 }

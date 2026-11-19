@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Gift, Loader2, Trash2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Trash2, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
 import OrnamentDecorationModal from './components/OrnamentDecorationModal';
-import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, TreeApiError } from './api/trees';
+import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, TreeApiError } from './api/trees';
 import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
-import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SocialOrnamentData, ZoomLevel } from './types';
+import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
 import { DEFAULT_PHOTOS_COUNT, ORNAMENT_SLOT_COUNT, PLACEHOLDER_TYPES } from './constants';
 import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
@@ -34,12 +34,41 @@ const App: React.FC = () => {
   const [selectedOrnament, setSelectedOrnament] = useState<SocialOrnamentData | null>(null);
   const [newOrnamentId, setNewOrnamentId] = useState<string | null>(null);
   const [deletingOrnament, setDeletingOrnament] = useState(false);
+  const [ownerMessages, setOwnerMessages] = useState<Record<string, SecretTreeMessage>>({});
+  const [messageOverview, setMessageOverview] = useState<{ count: number; revealed: boolean; revealAt: string } | null>(null);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const loadedOrnamentsFor = useRef<string | null>(null);
+  const loadedMessagesFor = useRef<string | null>(null);
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
     window.setTimeout(() => setToast(null), 5000);
   }, []);
+
+  const loadOwnerMessages = useCallback(async (publicId: string, force = false) => {
+    if (!force && loadedMessagesFor.current === publicId) return;
+    loadedMessagesFor.current = publicId;
+    setMessagesLoading(true);
+    try {
+      const collection = await fetchOwnerMessages(publicId);
+      setOwnerMessages(Object.fromEntries(collection.messages.map((message) => [message.ornament_public_id, message])));
+      setMessageOverview({ count: collection.message_count, revealed: true, revealAt: collection.reveal_at });
+    } catch (caught) {
+      if (caught instanceof TreeApiError && caught.code === 'messages_locked') {
+        setOwnerMessages({});
+        setMessageOverview({
+          count: caught.metadata.message_count ?? 0,
+          revealed: false,
+          revealAt: caught.metadata.reveal_at ?? '2026-12-25T03:00:00Z',
+        });
+      } else {
+        loadedMessagesFor.current = null;
+        showToast('Não foi possível consultar suas mensagens especiais.', 'error');
+      }
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
     if (initialBootstrap) return;
@@ -84,6 +113,16 @@ const App: React.FC = () => {
       .finally(() => setOrnamentsLoading(false));
   }, [tree, showToast]);
 
+  useEffect(() => {
+    if (!tree || !isOwner) {
+      loadedMessagesFor.current = null;
+      setOwnerMessages({});
+      setMessageOverview(null);
+      return;
+    }
+    void loadOwnerMessages(tree.public_id);
+  }, [tree, isOwner, loadOwnerMessages]);
+
   const { isMusicPlaying, toggleMusic, audioRef } = useAudio();
   const { isRecording, recordingType, handleRecordVideo } = useRecording(photos, (message) => showToast(message, 'error'));
   const {
@@ -117,6 +156,9 @@ const App: React.FC = () => {
     setReceipt(normalizedAccess);
     setOrnaments([]);
     loadedOrnamentsFor.current = null;
+    loadedMessagesFor.current = null;
+    setOwnerMessages({});
+    setMessageOverview(null);
     window.history.pushState({}, '', access.public_path);
   };
 
@@ -132,10 +174,10 @@ const App: React.FC = () => {
     setZoomLevel(ZoomLevel.ZOOMED_IN);
   };
 
-  const handleCreateOrnament = async (type: OrnamentType, senderName: string, idempotencyKey: string) => {
+  const handleCreateOrnament = async (type: OrnamentType, senderName: string, message: string, idempotencyKey: string) => {
     if (!tree) throw new Error('Árvore não encontrada.');
     try {
-      const response = await createOrnament(tree.public_id, type, senderName, csrfToken, idempotencyKey);
+      const response = await createOrnament(tree.public_id, type, senderName, message, csrfToken, idempotencyKey);
       setOrnamentCapacity(response.capacity);
       setOrnaments((current) => current.some((item) => item.public_id === response.ornament.public_id)
         ? current
@@ -143,10 +185,11 @@ const App: React.FC = () => {
       setNewOrnamentId(response.ornament.public_id);
       window.setTimeout(() => setNewOrnamentId(null), 5000);
       focusOrnament(response.ornament);
+      if (isOwner) void loadOwnerMessages(tree.public_id, true);
       return response.ornament;
     } catch (caught) {
       if (caught instanceof TreeApiError) {
-        throw new Error(caught.fields.sender_name?.[0] ?? caught.fields.ornament_type?.[0] ?? caught.message);
+        throw new Error(caught.fields.message?.[0] ?? caught.fields.sender_name?.[0] ?? caught.fields.ornament_type?.[0] ?? caught.message);
       }
       throw caught;
     }
@@ -159,6 +202,14 @@ const App: React.FC = () => {
     try {
       await deleteOrnament(tree.public_id, selectedOrnament.public_id, csrfToken);
       setOrnaments((current) => current.filter((item) => item.public_id !== selectedOrnament.public_id));
+      setOwnerMessages((current) => {
+        const next = { ...current };
+        delete next[selectedOrnament.public_id];
+        return next;
+      });
+      if (selectedOrnament.has_message) {
+        setMessageOverview((current) => current ? { ...current, count: Math.max(0, current.count - 1) } : current);
+      }
       setSelectedOrnament(null);
       setFocusedPhoto(null);
       scrollToTop();
@@ -297,6 +348,15 @@ const App: React.FC = () => {
         </button>
       )}
 
+      {tree && isOwner && messageOverview && !receipt && (
+        <div className="fixed right-3 top-24 z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none">
+          <p className="text-xs font-semibold text-[#fff1a1]">🎁 Você recebeu {messageOverview.count} {messageOverview.count === 1 ? 'mensagem especial' : 'mensagens especiais'}!</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-white/50">
+            {messagesLoading ? 'Consultando presentes…' : messageOverview.revealed ? 'Seus presentes de Natal estão disponíveis!' : 'Suas mensagens serão reveladas em 25 de dezembro.'}
+          </p>
+        </div>
+      )}
+
       {ornamentModalOpen && tree && (
         <OrnamentDecorationModal
           treeOwnerName={tree.owner_name}
@@ -307,11 +367,22 @@ const App: React.FC = () => {
       )}
 
       {selectedOrnament && !ornamentModalOpen && (
-        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto" onPointerDown={(event) => event.stopPropagation()}>
+        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" onClick={() => { setSelectedOrnament(null); setFocusedPhoto(null); scrollToTop(); }} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Fechar"><X size={17} /></button>
-          <Gift className="mx-auto text-[#fff1a1]" size={24} />
-          <p className="mt-2 font-semibold">🎄 Enfeite de {selectedOrnament.sender_name}</p>
+          {ownerMessages[selectedOrnament.public_id] ? <MailOpen className="mx-auto text-[#fff1a1]" size={25} /> : <Gift className="mx-auto text-[#fff1a1]" size={24} />}
+          <p className="mt-2 font-semibold">🎁 Presente de {selectedOrnament.sender_name}</p>
           <p className="mt-1 text-xs text-white/45">Posição {selectedOrnament.slot_index + 1} de {ORNAMENT_SLOT_COUNT}</p>
+          {!selectedOrnament.has_message ? (
+            <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/55">Este enfeite foi criado antes das mensagens secretas.</p>
+          ) : ownerMessages[selectedOrnament.public_id] ? (
+            <p className="mt-3 whitespace-pre-wrap rounded-xl border border-[#fff1a1]/20 bg-[#fff1a1]/10 p-4 text-left text-sm leading-relaxed text-white/85">{ownerMessages[selectedOrnament.public_id].message}</p>
+          ) : (
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/60">
+              <LockKeyhole className="mx-auto mb-2 text-[#fff1a1]/70" size={20} />
+              <p className="font-semibold text-white/75">Mensagem secreta</p>
+              <p className="mt-1 text-xs">Esta mensagem será revelada em 25 de dezembro.</p>
+            </div>
+          )}
           {isOwner && (
             <button type="button" onClick={handleDeleteOrnament} disabled={deletingOrnament} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/25 bg-red-400/10 px-4 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/20 disabled:opacity-50">
               {deletingOrnament ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Remover enfeite

@@ -58,6 +58,8 @@ $ornamentService = new ChristmasTreeOrnamentService(
     $treeRepository,
     new PdoChristmasTreeOrnamentRepository($app['database']),
     $app['config']['ornaments']['capacity'],
+    $app['config']['messages']['reveal_at'],
+    $app['config']['messages']['reveal_timezone'],
 );
 $ornamentApi = new TreeOrnamentApiController(
     $app['request'],
@@ -85,6 +87,7 @@ $router->get('/api/trees/{public_id}/admin', [$treeApi, 'admin']);
 $router->post('/api/trees/{public_id}/recover', [$treeApi, 'recover']);
 $router->get('/api/trees/{public_id}/ornaments', [$ornamentApi, 'index']);
 $router->post('/api/trees/{public_id}/ornaments', [$ornamentApi, 'store']);
+$router->get('/api/trees/{public_id}/messages', [$ornamentApi, 'messages']);
 $router->delete('/api/trees/{public_id}/ornaments/{ornament_id}', [$ornamentApi, 'destroy']);
 $router->fallback(static function (Request $request) use ($app): Response {
     return Response::html($app['view']->render('pages/404', [

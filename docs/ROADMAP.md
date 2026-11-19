@@ -12,9 +12,9 @@ Identidade persistente, URL pública, criação sem conta, sessão administrativ
 
 Enfeites sociais persistentes, slots determinísticos, criação idempotente e moderação pelo proprietário. Fotografias permanecem fora do escopo.
 
-## 4. Mensagens secretas
+## 4. Mensagens secretas — concluída
 
-Permitir mensagens de amigos com regras de moderação e revelação no Natal.
+Mensagens individuais vinculadas aos enfeites, gravação transacional e idempotente, privacidade no backend e revelação exclusiva ao proprietário no Natal.
 
 ## 5. Compartilhamento social
 
@@ -32,4 +32,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias e mensagens ainda não são persistidas na Etapa 03.
+Fotografias permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04; compartilhamento social avançado começa somente na Etapa 05.

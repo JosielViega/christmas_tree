@@ -6,8 +6,10 @@ namespace App\Repositories;
 
 use App\Core\Database;
 use App\Domain\ChristmasTreeOrnament;
+use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentCapacityReached;
 use App\Domain\OrnamentCreation;
+use App\Domain\PrivateTreeMessage;
 use PDO;
 use Throwable;
 
@@ -20,8 +22,10 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
     public function forTree(int $treeId): array
     {
         $statement = $this->database->connection()->prepare(
-            'SELECT id, tree_id, public_id, ornament_type, ornament_color, sender_name, slot_index, layout_version, created_at '
-            . 'FROM christmas_tree_ornaments WHERE tree_id = :tree_id ORDER BY slot_index ASC'
+            'SELECT o.id, o.tree_id, o.public_id, o.ornament_type, o.ornament_color, o.sender_name, o.slot_index, o.layout_version, o.created_at, '
+            . '(m.id IS NOT NULL) AS has_message FROM christmas_tree_ornaments o '
+            . 'LEFT JOIN christmas_tree_messages m ON m.ornament_id = o.id '
+            . 'WHERE o.tree_id = :tree_id ORDER BY o.slot_index ASC'
         );
         $statement->execute(['tree_id' => $treeId]);
 
@@ -41,12 +45,18 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
             }
 
             $existing = $pdo->prepare(
-                'SELECT id, tree_id, public_id, ornament_type, ornament_color, sender_name, slot_index, layout_version, created_at '
-                . 'FROM christmas_tree_ornaments WHERE tree_id = :tree_id AND idempotency_key_hash = :key_hash LIMIT 1'
+                'SELECT o.id, o.tree_id, o.public_id, o.ornament_type, o.ornament_color, o.sender_name, o.slot_index, o.layout_version, o.created_at, '
+                . '(m.id IS NOT NULL) AS has_message, m.payload_hash AS message_payload_hash '
+                . 'FROM christmas_tree_ornaments o LEFT JOIN christmas_tree_messages m ON m.ornament_id = o.id '
+                . 'WHERE o.tree_id = :tree_id AND o.idempotency_key_hash = :key_hash LIMIT 1'
             );
             $existing->execute(['tree_id' => $treeId, 'key_hash' => $attributes['idempotency_key_hash']]);
             $row = $existing->fetch();
             if (is_array($row)) {
+                if (!is_string($row['message_payload_hash'] ?? null)
+                    || !hash_equals($row['message_payload_hash'], $attributes['message_payload_hash'])) {
+                    throw new IdempotencyConflict('The idempotency key was already used with different data.');
+                }
                 $pdo->commit();
                 return new OrnamentCreation($this->hydrate($row), false);
             }
@@ -94,7 +104,19 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
                 $slotIndex,
                 $attributes['layout_version'],
                 $attributes['created_at'],
+                true,
             );
+
+            $messageInsert = $pdo->prepare(
+                'INSERT INTO christmas_tree_messages (ornament_id, message, payload_hash, created_at) '
+                . 'VALUES (:ornament_id, :message, :payload_hash, :created_at)'
+            );
+            $messageInsert->execute([
+                'ornament_id' => $ornament->id,
+                'message' => $attributes['secret_message'],
+                'payload_hash' => $attributes['message_payload_hash'],
+                'created_at' => $attributes['created_at'],
+            ]);
             $pdo->commit();
 
             return new OrnamentCreation($ornament, true);
@@ -116,6 +138,37 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
         return $statement->rowCount() === 1;
     }
 
+    public function messageCountForTree(int $treeId): int
+    {
+        $statement = $this->database->connection()->prepare(
+            'SELECT COUNT(*) FROM christmas_tree_messages m '
+            . 'INNER JOIN christmas_tree_ornaments o ON o.id = m.ornament_id WHERE o.tree_id = :tree_id'
+        );
+        $statement->execute(['tree_id' => $treeId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    public function privateMessagesForTree(int $treeId): array
+    {
+        $statement = $this->database->connection()->prepare(
+            'SELECT o.public_id AS ornament_public_id, o.sender_name, m.message, m.created_at '
+            . 'FROM christmas_tree_messages m INNER JOIN christmas_tree_ornaments o ON o.id = m.ornament_id '
+            . 'WHERE o.tree_id = :tree_id ORDER BY o.slot_index ASC'
+        );
+        $statement->execute(['tree_id' => $treeId]);
+
+        return array_map(
+            static fn (array $row): PrivateTreeMessage => new PrivateTreeMessage(
+                (string) $row['ornament_public_id'],
+                (string) $row['sender_name'],
+                (string) $row['message'],
+                (string) $row['created_at'],
+            ),
+            $statement->fetchAll(),
+        );
+    }
+
     /** @param array<string, mixed> $row */
     private function hydrate(array $row): ChristmasTreeOrnament
     {
@@ -129,6 +182,7 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
             (int) $row['slot_index'],
             (int) $row['layout_version'],
             (string) $row['created_at'],
+            (bool) ($row['has_message'] ?? false),
         );
     }
 }

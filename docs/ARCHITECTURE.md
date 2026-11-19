@@ -36,6 +36,16 @@ Os tipos estáveis aceitos são `bauble_red`, `bauble_gold`, `bauble_blue`, `hea
 
 Na criação, `PdoChristmasTreeOrnamentRepository` abre transação, bloqueia a linha da árvore com `FOR UPDATE`, procura uma solicitação idempotente anterior, calcula os slots livres e insere sob as restrições únicas. O bloqueio serializa apenas participações da mesma árvore.
 
+## Mensagens secretas
+
+`christmas_tree_messages` mantém uma relação individual e opcional com `christmas_tree_ornaments`. A chave única em `ornament_id` impede duplicação e a chave estrangeira com `ON DELETE CASCADE` remove a mensagem junto com o enfeite. O texto usa `utf8mb4`, suporta quebras de linha e é limitado a 500 caracteres Unicode. Enfeites anteriores à Etapa 04 simplesmente não possuem linha correspondente.
+
+A criação do enfeite e da mensagem ocorre na mesma transação. A chave de idempotência continua pertencendo ao enfeite, enquanto `payload_hash` registra a forma normalizada de tipo, remetente e mensagem. Uma repetição idêntica retorna a participação existente; reutilizar a chave com conteúdo diferente produz conflito sem revelar o payload original.
+
+As consultas públicas fazem apenas um `LEFT JOIN` para calcular `has_message`; elas nunca selecionam o texto. A consulta que seleciona `message` é separada, exige a árvore já autorizada e só é executada após o instante de liberação. O endpoint administrativo responde com `Cache-Control: private, no-store`.
+
+O instante padrão é configurado por `MESSAGE_REVEAL_AT=2026-12-25 00:00:00` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`, equivalente a `2026-12-25T03:00:00Z`. `ChristmasTreeOrnamentService` usa o relógio do servidor; o relógio injetável existe somente para testes determinísticos de fronteira.
+
 ## Acesso sem conta
 
 Na criação, o service gera três valores independentes: ID público (9 bytes/72 bits), token administrativo (32 bytes/256 bits) e código de recuperação (32 bytes/256 bits). Somente hashes dos dois segredos são gravados. O token administrativo bruto permanece na sessão PHP do responsável e nunca é entregue pela API.
@@ -50,16 +60,16 @@ O código de recuperação aparece uma única vez ao usuário. Quando usado, o b
 - `PdoChristmasTreeRepository` usa prepared statements e não expõe hashes em consultas públicas;
 - `TreeOwnerSession` isola o segredo administrativo na sessão;
 - `RateLimiter` usa arquivos com lock em `storage/cache/rate-limits`, compatível com hospedagem compartilhada.
-- `ChristmasTreeOrnamentService` valida tipos/nomes, define cores e controla a capacidade;
+- `ChristmasTreeOrnamentService` valida tipos, nomes e mensagens, define cores, controla capacidade e aplica a data de revelação;
 - `SocialOrnament` reutiliza o Canvas, câmera e iluminação existentes com geometrias nativas do Three.js.
 
 ## Frontend 3D
 
-`frontend/App.tsx` inicializa o contexto vindo do PHP, carrega os enfeites uma vez por árvore e atualiza o estado somente após confirmação da API. `Overlay` mostra a identidade da árvore e só oferece edição ao proprietário. O modal social é mobile-first; tocar no enfeite usa o foco de câmera já existente. Dados administrativos não são persistidos em `localStorage`.
+`frontend/App.tsx` inicializa o contexto vindo do PHP, carrega os enfeites uma vez por árvore e atualiza o estado somente após confirmação da API. `Overlay` mostra a identidade da árvore e só oferece edição ao proprietário. O modal social é mobile-first; tocar no enfeite usa o foco de câmera já existente. Apenas o modo proprietário consulta a API privada, uma vez por carregamento e após novas participações do próprio fluxo, sem polling. Mensagens são renderizadas como texto React com quebras de linha preservadas. Dados administrativos não são persistidos em `localStorage`.
 
 O Vite grava diretamente em `public/assets/app/`; o diretório compilado é versionado para produção sem Node.js. Em desenvolvimento, o proxy `/api` aponta para o backend PHP.
 
-Os componentes sociais não adicionam dependências. Em relação à Etapa 02, o bundle JavaScript minificado passou aproximadamente de 1.181,5 kB para 1.194,7 kB (cerca de 3,6 kB adicionais após gzip); o custo principal continua sendo Three.js e o pipeline visual original.
+Os componentes de mensagens não adicionam dependências. O build da Etapa 04 gera JavaScript minificado de aproximadamente 1.198,8 kB (335,6 kB gzip), cerca de 4,1 kB acima da Etapa 03 antes de gzip; o custo principal continua sendo Three.js e o pipeline visual original.
 
 ## Produção
 

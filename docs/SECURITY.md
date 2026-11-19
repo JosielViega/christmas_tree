@@ -30,6 +30,18 @@ Os limites padrão podem ser ajustados com `TREE_CREATE_RATE_LIMIT`, `TREE_CREAT
 - Somente a sessão administrativa válida pode excluir; a query de remoção inclui árvore e enfeite.
 - A API pública não expõe IDs internos, tokens nem hashes.
 
+## Sigilo das mensagens
+
+- A mensagem é obrigatória apenas para novas participações, normalizada e limitada a 2–500 caracteres Unicode; controles inadequados e conteúdo estruturalmente inválido são rejeitados.
+- Enfeite e mensagem são inseridos atomicamente. O hash do payload impede que uma `Idempotency-Key` usada seja reaproveitada para trocar silenciosamente a mensagem.
+- APIs públicas e o bootstrap HTML nunca selecionam nem serializam o texto; `has_message` é o único metadado público novo.
+- A rota privada valida a existência da árvore, a sessão administrativa correspondente e o relógio do servidor. Antes de `2026-12-25 00:00:00 America/Sao_Paulo`, inclusive o proprietário recebe apenas contagem e data de liberação.
+- Depois da liberação, a query privada é limitada à árvore autorizada e as respostas usam `Cache-Control: private, no-store, max-age=0`, `Pragma: no-cache` e `X-Content-Type-Options: nosniff`.
+- O texto é renderizado pelo React, sem `dangerouslySetInnerHTML`; quebras de linha são preservadas por CSS. Mensagens, hashes e payloads conflitantes não são escritos em logs nem ecoados em erros.
+- Visitantes nunca chamam a rota privada; ocultação visual não participa da decisão de autorização.
+
+O proprietário pode excluir um enfeite antes ou depois da liberação, e a mensagem é apagada em cascata. Antes do Natal essa moderação é deliberadamente cega: não existe revisão prévia, leitura administrativa antecipada ou serviço externo de moderação. Rate limiting, limites de tamanho, CSRF, idempotência e exclusão oferecem proteção proporcional, mas conteúdo abusivo ainda pode ser recebido e só poderá ser avaliado após a revelação.
+
 ## Regras gerais
 
 1. Nunca versionar `.env`, credenciais, certificados, logs ou dados reais.
@@ -50,4 +62,4 @@ O builder HostGator usa allowlist e não transmite arquivos nem executa migratio
 
 ## Escopo ainda não protegido
 
-Uploads e mensagens persistentes não fazem parte da Etapa 03. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido, moderação e autorização por recurso.
+Uploads não fazem parte da Etapa 04. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido e autorização por recurso. Também não há detecção automática de conteúdo abusivo, chat, notificações ou publicação pública das mensagens.

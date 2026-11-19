@@ -10,8 +10,10 @@ use App\Core\FrontendAssets;
 use App\Core\Session;
 use App\Core\View;
 use App\Services\ChristmasTreeIdentityService;
+use App\Services\ChristmasTreeOrnamentService;
 use App\Services\TreeOwnerSession;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
 use Tests\Support\InMemoryChristmasTreeRepository;
 
 final class TreePageControllerTest extends TestCase
@@ -47,6 +49,24 @@ final class TreePageControllerTest extends TestCase
 
         self::assertSame(404, $response->status());
         self::assertStringContainsString('Árvore não encontrada', $response->body());
+    }
+
+    public function testInitialHtmlAndMetadataNeverContainOrnamentMessage(): void
+    {
+        $session = new Session(false);
+        $treeRepository = new InMemoryChristmasTreeRepository();
+        $service = new ChristmasTreeIdentityService($treeRepository);
+        $creation = $service->create('Árvore privada');
+        $secret = 'Mensagem que não pode entrar no HTML 🎁';
+        $ornaments = new ChristmasTreeOrnamentService($treeRepository, new InMemoryChristmasTreeOrnamentRepository());
+        $ornaments->create($creation->tree->publicId, 'present', 'Visitante', str_repeat('p', 16), $secret);
+
+        $response = $this->controller($service, new TreeOwnerSession($session), new Csrf($session))
+            ->show($creation->tree->publicId);
+
+        self::assertSame(200, $response->status());
+        self::assertStringNotContainsString($secret, $response->body());
+        self::assertStringNotContainsString('Mensagem que não pode entrar', $response->body());
     }
 
     private function controller(

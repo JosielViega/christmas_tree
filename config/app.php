@@ -16,6 +16,10 @@ return [
     'ornaments' => [
         'capacity' => (int) env('ORNAMENT_MAX_PER_TREE', 60),
     ],
+    'messages' => [
+        'reveal_at' => (string) env('MESSAGE_REVEAL_AT', '2026-12-25 00:00:00'),
+        'reveal_timezone' => (string) env('MESSAGE_REVEAL_TIMEZONE', 'America/Sao_Paulo'),
+    ],
     'rate_limits' => [
         'tree_creation' => [
             'max_attempts' => (int) env('TREE_CREATE_RATE_LIMIT', 5),

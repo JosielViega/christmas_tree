@@ -12,6 +12,7 @@ use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
 use Tests\Support\InMemoryChristmasTreeRepository;
@@ -24,16 +25,19 @@ final class TreeOrnamentApiControllerTest extends TestCase
     private ChristmasTreeIdentityService $trees;
     private ChristmasTreeOrnamentService $ornaments;
     private TreeOwnerSession $ownerSession;
+    private InMemoryChristmasTreeRepository $treeRepository;
+    private InMemoryChristmasTreeOrnamentRepository $ornamentRepository;
 
     protected function setUp(): void
     {
         $_SESSION = [];
         $this->rateLimitDirectory = sys_get_temp_dir() . '/ornament-rate-limit-' . bin2hex(random_bytes(6));
-        $treeRepository = new InMemoryChristmasTreeRepository();
+        $this->treeRepository = new InMemoryChristmasTreeRepository();
+        $this->ornamentRepository = new InMemoryChristmasTreeOrnamentRepository();
         $this->session = new Session(false);
         $this->csrf = new Csrf($this->session);
-        $this->trees = new ChristmasTreeIdentityService($treeRepository);
-        $this->ornaments = new ChristmasTreeOrnamentService($treeRepository, new InMemoryChristmasTreeOrnamentRepository());
+        $this->trees = new ChristmasTreeIdentityService($this->treeRepository);
+        $this->ornaments = new ChristmasTreeOrnamentService($this->treeRepository, $this->ornamentRepository);
         $this->ownerSession = new TreeOwnerSession($this->session);
     }
 
@@ -55,7 +59,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
     public function testAddsListsAndDeduplicatesValidOrnament(): void
     {
         $tree = $this->trees->create('Cecília')->tree;
-        $request = $this->mutableRequest('POST', ['ornament_type' => 'heart', 'sender_name' => 'João'], str_repeat('a', 16));
+        $request = $this->mutableRequest('POST', ['ornament_type' => 'heart', 'sender_name' => 'João', 'message' => 'Feliz Natal!'], str_repeat('a', 16));
         $created = $this->controller($request)->store($tree->publicId);
         $payload = json_decode($created->body(), true, 512, JSON_THROW_ON_ERROR);
 
@@ -63,14 +67,23 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertTrue($payload['data']['created']);
         self::assertSame('heart', $payload['data']['ornament']['ornament_type']);
         self::assertArrayNotHasKey('tree_id', $payload['data']['ornament']);
+        self::assertStringNotContainsString('Feliz Natal!', $created->body());
 
         $repeated = $this->controller($request)->store($tree->publicId);
         self::assertSame(200, $repeated->status());
         self::assertStringContainsString('"created":false', $repeated->body());
 
+        $conflict = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'heart', 'sender_name' => 'João', 'message' => 'Mensagem alterada',
+        ], str_repeat('a', 16)))->store($tree->publicId);
+        self::assertSame(409, $conflict->status());
+        self::assertStringContainsString('idempotency_conflict', $conflict->body());
+        self::assertStringNotContainsString('Feliz Natal!', $conflict->body());
+
         $listed = $this->controller(new Request())->index($tree->publicId);
         self::assertSame(200, $listed->status());
         self::assertStringContainsString($payload['data']['ornament']['public_id'], $listed->body());
+        self::assertStringNotContainsString('Feliz Natal!', $listed->body());
     }
 
     public function testRejectsInvalidCsrfTypeNameAndOversizedPayload(): void
@@ -81,7 +94,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
         ]);
         self::assertSame(419, $this->controller($invalidCsrf)->store($tree->publicId)->status());
 
-        $invalidData = $this->mutableRequest('POST', ['ornament_type' => 'invalid', 'sender_name' => 'x'], str_repeat('b', 16));
+        $invalidData = $this->mutableRequest('POST', ['ornament_type' => 'invalid', 'sender_name' => 'x', 'message' => ''], str_repeat('b', 16));
         self::assertSame(422, $this->controller($invalidData)->store($tree->publicId)->status());
 
         $oversized = new Request(parsedBody: [], server: [
@@ -92,12 +105,12 @@ final class TreeOrnamentApiControllerTest extends TestCase
 
     public function testMissingTreeAndRateLimitReturnStandardErrors(): void
     {
-        $request = $this->mutableRequest('POST', ['ornament_type' => 'star', 'sender_name' => 'Lia'], str_repeat('c', 16));
+        $request = $this->mutableRequest('POST', ['ornament_type' => 'star', 'sender_name' => 'Lia', 'message' => 'Boas festas'], str_repeat('c', 16));
         self::assertSame(404, $this->controller($request)->store('AbCdEf1234_-')->status());
 
         $tree = $this->trees->create('Cecília')->tree;
         self::assertSame(201, $this->controller($request, 2)->store($tree->publicId)->status());
-        $limited = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'heart', 'sender_name' => 'Bia'], str_repeat('d', 16)), 2)
+        $limited = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'heart', 'sender_name' => 'Bia', 'message' => 'Feliz Natal'], str_repeat('d', 16)), 2)
             ->store($tree->publicId);
         self::assertSame(429, $limited->status());
     }
@@ -106,7 +119,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
     {
         $creation = $this->trees->create('Cecília');
         $otherCreation = $this->trees->create('Outra');
-        $stored = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'present', 'sender_name' => 'Leo'], str_repeat('e', 16)))
+        $stored = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'present', 'sender_name' => 'Leo', 'message' => 'Com carinho'], str_repeat('e', 16)))
             ->store($creation->tree->publicId);
         $ornamentId = json_decode($stored->body(), true, 512, JSON_THROW_ON_ERROR)['data']['ornament']['public_id'];
 
@@ -118,6 +131,50 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertSame(404, $this->controller($deleteRequest)->destroy($otherCreation->tree->publicId, $ornamentId)->status());
         self::assertSame(200, $this->controller($deleteRequest)->destroy($creation->tree->publicId, $ornamentId)->status());
         self::assertSame(404, $this->controller($deleteRequest)->destroy($creation->tree->publicId, $ornamentId)->status());
+    }
+
+    public function testPrivateMessagesRequireOwnerAndRemainLockedWithoutLeakingContent(): void
+    {
+        $creation = $this->trees->create('Cecília');
+        $secret = 'Conteúdo super secreto 🎁';
+        $stored = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'star', 'sender_name' => 'Lia', 'message' => $secret,
+        ], str_repeat('m', 16)))->store($creation->tree->publicId);
+        self::assertSame(201, $stored->status());
+
+        $lockedService = $this->messageServiceAt('2026-12-25T02:59:59+00:00');
+        $unauthorized = $this->controller(new Request(), 50, $lockedService)->messages($creation->tree->publicId);
+        self::assertSame(403, $unauthorized->status());
+        self::assertStringNotContainsString($secret, $unauthorized->body());
+
+        $this->ownerSession->grant($creation->tree->publicId, $creation->adminToken);
+        $locked = $this->controller(new Request(), 50, $lockedService)->messages($creation->tree->publicId);
+        self::assertSame(423, $locked->status());
+        self::assertStringContainsString('messages_locked', $locked->body());
+        self::assertStringContainsString('"message_count":1', $locked->body());
+        self::assertStringNotContainsString($secret, $locked->body());
+        self::assertSame('private, no-store, max-age=0', $locked->headers()['Cache-Control']);
+    }
+
+    public function testOwnerReceivesOnlyOwnTreeMessagesAtExactRevealInstant(): void
+    {
+        $first = $this->trees->create('Primeira');
+        $second = $this->trees->create('Segunda');
+        $this->ornaments->create($first->tree->publicId, 'heart', 'Ana', str_repeat('n', 16), 'Mensagem primeira');
+        $this->ornaments->create($second->tree->publicId, 'present', 'Bia', str_repeat('o', 16), 'Mensagem segunda');
+        $this->ownerSession->grant($first->tree->publicId, $first->adminToken);
+
+        $revealedService = $this->messageServiceAt('2026-12-25T03:00:00+00:00');
+        $response = $this->controller(new Request(), 50, $revealedService)->messages($first->tree->publicId);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Mensagem primeira', $response->body());
+        self::assertStringNotContainsString('Mensagem segunda', $response->body());
+        self::assertSame('private, no-store, max-age=0', $response->headers()['Cache-Control']);
+
+        $otherTree = $this->controller(new Request(), 50, $revealedService)->messages($second->tree->publicId);
+        self::assertSame(403, $otherTree->status());
+        self::assertStringNotContainsString('Mensagem segunda', $otherTree->body());
     }
 
     private function mutableRequest(string $method, array $body = [], string $idempotencyKey = ''): Request
@@ -135,15 +192,27 @@ final class TreeOrnamentApiControllerTest extends TestCase
         return new Request(parsedBody: $body, server: $server);
     }
 
-    private function controller(Request $request, int $rateLimit = 50): TreeOrnamentApiController
+    private function controller(Request $request, int $rateLimit = 50, ?ChristmasTreeOrnamentService $ornaments = null): TreeOrnamentApiController
     {
         return new TreeOrnamentApiController(
             $request,
             $this->csrf,
             $this->trees,
-            $this->ornaments,
+            $ornaments ?? $this->ornaments,
             $this->ownerSession,
             new RateLimiter($this->rateLimitDirectory, $rateLimit, 900),
+        );
+    }
+
+    private function messageServiceAt(string $instant): ChristmasTreeOrnamentService
+    {
+        return new ChristmasTreeOrnamentService(
+            $this->treeRepository,
+            $this->ornamentRepository,
+            60,
+            '2026-12-25 00:00:00',
+            'America/Sao_Paulo',
+            static fn (): DateTimeImmutable => new DateTimeImmutable($instant),
         );
     }
 }
