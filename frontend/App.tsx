@@ -13,6 +13,7 @@ import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
 import { useTreeInteraction } from './hooks/useTreeInteraction';
 import { processImageWithPadding } from './utils/image';
+import type { StoryFrameCapture } from './utils/socialSharing';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 
@@ -43,6 +44,16 @@ const App: React.FC = () => {
   const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
+  const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
+
+  const registerStoryCapture = useCallback((capture: StoryFrameCapture | null) => {
+    storyCaptureRef.current = capture;
+  }, []);
+
+  const captureStoryFrame = useCallback(async () => {
+    if (!storyCaptureRef.current) throw new Error('A cena 3D ainda não está pronta para captura.');
+    return storyCaptureRef.current();
+  }, []);
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
@@ -302,6 +313,7 @@ const App: React.FC = () => {
         ornaments={ornaments}
         newOrnamentId={newOrnamentId}
         onOrnamentSelect={focusOrnament}
+        onStoryCaptureReady={registerStoryCapture}
       />
 
       <Overlay
@@ -386,6 +398,7 @@ const App: React.FC = () => {
           ownerName={tree.owner_name}
           ornamentCount={ornaments.length}
           publicUrl={publicTreeUrl}
+          captureFrame={captureStoryFrame}
           onClose={() => setShareModalOpen(false)}
         />
       )}

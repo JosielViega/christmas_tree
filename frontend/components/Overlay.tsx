@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ControlMode, ZoomLevel, InteractionMode } from '../types';
-import { Mouse, Hand, ImagePlus, Music, VolumeX, Eye, EyeOff, Edit3, Download, Maximize, Move, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Video } from 'lucide-react';
+import { Mouse, Hand, ImagePlus, Music, VolumeX, Eye, EyeOff, Edit3, Download, Maximize, Move, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Video, Settings2 } from 'lucide-react';
 
 interface OverlayProps {
   controlMode: ControlMode;
@@ -266,9 +266,9 @@ const Overlay: React.FC<OverlayProps> = ({
         )}
       </div>
 
-      {/* Bottom Controls - Unified at the bottom */}
+      {/* Secondary controls stay available without competing with the social actions. */}
       {!isRecording && (
-        <div className="flex flex-col items-center gap-3 md:gap-4 w-full mb-4 md:mb-6 pointer-events-auto px-4">
+        <div className="flex w-full items-end justify-end px-2 pb-2 pointer-events-auto md:px-4 md:pb-4">
           {!showUI ? (
             /* Small Toggle to bring back UI */
             <button
@@ -279,8 +279,12 @@ const Overlay: React.FC<OverlayProps> = ({
               <Eye size={24} />
             </button>
           ) : (
-            /* Main Control Panel */
-            <div className="flex flex-col items-center gap-2 md:gap-3 w-full max-w-full">
+            <details className="group relative">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-white/20 bg-black/55 px-4 py-2 text-xs font-semibold text-white/80 shadow-2xl backdrop-blur-xl transition hover:bg-black/70 hover:text-white [&::-webkit-details-marker]:hidden">
+                <Settings2 size={16} className="text-[#fff1a1]" />
+                Opções
+              </summary>
+              <div className="absolute bottom-full right-0 mb-3 flex max-h-[65vh] w-[min(94vw,44rem)] flex-col items-end gap-2 overflow-y-auto rounded-3xl border border-white/15 bg-black/70 p-2 shadow-2xl backdrop-blur-2xl md:gap-3">
 
               {/* Top Row: System & View Settings - Flexible layout */}
               <div className="flex flex-wrap justify-center bg-white/10 backdrop-blur-md rounded-2xl md:rounded-full p-1 border border-white/20 shadow-2xl items-center gap-0.5 md:gap-2">
@@ -466,7 +470,8 @@ const Overlay: React.FC<OverlayProps> = ({
                 />
 
               </div>
-            </div>
+              </div>
+            </details>
           )}
         </div>
       )}

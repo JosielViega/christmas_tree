@@ -10,15 +10,17 @@ import {
   shareTreeLink,
   storyFilename,
 } from '../utils/socialSharing';
+import type { StoryFrameCapture } from '../utils/socialSharing';
 
 interface ShareTreeModalProps {
   ownerName: string;
   ornamentCount: number;
   publicUrl: string;
+  captureFrame?: StoryFrameCapture;
   onClose: () => void;
 }
 
-const ShareTreeModal: React.FC<ShareTreeModalProps> = ({ ownerName, ornamentCount, publicUrl, onClose }) => {
+const ShareTreeModal: React.FC<ShareTreeModalProps> = ({ ownerName, ornamentCount, publicUrl, captureFrame, onClose }) => {
   const [card, setCard] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -34,8 +36,9 @@ const ShareTreeModal: React.FC<ShareTreeModalProps> = ({ ownerName, ornamentCoun
     setFeedback(null);
     try {
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const sourceCanvas = captureFrame ? await captureFrame() : getTreeCanvas();
       const generated = await generateStoryCard({
-        sourceCanvas: getTreeCanvas(),
+        sourceCanvas,
         ownerName,
         ornamentCount,
       });
@@ -45,7 +48,12 @@ const ShareTreeModal: React.FC<ShareTreeModalProps> = ({ ownerName, ornamentCoun
       setFeedback({ type: 'success', message: 'Cartão 9:16 gerado no seu dispositivo.' });
       return generated;
     } catch (caught) {
-      setFeedback({ type: 'error', message: caught instanceof Error ? caught.message : 'Não foi possível gerar o cartão.' });
+      if (import.meta.env.DEV) {
+        console.error('Falha sanitizada ao gerar o cartão para Story.', {
+          type: caught instanceof Error ? caught.name : typeof caught,
+        });
+      }
+      setFeedback({ type: 'error', message: 'Não foi possível capturar a árvore agora. Aguarde a cena carregar e tente novamente.' });
       return null;
     } finally {
       setGenerating(false);

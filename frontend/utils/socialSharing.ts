@@ -1,6 +1,10 @@
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
+export const STORY_SCENE_WIDTH = 900;
+export const STORY_SCENE_HEIGHT = 1100;
 export const SOCIAL_SHARE_TEXT = '🎄 Criei minha árvore de Natal! Decore com um enfeite e deixe uma mensagem secreta para eu abrir no Natal! ❤️';
+
+export type StoryFrameCapture = () => Promise<HTMLCanvasElement>;
 
 export interface StoryCardInput {
   sourceCanvas: HTMLCanvasElement;
@@ -8,12 +12,37 @@ export interface StoryCardInput {
   ornamentCount: number;
 }
 
+export const buildStoryCardCopy = (ownerName: string, ornamentCount: number) => ({
+  heading: '🎄 Árvore de Natal de',
+  ownerName,
+  friendLabel: ornamentCount === 1 ? '1 amigo já decorou!' : `${ornamentCount} amigos já decoraram!`,
+  invitation: '🎁 Deixe sua mensagem secreta!',
+  callToAction: 'Decore minha árvore 🎄',
+  linkHint: 'Acesse pelo link do Story',
+  brand: 'CHRISTMAS TREE',
+});
+
 export interface DownloadEnvironment {
   createObjectUrl: (blob: Blob) => string;
   revokeObjectUrl: (url: string) => void;
   createLink: () => Pick<HTMLAnchorElement, 'href' | 'download' | 'click'>;
   defer: (callback: () => void) => void;
 }
+
+export const withTemporaryCaptureState = async <State, Result>(
+  snapshot: () => State,
+  prepare: () => void,
+  capture: () => Promise<Result>,
+  restore: (state: State) => void,
+): Promise<Result> => {
+  const state = snapshot();
+  try {
+    prepare();
+    return await capture();
+  } finally {
+    restore(state);
+  }
+};
 
 export const buildPublicTreeUrl = (publicId: string, origin = window.location.origin): string => {
   const url = new URL(origin);
@@ -118,6 +147,7 @@ export const generateStoryCard = async ({ sourceCanvas, ownerName, ornamentCount
   canvas.height = STORY_HEIGHT;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Este navegador não conseguiu preparar o cartão.');
+  const copy = buildStoryCardCopy(ownerName, ornamentCount);
 
   const background = context.createLinearGradient(0, 0, 0, STORY_HEIGHT);
   background.addColorStop(0, '#020807');
@@ -143,12 +173,12 @@ export const generateStoryCard = async ({ sourceCanvas, ownerName, ornamentCount
   context.shadowColor = 'rgba(255, 210, 90, 0.35)';
   context.shadowBlur = 24;
   context.font = '700 54px "Segoe UI", sans-serif';
-  context.fillText('🎄 Árvore de Natal de', STORY_WIDTH / 2, 135);
+  context.fillText(copy.heading, STORY_WIDTH / 2, 135);
   context.font = '700 76px "Segoe UI", sans-serif';
-  drawFittedText(context, ownerName, STORY_WIDTH / 2, 225, 900, 76);
+  drawFittedText(context, copy.ownerName, STORY_WIDTH / 2, 225, 900, 76);
   context.shadowBlur = 0;
 
-  const imageArea = { x: 70, y: 300, width: 940, height: 1040 };
+  const imageArea = { x: 50, y: 285, width: 980, height: 1110 };
   roundedRect(context, imageArea.x, imageArea.y, imageArea.width, imageArea.height, 56);
   context.fillStyle = 'rgba(0, 0, 0, 0.38)';
   context.fill();
@@ -173,21 +203,26 @@ export const generateStoryCard = async ({ sourceCanvas, ownerName, ornamentCount
 
   context.fillStyle = '#ffffff';
   context.font = '700 58px "Segoe UI", sans-serif';
-  const friendLabel = ornamentCount === 1 ? '1 amigo já decorou!' : `${ornamentCount} amigos já decoraram!`;
-  context.fillText(`✨ ${friendLabel}`, STORY_WIDTH / 2, 1450);
+  context.fillText(`✨ ${copy.friendLabel}`, STORY_WIDTH / 2, 1490);
   context.fillStyle = '#fff1a1';
   context.font = '700 52px "Segoe UI", sans-serif';
-  context.fillText('🎁 Deixe sua mensagem secreta!', STORY_WIDTH / 2, 1555);
+  context.fillText(copy.invitation, STORY_WIDTH / 2, 1590);
 
-  roundedRect(context, 115, 1635, 850, 122, 61);
-  context.fillStyle = '#1cbd62';
-  context.fill();
+  context.strokeStyle = 'rgba(255, 241, 161, 0.28)';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(220, 1660);
+  context.lineTo(860, 1660);
+  context.stroke();
   context.fillStyle = '#ffffff';
-  context.font = '700 42px "Segoe UI", sans-serif';
-  context.fillText('Decore esta árvore 🎄', STORY_WIDTH / 2, 1712);
+  context.font = '700 46px "Segoe UI", sans-serif';
+  context.fillText(copy.callToAction, STORY_WIDTH / 2, 1730);
   context.fillStyle = 'rgba(255,255,255,0.68)';
-  context.font = '600 30px "Segoe UI", sans-serif';
-  context.fillText('CHRISTMAS TREE • compartilhe o link', STORY_WIDTH / 2, 1840);
+  context.font = '600 31px "Segoe UI", sans-serif';
+  context.fillText(copy.linkHint, STORY_WIDTH / 2, 1785);
+  context.fillStyle = 'rgba(255,255,255,0.42)';
+  context.font = '600 24px "Segoe UI", sans-serif';
+  context.fillText(copy.brand, STORY_WIDTH / 2, 1840);
 
   return canvasToBlob(canvas);
 };

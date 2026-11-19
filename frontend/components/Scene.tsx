@@ -13,6 +13,12 @@ import Snow from './Snow';
 import SocialOrnament from './SocialOrnament';
 import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
 import { PhotoData, ControlMode, ZoomLevel, InteractionMode, SocialOrnamentData } from '../types';
+import {
+  STORY_SCENE_HEIGHT,
+  STORY_SCENE_WIDTH,
+  withTemporaryCaptureState,
+} from '../utils/socialSharing';
+import type { StoryFrameCapture } from '../utils/socialSharing';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -31,6 +37,7 @@ interface SceneProps {
   ornaments: SocialOrnamentData[];
   newOrnamentId: string | null;
   onOrnamentSelect: (ornament: SocialOrnamentData) => void;
+  onStoryCaptureReady?: (capture: StoryFrameCapture | null) => void;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -63,7 +70,8 @@ const CameraController: React.FC<{
   isRecording: boolean;
   recordingType: 'FULL' | 'ALBUM' | null;
   photos: PhotoData[];
-}> = ({ zoomLevel, controlMode, panOffset, focusedPhoto, isRecording, recordingType, photos }) => {
+  captureActive: React.MutableRefObject<boolean>;
+}> = ({ zoomLevel, controlMode, panOffset, focusedPhoto, isRecording, recordingType, photos, captureActive }) => {
   const { camera, controls } = useThree();
   const targetPos = useRef(CAMERA_CONFIG.DEFAULT_POS.clone());
   const lookAtTarget = useRef(CAMERA_CONFIG.LOOK_AT_OFFSET.clone());
@@ -135,6 +143,7 @@ const CameraController: React.FC<{
   }, [zoomLevel, controlMode, focusedPhoto, isRecording]);
 
   useFrame((state, delta) => {
+    if (captureActive.current) return;
     // 0. RECORDING LOGIC
     if (isRecording) {
       const time = (performance.now() - recordingStartTime.current) / 1000;
@@ -325,6 +334,115 @@ const CameraController: React.FC<{
   );
 };
 
+interface StoryCaptureSnapshot {
+  cameraPosition: THREE.Vector3;
+  cameraQuaternion: THREE.Quaternion;
+  cameraUp: THREE.Vector3;
+  cameraAspect: number;
+  cameraFov: number;
+  cameraZoom: number;
+  controlsTarget: THREE.Vector3 | null;
+  controlsEnabled: boolean | null;
+  width: number;
+  height: number;
+  top: number;
+  left: number;
+  dpr: number;
+}
+
+const nextRenderedFrame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+const StoryCaptureController: React.FC<{
+  captureActive: React.MutableRefObject<boolean>;
+  onReady?: (capture: StoryFrameCapture | null) => void;
+}> = ({ captureActive, onReady }) => {
+  const camera = useThree((current) => current.camera);
+  const controls = useThree((current) => current.controls);
+  const gl = useThree((current) => current.gl);
+  const getState = useThree((current) => current.get);
+  const invalidate = useThree((current) => current.invalidate);
+  const setDpr = useThree((current) => current.setDpr);
+  const setSize = useThree((current) => current.setSize);
+
+  useEffect(() => {
+    if (!onReady || !(camera instanceof THREE.PerspectiveCamera)) return;
+
+    const orbitControls = controls as { target?: THREE.Vector3; enabled?: boolean; update?: () => void } | null;
+    const capture: StoryFrameCapture = () => withTemporaryCaptureState<StoryCaptureSnapshot, HTMLCanvasElement>(
+      () => {
+        const current = getState();
+        return {
+          cameraPosition: camera.position.clone(),
+          cameraQuaternion: camera.quaternion.clone(),
+          cameraUp: camera.up.clone(),
+          cameraAspect: camera.aspect,
+          cameraFov: camera.fov,
+          cameraZoom: camera.zoom,
+          controlsTarget: orbitControls?.target?.clone() ?? null,
+          controlsEnabled: typeof orbitControls?.enabled === 'boolean' ? orbitControls.enabled : null,
+          width: current.size.width,
+          height: current.size.height,
+          top: current.size.top,
+          left: current.size.left,
+          dpr: current.viewport.dpr,
+        };
+      },
+      () => {
+        captureActive.current = true;
+        if (orbitControls && typeof orbitControls.enabled === 'boolean') orbitControls.enabled = false;
+        camera.position.set(0, 0, 23.5);
+        camera.up.set(0, 1, 0);
+        camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
+        camera.fov = CAMERA_CONFIG.FOV;
+        camera.zoom = 1;
+        camera.aspect = STORY_SCENE_WIDTH / STORY_SCENE_HEIGHT;
+        camera.updateProjectionMatrix();
+        setDpr(1);
+        setSize(STORY_SCENE_WIDTH, STORY_SCENE_HEIGHT, false, 0, 0);
+      },
+      async () => {
+        await nextRenderedFrame();
+        await nextRenderedFrame();
+        const source = gl.domElement;
+        if (source.width <= 0 || source.height <= 0) throw new Error('A renderização vertical não produziu uma imagem válida.');
+        const output = document.createElement('canvas');
+        output.width = STORY_SCENE_WIDTH;
+        output.height = STORY_SCENE_HEIGHT;
+        const context = output.getContext('2d');
+        if (!context) throw new Error('O navegador não conseguiu copiar a captura vertical.');
+        context.drawImage(source, 0, 0, output.width, output.height);
+        return output;
+      },
+      (snapshot) => {
+        try {
+          camera.position.copy(snapshot.cameraPosition);
+          camera.quaternion.copy(snapshot.cameraQuaternion);
+          camera.up.copy(snapshot.cameraUp);
+          camera.aspect = snapshot.cameraAspect;
+          camera.fov = snapshot.cameraFov;
+          camera.zoom = snapshot.cameraZoom;
+          camera.updateProjectionMatrix();
+          if (orbitControls) {
+            if (snapshot.controlsTarget && orbitControls.target) orbitControls.target.copy(snapshot.controlsTarget);
+            if (snapshot.controlsEnabled !== null) orbitControls.enabled = snapshot.controlsEnabled;
+            orbitControls.update?.();
+          }
+          setDpr(snapshot.dpr);
+          setSize(snapshot.width, snapshot.height, false, snapshot.top, snapshot.left);
+        } finally {
+          captureActive.current = false;
+          invalidate();
+        }
+      },
+    );
+
+    onReady(capture);
+    return () => onReady(null);
+  }, [camera, captureActive, controls, getState, gl, invalidate, onReady, setDpr, setSize]);
+
+  return null;
+};
+
 // Component to handle dynamic effects
 const PostProcessingEffects: React.FC<{
   zoomLevel: ZoomLevel;
@@ -399,7 +517,10 @@ const Scene: React.FC<SceneProps> = ({
   ornaments,
   newOrnamentId,
   onOrnamentSelect,
+  onStoryCaptureReady,
 }) => {
+  const captureActive = useRef(false);
+
   return (
     <Canvas
       dpr={[1, 2]}
@@ -423,7 +544,9 @@ const Scene: React.FC<SceneProps> = ({
         isRecording={isRecording}
         recordingType={recordingType}
         photos={photos}
+        captureActive={captureActive}
       />
+      <StoryCaptureController captureActive={captureActive} onReady={onStoryCaptureReady} />
 
       {/* Procedural environment preserves reflective lighting without a runtime CDN asset. */}
       <Environment resolution={256} background={false}>
