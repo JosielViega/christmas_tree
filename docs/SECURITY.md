@@ -15,10 +15,20 @@
 - O nome é normalizado, limitado a 2–60 caracteres Unicode e rejeita caracteres de controle.
 - IDs públicos aceitam somente 12 caracteres base64url.
 - Corpos de criação/recuperação são limitados a 4 KiB.
-- Criação e recuperação possuem rate limiting por IP em arquivos bloqueados com `flock`.
+- Criação, recuperação e envio de enfeites possuem rate limiting por IP em arquivos bloqueados com `flock`.
 - SQL usa prepared statements; erros externos são genéricos e não revelam credenciais ou existência administrativa.
 
-Os limites padrão podem ser ajustados com `TREE_CREATE_RATE_LIMIT`, `TREE_CREATE_RATE_WINDOW`, `TREE_RECOVERY_RATE_LIMIT` e `TREE_RECOVERY_RATE_WINDOW`. `storage/cache/rate-limits` deve existir ou poder ser criado pelo usuário PHP.
+Os limites padrão podem ser ajustados com `TREE_CREATE_RATE_LIMIT`, `TREE_CREATE_RATE_WINDOW`, `TREE_RECOVERY_RATE_LIMIT`, `TREE_RECOVERY_RATE_WINDOW`, `ORNAMENT_CREATE_RATE_LIMIT` e `ORNAMENT_CREATE_RATE_WINDOW`. `storage/cache/rate-limits` deve existir ou poder ser criado pelo usuário PHP.
+
+## Participações sociais
+
+- Tipos e cores usam allowlist; o navegador não fornece coordenadas, `tree_id` ou capacidade.
+- Nomes são normalizados, limitados a 2–40 caracteres e escapados pelo React.
+- Toda criação exige CSRF, payload até 4 KiB e `Idempotency-Key` aleatória.
+- A chave é persistida somente como hash e sua unicidade é restrita à árvore.
+- A alocação usa transação, bloqueio da árvore e índices únicos contra conflitos concorrentes.
+- Somente a sessão administrativa válida pode excluir; a query de remoção inclui árvore e enfeite.
+- A API pública não expõe IDs internos, tokens nem hashes.
 
 ## Regras gerais
 
@@ -40,4 +50,4 @@ O builder HostGator usa allowlist e não transmite arquivos nem executa migratio
 
 ## Escopo ainda não protegido
 
-Uploads e mensagens persistentes não fazem parte da Etapa 02. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido, moderação e autorização por recurso.
+Uploads e mensagens persistentes não fazem parte da Etapa 03. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido, moderação e autorização por recurso.

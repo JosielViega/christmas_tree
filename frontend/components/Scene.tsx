@@ -10,8 +10,9 @@ import Polaroid from './Polaroid';
 import Star from './Star';
 import Presents from './Presents';
 import Snow from './Snow';
+import SocialOrnament from './SocialOrnament';
 import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
-import { PhotoData, ControlMode, ZoomLevel, InteractionMode } from '../types';
+import { PhotoData, ControlMode, ZoomLevel, InteractionMode, SocialOrnamentData } from '../types';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -27,6 +28,9 @@ interface SceneProps {
   isRecording?: boolean;
   recordingType?: 'FULL' | 'ALBUM' | null;
   userName?: string;
+  ornaments: SocialOrnamentData[];
+  newOrnamentId: string | null;
+  onOrnamentSelect: (ornament: SocialOrnamentData) => void;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -391,7 +395,10 @@ const Scene: React.FC<SceneProps> = ({
   isExploded = false,
   isRecording = false,
   recordingType = null,
-  userName = ''
+  userName = '',
+  ornaments,
+  newOrnamentId,
+  onOrnamentSelect,
 }) => {
   return (
     <Canvas
@@ -471,6 +478,14 @@ const Scene: React.FC<SceneProps> = ({
             controlMode={controlMode}
             interactionMode={interactionMode}
             isExploded={isExploded}
+          />
+        ))}
+        {ornaments.map((ornament) => (
+          <SocialOrnament
+            key={ornament.public_id}
+            ornament={ornament}
+            isNew={ornament.public_id === newOrnamentId}
+            onSelect={onOrnamentSelect}
           />
         ))}
       </group>

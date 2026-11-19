@@ -1,4 +1,4 @@
-import type { ChristmasTreeAccess, ChristmasTreeData } from '../types';
+import type { ChristmasTreeAccess, ChristmasTreeData, OrnamentCollection, OrnamentType, SocialOrnamentData } from '../types';
 
 interface ApiErrorBody {
   error?: {
@@ -73,4 +73,39 @@ export const recoverTree = (
 
 export const fetchPublicTree = (publicId: string): Promise<{ tree: ChristmasTreeData }> => {
   return request(`/api/trees/${encodeURIComponent(publicId)}`);
+};
+
+export const fetchOrnaments = (publicId: string): Promise<OrnamentCollection> => {
+  return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`);
+};
+
+export const createOrnament = (
+  publicId: string,
+  type: OrnamentType,
+  senderName: string,
+  csrfToken: string,
+  idempotencyKey: string,
+): Promise<{ ornament: SocialOrnamentData; created: boolean; capacity: number }> => {
+  return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      'X-CSRF-Token': csrfToken,
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: new URLSearchParams({ ornament_type: type, sender_name: senderName }),
+  });
+};
+
+export const deleteOrnament = (
+  treePublicId: string,
+  ornamentPublicId: string,
+  csrfToken: string,
+): Promise<{ deleted: true; ornament_public_id: string }> => {
+  return request(`/api/trees/${encodeURIComponent(treePublicId)}/ornaments/${encodeURIComponent(ornamentPublicId)}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
 };

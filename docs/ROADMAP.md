@@ -8,9 +8,9 @@ Experiência 3D integrada ao backend PHP, com build estático, responsividade, c
 
 Identidade persistente, URL pública, criação sem conta, sessão administrativa, recuperação de acesso, API e regras de segurança.
 
-## 3. Enfeites persistentes — próxima etapa
+## 3. Enfeites persistentes — concluída
 
-Salvar enfeites, fotografias autorizadas e suas posições com validação no backend.
+Enfeites sociais persistentes, slots determinísticos, criação idempotente e moderação pelo proprietário. Fotografias permanecem fora do escopo.
 
 ## 4. Mensagens secretas
 
@@ -32,4 +32,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Enfeites, fotos e mensagens não são persistidos na Etapa 02.
+Fotografias e mensagens ainda não são persistidas na Etapa 03.

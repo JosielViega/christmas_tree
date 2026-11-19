@@ -1,0 +1,21 @@
+CREATE TABLE christmas_tree_ornaments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tree_id BIGINT UNSIGNED NOT NULL,
+    public_id CHAR(12) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    ornament_type VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    ornament_color CHAR(7) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    sender_name VARCHAR(40) NOT NULL,
+    slot_index TINYINT UNSIGNED NOT NULL,
+    layout_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    idempotency_key_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY christmas_tree_ornaments_public_id_unique (public_id),
+    UNIQUE KEY christmas_tree_ornaments_tree_slot_unique (tree_id, slot_index),
+    UNIQUE KEY christmas_tree_ornaments_tree_idempotency_unique (tree_id, idempotency_key_hash),
+    KEY christmas_tree_ornaments_tree_created_index (tree_id, created_at),
+    CONSTRAINT christmas_tree_ornaments_tree_foreign FOREIGN KEY (tree_id) REFERENCES christmas_trees (id) ON DELETE CASCADE,
+    CONSTRAINT christmas_tree_ornaments_type_check CHECK (ornament_type IN ('bauble_red', 'bauble_gold', 'bauble_blue', 'heart', 'star', 'present')),
+    CONSTRAINT christmas_tree_ornaments_slot_check CHECK (slot_index < 60),
+    CONSTRAINT christmas_tree_ornaments_layout_check CHECK (layout_version = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

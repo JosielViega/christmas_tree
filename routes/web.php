@@ -6,9 +6,12 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\TreeApiController;
 use App\Controllers\TreePageController;
+use App\Controllers\TreeOrnamentApiController;
 use App\Core\Request;
 use App\Core\Response;
 use App\Repositories\PdoChristmasTreeRepository;
+use App\Repositories\PdoChristmasTreeOrnamentRepository;
+use App\Services\ChristmasTreeOrnamentService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
@@ -51,6 +54,23 @@ $treePage = new TreePageController(
     $treeIdentity,
     $treeOwnerSession,
 );
+$ornamentService = new ChristmasTreeOrnamentService(
+    $treeRepository,
+    new PdoChristmasTreeOrnamentRepository($app['database']),
+    $app['config']['ornaments']['capacity'],
+);
+$ornamentApi = new TreeOrnamentApiController(
+    $app['request'],
+    $app['csrf'],
+    $treeIdentity,
+    $ornamentService,
+    $treeOwnerSession,
+    new RateLimiter(
+        $rateLimitPath . '/ornaments',
+        $app['config']['rate_limits']['ornament_creation']['max_attempts'],
+        $app['config']['rate_limits']['ornament_creation']['window_seconds'],
+    ),
+);
 $router = $app['router'];
 
 $router->get('/', [$home, 'index']);
@@ -63,6 +83,9 @@ $router->post('/api/trees', [$treeApi, 'create']);
 $router->get('/api/trees/{public_id}', [$treeApi, 'show']);
 $router->get('/api/trees/{public_id}/admin', [$treeApi, 'admin']);
 $router->post('/api/trees/{public_id}/recover', [$treeApi, 'recover']);
+$router->get('/api/trees/{public_id}/ornaments', [$ornamentApi, 'index']);
+$router->post('/api/trees/{public_id}/ornaments', [$ornamentApi, 'store']);
+$router->delete('/api/trees/{public_id}/ornaments/{ornament_id}', [$ornamentApi, 'destroy']);
 $router->fallback(static function (Request $request) use ($app): Response {
     return Response::html($app['view']->render('pages/404', [
         'title' => 'Page not found',

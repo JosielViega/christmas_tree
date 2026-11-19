@@ -1,5 +1,6 @@
 import { Vector3, Euler } from 'three';
 import { TREE_CONFIG, SPIRAL_CONFIG } from '../constants';
+import { ORNAMENT_LAYOUT_VERSION, ORNAMENT_SLOT_COUNT } from '../constants';
 
 /**
  * Calculates a point on the conical spiral.
@@ -44,6 +45,28 @@ export const generatePhotoPositions = (count: number) => {
     });
   }
   return positions;
+};
+
+/**
+ * Immutable social ornament layout v1. Persisted records store only slot_index
+ * and layout_version; changing this formula requires a new explicit version.
+ */
+export const getOrnamentSlot = (slotIndex: number, layoutVersion: number = ORNAMENT_LAYOUT_VERSION) => {
+  if (layoutVersion !== ORNAMENT_LAYOUT_VERSION || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= ORNAMENT_SLOT_COUNT) {
+    throw new Error('Unsupported ornament slot.');
+  }
+
+  const t = 0.1 + (slotIndex / (ORNAMENT_SLOT_COUNT - 1)) * 0.78;
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const angle = slotIndex * goldenAngle + 0.35;
+  const branchRadius = TREE_CONFIG.RADIUS_BOTTOM * (1 - t);
+  const radius = Math.max(0.75, branchRadius * 0.9 + 0.2);
+  const y = t * TREE_CONFIG.HEIGHT - (TREE_CONFIG.HEIGHT / 2);
+
+  return {
+    position: [Math.cos(angle) * radius, y, Math.sin(angle) * radius] as [number, number, number],
+    rotation: [0, Math.atan2(Math.cos(angle) * radius, Math.sin(angle) * radius), 0] as [number, number, number],
+  };
 };
 
 const textureCache: Record<string, string> = {};

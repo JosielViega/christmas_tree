@@ -57,3 +57,22 @@ export interface ChristmasTreeAccess {
   public_url: string;
   recovery_code: string;
 }
+
+export type OrnamentType = 'bauble_red' | 'bauble_gold' | 'bauble_blue' | 'heart' | 'star' | 'present';
+
+export interface SocialOrnamentData {
+  public_id: string;
+  ornament_type: OrnamentType;
+  ornament_color: string;
+  sender_name: string;
+  slot_index: number;
+  layout_version: 1;
+  created_at: string;
+}
+
+export interface OrnamentCollection {
+  ornaments: SocialOrnamentData[];
+  layout_version: 1;
+  capacity: number;
+  remaining: number;
+}

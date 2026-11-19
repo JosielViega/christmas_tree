@@ -16,7 +16,7 @@ composer migrate
 composer serve
 ```
 
-O setup reserva uma porta PHP livre e não sobrescreve um `.env` existente. A migration é idempotente por arquivo e cria a tabela de identidades da Etapa 02.
+O setup reserva uma porta PHP livre e não sobrescreve um `.env` existente. As migrations criam as identidades e os enfeites sociais. Configure opcionalmente `ORNAMENT_MAX_PER_TREE` (máximo físico 60 no layout v1).
 
 ## Hot reload do React
 
@@ -54,6 +54,10 @@ O teste abre uma transação e desfaz os registros criados, mas não cria nem re
 - abrir o link em janela privada e confirmar ausência de edição;
 - recuperar acesso e confirmar que o código anterior não funciona mais;
 - verificar `/health` e `/credits`;
+- abrir uma árvore em janela privada, adicionar dois tipos de enfeite e recarregar a página;
+- confirmar que os enfeites permanecem nas mesmas posições e mostram o nome ao toque;
+- como proprietário, remover um enfeite; como visitante, confirmar que o controle não aparece;
+- preencher os 60 slots em ambiente isolado e confirmar a mensagem de árvore completa;
 - testar larguras móveis e os controles 3D existentes.
 
 Não adicione segredos ao frontend: valores compilados pelo Vite tornam-se públicos. A credencial administrativa deve permanecer apenas na sessão PHP.

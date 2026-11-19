@@ -6,7 +6,9 @@ namespace Tests;
 
 use App\Core\Database;
 use App\Repositories\PdoChristmasTreeRepository;
+use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Services\ChristmasTreeIdentityService;
+use App\Services\ChristmasTreeOrnamentService;
 use PHPUnit\Framework\TestCase;
 
 final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
@@ -26,11 +28,13 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             'charset' => 'utf8mb4',
         ]);
         $pdo = $database->connection();
-        $pdo->beginTransaction();
+        $treeId = null;
 
         try {
-            $service = new ChristmasTreeIdentityService(new PdoChristmasTreeRepository($database));
+            $treeRepository = new PdoChristmasTreeRepository($database);
+            $service = new ChristmasTreeIdentityService($treeRepository);
             $created = $service->create('Família Integração');
+            $treeId = $created->tree->id;
 
             self::assertSame('Família Integração', $service->findPublic($created->tree->publicId)?->ownerName);
             self::assertTrue($service->ownerIsAuthorized($created->tree->publicId, $created->adminToken));
@@ -41,9 +45,22 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertFalse($service->ownerIsAuthorized($created->tree->publicId, $created->adminToken));
             self::assertTrue($service->ownerIsAuthorized($created->tree->publicId, $recovered->adminToken));
             self::assertNull($service->recover($created->tree->publicId, $created->recoveryCode));
+
+            $ornaments = new ChristmasTreeOrnamentService($treeRepository, new PdoChristmasTreeOrnamentRepository($database));
+            $ornament = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16));
+            self::assertNotNull($ornament);
+            self::assertTrue($ornament->created);
+            self::assertCount(1, $ornaments->list($created->tree->publicId));
+
+            $repeated = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16));
+            self::assertFalse($repeated->created);
+            self::assertSame($ornament->ornament->publicId, $repeated->ornament->publicId);
+            self::assertTrue($ornaments->delete($created->tree->publicId, $ornament->ornament->publicId));
+            self::assertSame([], $ornaments->list($created->tree->publicId));
         } finally {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
+            if (is_int($treeId)) {
+                $cleanup = $pdo->prepare('DELETE FROM christmas_trees WHERE id = :id');
+                $cleanup->execute(['id' => $treeId]);
             }
         }
     }

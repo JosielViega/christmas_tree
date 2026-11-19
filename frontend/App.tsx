@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Gift, Loader2, Trash2, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
-import { fetchApiContext } from './api/trees';
-import { generatePhotoPositions } from './utils/math';
-import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, PhotoData } from './types';
-import { DEFAULT_PHOTOS_COUNT, PLACEHOLDER_TYPES } from './constants';
+import OrnamentDecorationModal from './components/OrnamentDecorationModal';
+import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, TreeApiError } from './api/trees';
+import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
+import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SocialOrnamentData, ZoomLevel } from './types';
+import { DEFAULT_PHOTOS_COUNT, ORNAMENT_SLOT_COUNT, PLACEHOLDER_TYPES } from './constants';
 import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
 import { useTreeInteraction } from './hooks/useTreeInteraction';
@@ -26,6 +27,14 @@ const App: React.FC = () => {
   const [userName, setUserName] = useState(initialBootstrap?.tree?.owner_name ?? '');
   const [isNameSet, setIsNameSet] = useState(Boolean(initialBootstrap?.tree));
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [ornaments, setOrnaments] = useState<SocialOrnamentData[]>([]);
+  const [ornamentCapacity, setOrnamentCapacity] = useState(ORNAMENT_SLOT_COUNT);
+  const [ornamentsLoading, setOrnamentsLoading] = useState(false);
+  const [ornamentModalOpen, setOrnamentModalOpen] = useState(false);
+  const [selectedOrnament, setSelectedOrnament] = useState<SocialOrnamentData | null>(null);
+  const [newOrnamentId, setNewOrnamentId] = useState<string | null>(null);
+  const [deletingOrnament, setDeletingOrnament] = useState(false);
+  const loadedOrnamentsFor = useRef<string | null>(null);
 
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
@@ -59,6 +68,22 @@ const App: React.FC = () => {
     }
   }, [isOwner]);
 
+  useEffect(() => {
+    if (!tree || loadedOrnamentsFor.current === tree.public_id) return;
+    loadedOrnamentsFor.current = tree.public_id;
+    setOrnamentsLoading(true);
+    fetchOrnaments(tree.public_id)
+      .then((collection) => {
+        setOrnaments(collection.ornaments);
+        setOrnamentCapacity(collection.capacity);
+      })
+      .catch(() => {
+        loadedOrnamentsFor.current = null;
+        showToast('Não foi possível carregar os enfeites desta árvore.', 'error');
+      })
+      .finally(() => setOrnamentsLoading(false));
+  }, [tree, showToast]);
+
   const { isMusicPlaying, toggleMusic, audioRef } = useAudio();
   const { isRecording, recordingType, handleRecordVideo } = useRecording(photos, (message) => showToast(message, 'error'));
   const {
@@ -90,7 +115,59 @@ const App: React.FC = () => {
     setIsNameSet(true);
     setInteractionMode(InteractionMode.VIEW);
     setReceipt(normalizedAccess);
+    setOrnaments([]);
+    loadedOrnamentsFor.current = null;
     window.history.pushState({}, '', access.public_path);
+  };
+
+  const focusOrnament = (ornament: SocialOrnamentData) => {
+    const slot = getOrnamentSlot(ornament.slot_index, ornament.layout_version);
+    setSelectedOrnament(ornament);
+    setFocusedPhoto({
+      id: `ornament-${ornament.public_id}`,
+      url: '',
+      position: slot.position,
+      rotation: slot.rotation,
+    });
+    setZoomLevel(ZoomLevel.ZOOMED_IN);
+  };
+
+  const handleCreateOrnament = async (type: OrnamentType, senderName: string, idempotencyKey: string) => {
+    if (!tree) throw new Error('Árvore não encontrada.');
+    try {
+      const response = await createOrnament(tree.public_id, type, senderName, csrfToken, idempotencyKey);
+      setOrnamentCapacity(response.capacity);
+      setOrnaments((current) => current.some((item) => item.public_id === response.ornament.public_id)
+        ? current
+        : [...current, response.ornament]);
+      setNewOrnamentId(response.ornament.public_id);
+      window.setTimeout(() => setNewOrnamentId(null), 5000);
+      focusOrnament(response.ornament);
+      return response.ornament;
+    } catch (caught) {
+      if (caught instanceof TreeApiError) {
+        throw new Error(caught.fields.sender_name?.[0] ?? caught.fields.ornament_type?.[0] ?? caught.message);
+      }
+      throw caught;
+    }
+  };
+
+  const handleDeleteOrnament = async () => {
+    if (!tree || !selectedOrnament || !isOwner || deletingOrnament) return;
+    if (!window.confirm(`Remover o enfeite deixado por ${selectedOrnament.sender_name}?`)) return;
+    setDeletingOrnament(true);
+    try {
+      await deleteOrnament(tree.public_id, selectedOrnament.public_id, csrfToken);
+      setOrnaments((current) => current.filter((item) => item.public_id !== selectedOrnament.public_id));
+      setSelectedOrnament(null);
+      setFocusedPhoto(null);
+      scrollToTop();
+      showToast('Enfeite removido.', 'success');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'Não foi possível remover o enfeite.', 'error');
+    } finally {
+      setDeletingOrnament(false);
+    }
   };
 
   const handleDoubleClick = (event: React.MouseEvent) => {
@@ -168,6 +245,9 @@ const App: React.FC = () => {
         isRecording={isRecording}
         recordingType={recordingType}
         userName={userName}
+        ornaments={ornaments}
+        newOrnamentId={newOrnamentId}
+        onOrnamentSelect={focusOrnament}
       />
 
       <Overlay
@@ -204,6 +284,40 @@ const App: React.FC = () => {
 
       {!initializing && (!tree || receipt) && (
         <TreeOnboarding csrfToken={csrfToken} receipt={receipt} onAccess={handleAccess} onCloseReceipt={() => setReceipt(null)} />
+      )}
+
+      {tree && !receipt && !isRecording && (
+        <button
+          type="button"
+          onClick={() => setOrnamentModalOpen(true)}
+          disabled={ornamentsLoading || ornaments.length >= ornamentCapacity}
+          className="fixed bottom-24 left-1/2 z-[70] min-h-12 -translate-x-1/2 rounded-full border border-[#fff1a1]/30 bg-[#07120d]/85 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl transition hover:bg-[#10271c] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎁 Decorar esta árvore'}
+        </button>
+      )}
+
+      {ornamentModalOpen && tree && (
+        <OrnamentDecorationModal
+          treeOwnerName={tree.owner_name}
+          remaining={Math.max(0, ornamentCapacity - ornaments.length)}
+          onClose={() => setOrnamentModalOpen(false)}
+          onSubmit={handleCreateOrnament}
+        />
+      )}
+
+      {selectedOrnament && !ornamentModalOpen && (
+        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto" onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" onClick={() => { setSelectedOrnament(null); setFocusedPhoto(null); scrollToTop(); }} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Fechar"><X size={17} /></button>
+          <Gift className="mx-auto text-[#fff1a1]" size={24} />
+          <p className="mt-2 font-semibold">🎄 Enfeite de {selectedOrnament.sender_name}</p>
+          <p className="mt-1 text-xs text-white/45">Posição {selectedOrnament.slot_index + 1} de {ORNAMENT_SLOT_COUNT}</p>
+          {isOwner && (
+            <button type="button" onClick={handleDeleteOrnament} disabled={deletingOrnament} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/25 bg-red-400/10 px-4 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/20 disabled:opacity-50">
+              {deletingOrnament ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Remover enfeite
+            </button>
+          )}
+        </div>
       )}
 
       {toast && (

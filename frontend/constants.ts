@@ -62,6 +62,9 @@ export const PLACEHOLDER_TYPES = {
 
 export const DEFAULT_PHOTOS_COUNT = 30;
 
+export const ORNAMENT_LAYOUT_VERSION = 1 as const;
+export const ORNAMENT_SLOT_COUNT = 60;
+
 // Instagram import is intentionally disabled in Stage 01. The original hook is
 // retained for future work, but the initial application never calls it.
 export const INSTAGRAM_WEBHOOK_URL = '';

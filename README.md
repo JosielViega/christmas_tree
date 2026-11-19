@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais e compartilháveis. A Etapa 02 acrescenta identidade persistente, URL pública e acesso administrativo sem conta à experiência visual criada na Etapa 01.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 03 permite que visitantes deixem enfeites 3D persistentes, mantendo a identidade e o acesso seguro criados na Etapa 02.
 
-## Estado da Etapa 02
+## Estado da Etapa 03
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -11,7 +11,12 @@ Aplicativo natalino com árvores 3D individuais e compartilháveis. A Etapa 02 a
 - criação e recuperação protegidas por CSRF, validação e rate limiting;
 - visitantes podem visualizar, mas os controles de edição ficam disponíveis somente ao responsável;
 - React + TypeScript continuam compilados pelo Vite para assets estáticos servidos pelo PHP;
-- enfeites, fotografias e mensagens ainda não são persistidos nesta etapa.
+- visitantes podem escolher entre seis enfeites e associar seu nome;
+- até 60 posições determinísticas (`layout_version=1`) são controladas pelo backend;
+- enfeites reaparecem no mesmo galho e podem ser tocados para identificar quem os deixou;
+- o proprietário pode remover participações após confirmação;
+- transações, índice único de slot, idempotência e rate limiting protegem envios concorrentes;
+- fotografias e mensagens não são persistidas nesta etapa.
 
 ## Stack e estrutura
 
@@ -66,6 +71,8 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 3. Compartilhe a URL `/t/{public_id}`. O link público não concede edição.
 4. No mesmo navegador, a sessão identifica o responsável.
 5. Para recuperar o acesso em outro navegador, use o link/ID e o código. O código antigo é invalidado e um novo é emitido.
+6. Visitantes usam “Decorar esta árvore”, escolhem o enfeite e informam seu nome.
+7. O proprietário toca em um enfeite para identificá-lo ou removê-lo.
 
 ## Rotas e API
 
@@ -76,6 +83,9 @@ O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` com
 - `GET /api/trees/{public_id}` — dados públicos;
 - `GET /api/trees/{public_id}/admin` — confirma acesso administrativo da sessão;
 - `POST /api/trees/{public_id}/recover` — recupera acesso e rotaciona credenciais;
+- `GET /api/trees/{public_id}/ornaments` — lista enfeites e capacidade;
+- `POST /api/trees/{public_id}/ornaments` — adiciona participação com `Idempotency-Key`;
+- `DELETE /api/trees/{public_id}/ornaments/{ornament_id}` — remoção exclusiva do proprietário;
 - `GET /credits` e `GET /health` — créditos e health check.
 
 As APIs usam envelopes JSON consistentes: `{ "data": ... }` em sucesso e `{ "error": { "code", "message", "fields?" } }` em erro. Tokens administrativos e hashes nunca fazem parte das respostas públicas.
@@ -100,8 +110,8 @@ CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRep
 
 O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `composer deploy:hostgator`, revise `deploy/hostgator/build-info.json` e copie manualmente o mirror. O builder não publica arquivos e não executa migrations.
 
-No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
+No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 
 ## Escopo futuro
 
-Persistência de enfeites/fotos, mensagens secretas, compartilhamento social avançado e evolução visual pertencem às próximas etapas. A Etapa 02 persiste somente a identidade da árvore e suas credenciais de acesso.
+Mensagens secretas, fotografias persistentes, rankings, compartilhamento social avançado e novos cenários pertencem às próximas etapas.

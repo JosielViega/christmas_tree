@@ -13,6 +13,9 @@ return [
         'name' => (string) env('SESSION_NAME', 'christmas_tree_session'),
         'secure' => (bool) env('SESSION_SECURE', false),
     ],
+    'ornaments' => [
+        'capacity' => (int) env('ORNAMENT_MAX_PER_TREE', 60),
+    ],
     'rate_limits' => [
         'tree_creation' => [
             'max_attempts' => (int) env('TREE_CREATE_RATE_LIMIT', 5),
@@ -21,6 +24,10 @@ return [
         'tree_recovery' => [
             'max_attempts' => (int) env('TREE_RECOVERY_RATE_LIMIT', 10),
             'window_seconds' => (int) env('TREE_RECOVERY_RATE_WINDOW', 900),
+        ],
+        'ornament_creation' => [
+            'max_attempts' => (int) env('ORNAMENT_CREATE_RATE_LIMIT', 12),
+            'window_seconds' => (int) env('ORNAMENT_CREATE_RATE_WINDOW', 900),
         ],
     ],
 ];
