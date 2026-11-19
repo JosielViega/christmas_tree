@@ -9,30 +9,28 @@ npm --prefix frontend ci
 npm --prefix frontend run build
 ```
 
-O setup original reserva uma porta PHP livre entre 8010 e 8999 e grava apenas a associação local em `%USERPROFILE%\.modeloPHP\ports.json` (Windows) ou `~/.modeloPHP/ports.json` (Linux/macOS). Ele não encerra processos nem sobrescreve um `.env` existente.
-
-## Aplicação integrada
+Crie um banco MySQL vazio, configure as variáveis `DB_*` no `.env` e execute:
 
 ```bash
+composer migrate
 composer serve
 ```
 
-O servidor embutido usa a porta de `APP_PORT`. A página `/` lê os arquivos compilados de `public/assets/app`; por isso execute um build após mudanças no frontend.
+O setup reserva uma porta PHP livre e não sobrescreve um `.env` existente. A migration é idempotente por arquivo e cria a tabela de identidades da Etapa 02.
 
 ## Hot reload do React
+
+Mantenha `composer serve` ativo e, em outro terminal:
 
 ```bash
 npm --prefix frontend run dev
 ```
 
-O Vite tenta usar `127.0.0.1:5173` e informa outra porta se ela já estiver ocupada. Use a URL impressa no terminal. O Vite não é requisito de produção.
+O proxy do Vite encaminha `/api` ao valor de `APP_URL`; se ele não estiver definido, usa `http://127.0.0.1:8010`. A página integrada usa os arquivos compilados, então refaça o build após mudanças no frontend.
 
-## Verificações
+## Testes
 
 ```bash
-composer validate --strict
-composer lint
-composer test
 composer check
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
@@ -40,4 +38,22 @@ npm --prefix frontend audit
 git diff --check
 ```
 
-Não adicione segredos ao frontend: valores compilados pelo Vite tornam-se públicos. Nesta etapa nenhum token ou webhook é necessário.
+O conjunto padrão usa repository em memória e não toca no MySQL. Para validar PDO e a migration, use exclusivamente um banco descartável/isolado:
+
+```bash
+composer migrate
+CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRepositoryIntegrationTest
+```
+
+O teste abre uma transação e desfaz os registros criados, mas não cria nem remove o banco. Nunca habilite essa flag apontando para produção.
+
+## Checklist funcional
+
+- criar duas árvores com o mesmo nome e confirmar URLs diferentes;
+- salvar o código mostrado no recibo de criação;
+- abrir o link em janela privada e confirmar ausência de edição;
+- recuperar acesso e confirmar que o código anterior não funciona mais;
+- verificar `/health` e `/credits`;
+- testar larguras móveis e os controles 3D existentes.
+
+Não adicione segredos ao frontend: valores compilados pelo Vite tornam-se públicos. A credencial administrativa deve permanecer apenas na sessão PHP.

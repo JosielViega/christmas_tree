@@ -63,4 +63,23 @@ final class Request
     {
         return ($this->server['HTTPS'] ?? '') !== '' && ($this->server['HTTPS'] ?? '') !== 'off';
     }
+
+    public function header(string $name, mixed $default = null): mixed
+    {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+
+        return $this->server[$key] ?? $default;
+    }
+
+    public function contentLength(): int
+    {
+        return max(0, (int) ($this->server['CONTENT_LENGTH'] ?? 0));
+    }
+
+    public function ipAddress(): string
+    {
+        $address = (string) ($this->server['REMOTE_ADDR'] ?? 'unknown');
+
+        return filter_var($address, FILTER_VALIDATE_IP) !== false ? $address : 'unknown';
+    }
 }

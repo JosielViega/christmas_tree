@@ -5,6 +5,7 @@ declare(strict_types=1);
 /** @var string $content */
 /** @var string $title */
 /** @var array{script: string, styles: list<string>} $frontend */
+/** @var string $frontendBootstrap */
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -18,6 +19,7 @@ declare(strict_types=1);
 <?php foreach ($frontend['styles'] as $stylesheet): ?>
     <link rel="stylesheet" href="<?= e($stylesheet) ?>">
 <?php endforeach; ?>
+    <script>window.__CHRISTMAS_TREE_BOOTSTRAP__ = <?= $frontendBootstrap ?>;</script>
     <script type="module" src="<?= e($frontend['script']) ?>" defer></script>
 </head>
 <body>

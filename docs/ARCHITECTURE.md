@@ -1,68 +1,52 @@
 # Arquitetura
 
-O Christmas Tree mantém a arquitetura sem framework do `modeloPHP`. O PHP é a aplicação principal, controla rotas e respostas e serve um frontend React compilado como arquivos estáticos.
+O Christmas Tree mantém a arquitetura sem framework do `modeloPHP`. O PHP controla rotas, autorização e persistência; o React compilado cuida da experiência 3D.
 
-## Fluxo HTTP
+## Fluxos HTTP
 
 ```text
 Browser
-  -> public/index.php
-  -> bootstrap/app.php
-  -> routes/web.php
-  -> HomeController
-  -> FrontendAssets
-  -> manifesto Vite
-  -> View + layout Christmas Tree
+  -> public/index.php -> Router
+       -> HomeController / TreePageController -> view + bootstrap seguro
+       -> TreeApiController
+            -> ChristmasTreeIdentityService
+                 -> ChristmasTreeRepository
+                      -> PDO MySQL
 ```
 
-`App\Core\FrontendAssets` lê `public/assets/app/.vite/manifest.json`, localiza a entrada `index.html` e produz URLs sob `/assets/app/`. Assim, hashes gerados pelo Vite podem mudar sem alterações manuais nas views.
+`App\Core\FrontendAssets` lê o manifesto Vite em `public/assets/app/.vite/manifest.json`. As rotas `/` e `/t/{public_id}` entregam a mesma aplicação React, com um bootstrap JSON contendo apenas dados públicos, estado de proprietário e CSRF.
 
-As rotas PHP continuam explícitas. Arquivos existentes dentro de `public/` são servidos diretamente pelo Apache ou pelo router do servidor PHP; qualquer outra URL segue para o front controller. Não há roteamento SPA nesta etapa, portanto não existe conflito entre rotas React e PHP.
+## Modelo da árvore
+
+A migration `202611190001_create_christmas_trees.sql` cria `christmas_trees` com:
+
+- `public_id`: identificador público aleatório, único e não sequencial;
+- `owner_name`, `theme`, `status` e timestamps;
+- hashes SHA-256 de tokens administrativos e de recuperação.
+
+O nome não é único: pessoas com o mesmo nome recebem IDs distintos. Não existem tabelas de enfeites, fotos ou mensagens nesta etapa.
+
+## Acesso sem conta
+
+Na criação, o service gera três valores independentes: ID público (9 bytes/72 bits), token administrativo (32 bytes/256 bits) e código de recuperação (32 bytes/256 bits). Somente hashes dos dois segredos são gravados. O token administrativo bruto permanece na sessão PHP do responsável e nunca é entregue pela API.
+
+O código de recuperação aparece uma única vez ao usuário. Quando usado, o backend compara o hash em tempo constante e rotaciona tanto o token administrativo quanto o código de recuperação em uma atualização condicional. Isso torna o código anterior inválido e evita dupla recuperação concorrente.
+
+## Fronteiras das camadas
+
+- controllers traduzem HTTP, CSRF, limites e envelopes JSON;
+- `ChristmasTreeIdentityService` concentra validação, geração de identidade e autorização;
+- `ChristmasTreeRepository` define o contrato de persistência;
+- `PdoChristmasTreeRepository` usa prepared statements e não expõe hashes em consultas públicas;
+- `TreeOwnerSession` isola o segredo administrativo na sessão;
+- `RateLimiter` usa arquivos com lock em `storage/cache/rate-limits`, compatível com hospedagem compartilhada.
 
 ## Frontend 3D
 
-`frontend/App.tsx` compõe a experiência. Os componentes reutilizados são:
+`frontend/App.tsx` inicializa o contexto vindo do PHP, mantém o Canvas renderizado e sobrepõe a criação/recuperação. `Overlay` mostra a identidade da árvore e só oferece edição ao proprietário. Dados administrativos não são persistidos em `localStorage`.
 
-- `Scene`: Canvas, câmera, iluminação, controles e pós-processamento;
-- `TreeMesh`: agulhas da árvore com instancing;
-- `SpiralDecor`: cordão luminoso, bolas e enfeites;
-- `Star`: estrela, brilho e animação;
-- `Snow`: partículas de neve;
-- `Presents`: presentes procedurais;
-- `Polaroid`: fotos e interação;
-- `Overlay`: controles, nome, edição, exportação e gravação.
+O Vite grava diretamente em `public/assets/app/`; o diretório compilado é versionado para produção sem Node.js. Em desenvolvimento, o proxy `/api` aponta para o backend PHP.
 
-Texturas decorativas são geradas em Canvas. A iluminação de reflexão usa `Environment` com `Lightformer`, evitando o download do preset remoto original. A fonte e a música são assets locais.
+## Produção
 
-## Recursos externos desativados
-
-O código de `HandController`, `InstagramModal`, `useInstagram` e `useVisitCounter` foi mantido como referência, mas não é importado pelo `App` da Etapa 01. Não há solicitação de câmera, webhook, contador, analytics ou fetch automático para GitHub. A reativação exige uma decisão de produto, análise de privacidade e testes próprios.
-
-## Build e produção
-
-```text
-frontend/ --npm run build--> public/assets/app/
-                                  |
-                                  +-- .vite/manifest.json
-                                  +-- assets/*.js
-                                  +-- assets/*.css
-                                  +-- fonts, music, favicon
-```
-
-O diretório compilado é versionado para que o checkout seja executável em hospedagem PHP mesmo sem Node.js. O processo de mirror recompila antes de empacotar e valida a presença do manifesto.
-
-`frontend/` e `node_modules/` nunca são necessários em produção. O mirror copia somente os caminhos definidos em `deploy/hostgator/config/deploy.php` e instala `vendor/` sem dependências de desenvolvimento.
-
-## Evolução backend
-
-Futuras funcionalidades devem seguir o fluxo do template:
-
-1. rota HTTP explícita;
-2. controller pequeno;
-3. validação e autorização no backend;
-4. repository para SQL preparado;
-5. service somente quando houver regra ou integração significativa;
-6. resposta JSON ou view;
-7. teste do comportamento fundamental.
-
-Não há migration de domínio, autenticação ou persistência social na Etapa 01.
+O mirror HostGator inclui app, migration, views, rotas, assets compilados e dependências PHP de produção. Exclui `.env`, frontend fonte, testes, logs, cache e uploads. A migration é executada separadamente e o diretório `storage/cache` precisa ser gravável pelo PHP.

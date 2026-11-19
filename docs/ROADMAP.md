@@ -1,14 +1,14 @@
 # Roadmap
 
-## 1. Fundação visual 3D
+## 1. Fundação visual 3D — concluída
 
-Integrar e estabilizar a experiência 3D sobre o backend PHP, com build estático, responsividade, créditos e pacote de produção. Esta é a etapa atual.
+Experiência 3D integrada ao backend PHP, com build estático, responsividade, créditos e pacote de produção.
 
-## 2. Árvores individuais
+## 2. Árvores individuais — concluída
 
-Criar identidade e URL próprias para cada árvore, com modelo de dados e regras de acesso.
+Identidade persistente, URL pública, criação sem conta, sessão administrativa, recuperação de acesso, API e regras de segurança.
 
-## 3. Enfeites persistentes
+## 3. Enfeites persistentes — próxima etapa
 
 Salvar enfeites, fotografias autorizadas e suas posições com validação no backend.
 
@@ -32,4 +32,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Nenhuma funcionalidade das etapas 2 a 8 faz parte da Etapa 01.
+Enfeites, fotos e mensagens não são persistidos na Etapa 02.

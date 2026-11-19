@@ -1,44 +1,43 @@
 # Segurança
 
-Estas regras são requisitos do projeto, não sugestões:
+## Identidade e autorização da árvore
 
-1. Nunca versionar secrets, credenciais, certificados privados ou dados reais.
-2. Usar `.env` local e manter apenas `.env.example` no Git.
-3. Nunca armazenar senha em texto puro.
-4. Gerar hashes de senha com `password_hash()`.
-5. Conferir senhas com `password_verify()`.
-6. Usar prepared statements PDO para valores.
-7. Nunca concatenar entrada em SQL; tabela, coluna e `ORDER BY` dinâmicos exigem whitelist.
-8. Escapar saída HTML dinâmica com `e()` por padrão.
-9. Exigir CSRF em toda ação que muda estado.
-10. Validar autenticação e autorização no backend para cada recurso.
-11. Validar upload por erro, limite de tamanho, MIME real via `finfo`, extensão permitida, nome aleatório e destino.
-12. Nunca confiar apenas em validação JavaScript.
-13. Não expor exceptions, stack traces, SQL ou caminhos internos em produção.
-14. Usar cookies HttpOnly, SameSite e Secure sob HTTPS.
-15. Não usar GET para criar, alterar ou excluir dados.
-16. Instalar dependências PHP somente via Composer e manter um único `vendor/`.
-17. Atualizar dependências conscientemente, revisar changelogs e versionar `composer.lock`.
-18. Não expor `.env`; o Document Root deve ser `public/`.
-19. Não versionar logs e evitar dados pessoais ou secrets neles.
-20. Não versionar uploads de usuários e impedir execução de scripts no diretório.
+- O `public_id` identifica e compartilha a árvore, mas nunca concede edição.
+- O token administrativo possui 256 bits aleatórios, é armazenado em hash SHA-256 no MySQL e em formato bruto somente na sessão PHP do responsável.
+- O código de recuperação também possui 256 bits, é exibido uma única vez, armazenado somente em hash e rotacionado após uso.
+- Comparações de credenciais usam `hash_equals`; a rotação usa update condicional para impedir reuso concorrente.
+- Criação regenera o ID da sessão. Cookies devem ser `HttpOnly`, `SameSite=Lax` e `Secure` em produção.
+- O backend valida autorização em cada endpoint administrativo; ocultar controles no React é apenas uma camada de UX.
 
-## Sessão e autenticação futura
+## Entrada e abuso
 
-Regenerar o ID da sessão após login e mudança de privilégio. Não guardar senha, segredo externo ou token reutilizável em cookie. Um futuro “remember me” deve usar token aleatório, armazenado de forma segura, com expiração e revogação.
+- Toda mutação exige CSRF válido.
+- O nome é normalizado, limitado a 2–60 caracteres Unicode e rejeita caracteres de controle.
+- IDs públicos aceitam somente 12 caracteres base64url.
+- Corpos de criação/recuperação são limitados a 4 KiB.
+- Criação e recuperação possuem rate limiting por IP em arquivos bloqueados com `flock`.
+- SQL usa prepared statements; erros externos são genéricos e não revelam credenciais ou existência administrativa.
+
+Os limites padrão podem ser ajustados com `TREE_CREATE_RATE_LIMIT`, `TREE_CREATE_RATE_WINDOW`, `TREE_RECOVERY_RATE_LIMIT` e `TREE_RECOVERY_RATE_WINDOW`. `storage/cache/rate-limits` deve existir ou poder ser criado pelo usuário PHP.
+
+## Regras gerais
+
+1. Nunca versionar `.env`, credenciais, certificados, logs ou dados reais.
+2. Usar PDO preparado para valores e whitelist para identificadores SQL dinâmicos.
+3. Escapar HTML dinâmico; o bootstrap JSON usa flags `JSON_HEX_*`.
+4. Nunca confiar apenas em validação JavaScript.
+5. Não expor exceptions, stack traces, SQL ou caminhos internos em produção.
+6. Não usar GET para mutações.
+7. Manter o Document Root em `public/` e bloquear execução em uploads.
+8. Atualizar dependências conscientemente e versionar lockfiles.
+9. Evitar segredos e dados pessoais em logs e backups.
 
 ## Produção
 
-Configure `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true`, HTTPS e permissões mínimas. O usuário recebe erro genérico com referência; detalhes ficam em `storage/logs`. Proteja também logs e backups no servidor.
+Configure `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true` e HTTPS. Use um usuário MySQL dedicado com privilégios mínimos, proteja o `.env`, restrinja permissões de `storage` e mantenha backup antes de migrations.
 
-## Uploads futuros
+O builder HostGator usa allowlist e não transmite arquivos nem executa migrations. `.env`, cache, logs e uploads permanecem específicos de cada instalação.
 
-O template apenas prepara `public/uploads` e bloqueia extensões PHP via Apache. Antes de aceitar arquivos, imponha tamanho máximo, use `finfo` no conteúdo, mapeie MIME a extensões permitidas, gere nomes com `random_bytes`, impeça sobrescrita e prefira armazenamento fora do Document Root quando downloads puderem passar por autorização.
+## Escopo ainda não protegido
 
-## Processos periódicos
-
-Tarefas críticas não devem rodar durante uma visita HTTP. Use cron chamando script CLI dedicado quando esse requisito surgir.
-
-## Mirror de produção
-
-O builder HostGator usa allowlist e falha se detectar configurações do servidor, secrets, certificados ou diretórios de dados no mirror. `.env`, `.htaccess`, uploads, logs e cache permanecem próprios de cada instalação. O builder não transmite arquivos e não executa migrations.
+Uploads e mensagens persistentes não fazem parte da Etapa 02. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido, moderação e autorização por recurso.

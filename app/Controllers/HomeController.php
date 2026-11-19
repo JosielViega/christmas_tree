@@ -27,12 +27,19 @@ final class HomeController
 
     public function index(): Response
     {
+        $bootstrap = TreePageController::encodeBootstrap([
+            'csrf_token' => $this->csrf->token(),
+            'tree' => null,
+            'is_owner' => false,
+        ]);
+
         return Response::html($this->view->render('pages/home', [
             'title' => 'Christmas Tree',
             'appName' => $this->appConfig['name'],
             'csrfField' => $this->csrf->field(),
             'flashes' => $this->session->consumeFlash(),
             'frontend' => $this->frontendAssets->entry('index.html'),
+            'frontendBootstrap' => $bootstrap,
         ], 'layouts/christmas-tree'));
     }
 

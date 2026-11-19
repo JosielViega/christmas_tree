@@ -24,6 +24,8 @@ interface OverlayProps {
   isRecording: boolean;
   isExploded?: boolean;
   visitCount: number;
+  canEdit: boolean;
+  treeOwnerName: string | null;
 }
 
 const PeaceIcon = ({ className }: { className?: string }) => (
@@ -54,7 +56,9 @@ const Overlay: React.FC<OverlayProps> = ({
   onRecordVideo,
   isRecording,
   isExploded,
-  visitCount
+  visitCount,
+  canEdit,
+  treeOwnerName,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -129,9 +133,14 @@ const Overlay: React.FC<OverlayProps> = ({
           <h1 className="text-3xl md:text-6xl text-[#fff1a1] leading-tight" style={{ fontFamily: "'Great Vibes', cursive", textShadow: '0 0 20px rgba(255, 241, 161, 0.5)' }}>
             Merry Christmas{userName ? ` ${userName}` : ''}!
           </h1>
+          {treeOwnerName && (
+            <p className="mt-1 inline-flex rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60 backdrop-blur-md">
+              🎄 Árvore de Natal de {treeOwnerName}
+            </p>
+          )}
         </div>
 
-        {!isRecording && !isNameSet && showUI && (
+        {!isRecording && !isNameSet && showUI && canEdit && (
           <div className="pointer-events-auto mt-4 flex flex-col items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-700">
             <p className="text-[#fff1a1]/60 text-[10px] uppercase tracking-[0.2em] font-bold">What's your name?</p>
             <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md rounded-full px-4 py-1.5 border border-white/10 shadow-lg group focus-within:border-white/30 transition-all">
@@ -305,7 +314,7 @@ const Overlay: React.FC<OverlayProps> = ({
                 <div className="hidden md:block w-px h-4 bg-white/10 mx-1"></div>
 
                 {/* Interaction Mode Toggle */}
-                <div className="flex bg-white/5 rounded-full p-0.5 scale-90 md:scale-100">
+                {canEdit && <div className="flex bg-white/5 rounded-full p-0.5 scale-90 md:scale-100">
                   <button
                     onClick={() => setInteractionMode(InteractionMode.VIEW)}
                     className={`flex items-center gap-1 md:gap-2 px-2.5 md:px-4 py-1 md:py-1.5 rounded-full transition-all ${interactionMode === InteractionMode.VIEW ? 'bg-[#f2e24e] text-black shadow-lg' : 'text-white hover:bg-white/10'
@@ -322,7 +331,7 @@ const Overlay: React.FC<OverlayProps> = ({
                     <Edit3 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                     <span className="text-[9px] md:text-xs font-medium">Edit</span>
                   </button>
-                </div>
+                </div>}
 
                 <div className="hidden md:block w-px h-4 bg-white/10 mx-1"></div>
 
@@ -379,18 +388,22 @@ const Overlay: React.FC<OverlayProps> = ({
                 )}
 
                 {/* Local Upload */}
-                <button
-                  onClick={triggerBulkUpload}
-                  className="flex items-center gap-1 md:gap-2 px-2.5 md:px-5 py-1.5 md:py-2 rounded-full transition-all text-white hover:bg-white/10"
-                >
-                  <ImagePlus className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#f2e24e]" />
-                  <span className="text-[9px] md:text-sm font-medium whitespace-nowrap text-white/90">
-                    <span className="md:hidden">Add</span>
-                    <span className="hidden md:inline">Add Photos</span>
-                  </span>
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={triggerBulkUpload}
+                      className="flex items-center gap-1 md:gap-2 px-2.5 md:px-5 py-1.5 md:py-2 rounded-full transition-all text-white hover:bg-white/10"
+                    >
+                      <ImagePlus className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#f2e24e]" />
+                      <span className="text-[9px] md:text-sm font-medium whitespace-nowrap text-white/90">
+                        <span className="md:hidden">Add</span>
+                        <span className="hidden md:inline">Add Photos</span>
+                      </span>
+                    </button>
 
-                <div className="w-px h-4 md:h-6 bg-white/10 mx-0.5"></div>
+                    <div className="w-px h-4 md:h-6 bg-white/10 mx-0.5"></div>
+                  </>
+                )}
 
                 {/* Video Download Dropdown */}
                 <div className="relative group">

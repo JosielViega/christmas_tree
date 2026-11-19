@@ -62,10 +62,10 @@ Os exemplos em `server-config-examples/` ficam fora do mirror e não se chamam `
 4. Crie o `.env` diretamente no servidor com `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true` e credenciais próprias.
 5. Configure a versão adequada do PHP pelo cPanel.
 6. Mescle manualmente as regras necessárias dos exemplos nos `.htaccess` já existentes.
-7. Crie `storage/logs`, `storage/cache` e `public/uploads` quando necessários e aplique permissões mínimas de escrita ao usuário PHP.
+7. Crie `storage/logs`, `storage/cache` e `public/uploads` quando necessários e aplique permissões mínimas de escrita ao usuário PHP. O rate limiter da criação/recuperação grava em `storage/cache/rate-limits`.
 8. Crie o banco e o usuário no painel da hospedagem.
 9. Execute migrations separadamente e de forma consciente, com backup disponível.
-10. Teste home 3D, assets versionados, `/credits`, health check, erros, sessão e escrita em log.
+10. Teste a criação de uma árvore, a URL `/t/{public_id}`, a recuperação em outro navegador, `/credits`, health check, sessão e escrita em cache/log.
 
 Não há caminho absoluto de conta embutido no template.
 

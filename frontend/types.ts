@@ -34,3 +34,26 @@ export interface HandTrackingResult {
 // Custom Event Types for 3D interactions
 export type PhotoUploadHandler = (id: string, file: File) => void;
 export type BulkUploadHandler = (files: FileList) => void;
+
+export interface ChristmasTreeData {
+  public_id: string;
+  owner_name: string;
+  theme: 'classic';
+  status: 'active';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChristmasTreeBootstrap {
+  csrf_token: string;
+  tree: ChristmasTreeData | null;
+  is_owner: boolean;
+}
+
+export interface ChristmasTreeAccess {
+  tree: ChristmasTreeData;
+  is_owner: true;
+  public_path: string;
+  public_url: string;
+  recovery_code: string;
+}
