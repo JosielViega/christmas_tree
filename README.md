@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 07 acrescenta um cenário noturno leve com passagem ocasional do Papai Noel, estrelas cadentes e adaptação de desempenho, preservando a árvore e sua progressão como protagonistas.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 07B.1 acrescenta uma prévia experimental que transforma localmente uma fotografia em papel de presente 3D, sem upload, persistência ou pagamento.
 
-## Estado da Etapa 07
+## Estado da Etapa 07B.1
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -41,6 +41,14 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - os efeitos ocasionais são suspensos durante captura PNG e vídeo, retomando seu relógio depois da restauração da câmera;
 - `prefers-reduced-motion` desativa as animações atmosféricas, enquanto dispositivos modestos usam somente oito partículas no rastro em vez de dezoito;
 - o monitor de desempenho pode reduzir ou desligar os novos efeitos opcionais e ajustar o DPR, sem alterar os limites da progressão social.
+- em desenvolvimento, a opção “Experimentar presente personalizado” abre uma prévia isolada e temporária;
+- JPEG, PNG e WebP são validados pela assinatura real, limitados por padrão a 8 MB e decodificados com orientação do arquivo;
+- fotografias são recortadas proporcionalmente e compostas em texturas Canvas 2D de 512×512, sem modificar rostos;
+- os estilos Natal clássico, Natal mágico e Romântico podem usar foto repetida ou foto em destaque;
+- a caixa, materiais físicos, fitas e laço existentes são reutilizados, enquanto a cena principal fica congelada durante a prévia;
+- trocar estilo não decodifica novamente a fotografia, e fechar ou substituir a foto libera bitmap, Object URL e texturas;
+- produção mantém a entrada desabilitada, salvo build explícito com `VITE_ENABLE_GIFT_PREVIEW=true`;
+- a demonstração não cria pedido, compra, presente público ou registro no banco.
 
 ## Stack e estrutura
 
@@ -87,6 +95,8 @@ npm --prefix frontend run dev
 ```
 
 O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` como fallback).
+
+O protótipo de embalagem aparece automaticamente no modo de desenvolvimento. Em build de produção ele fica desabilitado por padrão; para uma demonstração consciente, defina `VITE_ENABLE_GIFT_PREVIEW=true` **antes** de executar o build. `VITE_GIFT_PHOTO_MAX_BYTES` controla o limite local em bytes, limitado internamente a 32 MB. Essas opções são incorporadas ao JavaScript no build e não habilitam upload no PHP.
 
 ## Fluxo de uso
 
@@ -156,6 +166,20 @@ Sem automação gráfica, conferir em desktop e em pelo menos um celular real:
 - captura PNG e vídeo vertical não incluem aparições parciais e restauram normalmente câmera e efeitos;
 - dispositivos modestos não apresentam travamentos, aquecimento ou queda visual evidente.
 
+### Validação visual manual da Etapa 07B.1
+
+Sem automação gráfica, conferir em desktop e em pelo menos um celular real:
+
+- entrada experimental aparece em desenvolvimento e permanece ausente no build de produção padrão;
+- fotografias JPEG, PNG e WebP, incluindo retratos com orientação EXIF, aparecem sem rotação ou distorção;
+- cada estilo mantém identidade própria e ambos os modos parecem papel de presente, não um porta-retrato genérico;
+- foto permanece abaixo das fitas e do laço, com orientação legível na face frontal;
+- giro, zoom por roda e gesto de pinça funcionam sem mover a câmera da árvore;
+- trocar repetidamente estilo, modo e fotografia não causa travamentos ou aumento contínuo perceptível de memória;
+- fechar a prévia restaura a árvore, câmera, progressão, enfeites, PNG e vídeo sem alterações;
+- nenhuma requisição de imagem aparece na aba Network e nenhum dado surge em storage do navegador;
+- textos deixam claro que a experiência é demonstração, sem preço, pedido, envio ou pagamento.
+
 O teste MySQL real é opt-in para impedir uso acidental de bancos comuns. Aponte as variáveis `DB_*` para um banco **isolado**, aplique a migration e execute:
 
 ```bash
@@ -170,4 +194,4 @@ No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e
 
 ## Escopo futuro
 
-Upload de mídia, conversão de codecs, fotografias persistentes, rankings e otimizações finais de lançamento pertencem às próximas etapas.
+Upload de mídia, conversão de codecs, fotografias persistentes, pagamentos, pedidos e otimizações finais de lançamento pertencem às próximas etapas.

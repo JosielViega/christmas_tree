@@ -32,8 +32,12 @@ Progressão visual derivada da quantidade de enfeites persistidos, com seis marc
 
 Passagem ocasional de Papai Noel e trenó, rastro dourado limitado, estrelas cadentes e iluminação noturna sutil, todos no Canvas existente. Movimento reduzido, captura, gravação e qualidade adaptativa suspendem ou simplificam os efeitos opcionais sem alterar a progressão social.
 
+## 7B.1. Protótipo de embalagens personalizadas — concluída
+
+Prévia experimental de uma fotografia local aplicada como papel de presente 3D, com três estilos e dois modos de composição. Validação, decodificação, Canvas 2D e descarte acontecem no navegador; pagamentos, pedidos, upload, persistência e vínculo com a árvore pública continuam fora do escopo.
+
 ## 8. Otimização e lançamento
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B, a progressão visual na Etapa 06 e o cenário expandido na Etapa 07.
+Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B, a progressão visual na Etapa 06, o cenário expandido na Etapa 07 e a prévia local de embalagens na Etapa 07B.1.

@@ -6,6 +6,7 @@ import TreeOnboarding from './components/TreeOnboarding';
 import OrnamentDecorationModal from './components/OrnamentDecorationModal';
 import ShareTreeModal from './components/ShareTreeModal';
 import TreeProgressIndicator from './components/TreeProgressIndicator';
+import GiftPreviewModal from './components/GiftPreviewModal';
 import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, TreeApiError } from './api/trees';
 import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
 import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
@@ -22,8 +23,11 @@ import {
   shouldAnimateProgressionUnlock,
 } from './utils/treeProgression';
 import type { TreeProgressionStage } from './utils/treeProgression';
+import { getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
+const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
+const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_MAX_BYTES);
 
 const App: React.FC = () => {
   const [controlMode, setControlMode] = useState<ControlMode>(ControlMode.MOUSE);
@@ -51,6 +55,7 @@ const App: React.FC = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
+  const [giftPreviewOpen, setGiftPreviewOpen] = useState(false);
   const [unlockedProgressionStage, setUnlockedProgressionStage] = useState<TreeProgressionStage | null>(null);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const loadedOrnamentsFor = useRef<string | null>(null);
@@ -230,6 +235,7 @@ const App: React.FC = () => {
     setMessageOverview(null);
     setCreateOwnTreeOpen(false);
     setShareModalOpen(false);
+    setGiftPreviewOpen(false);
     window.history.pushState({}, '', access.public_path);
   };
 
@@ -379,6 +385,7 @@ const App: React.FC = () => {
         progressionEffects={progression.stage.effects}
         isProgressionCelebrating={isProgressionCelebrating}
         reducedMotion={reducedMotion}
+        paused={giftPreviewOpen}
       />
 
       <Overlay
@@ -421,7 +428,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && !receipt && !isRecording && (
+      {tree && !receipt && !isRecording && !giftPreviewOpen && (
         <div className="fixed bottom-32 left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto md:bottom-28">
           <button
             type="button"
@@ -436,10 +443,13 @@ const App: React.FC = () => {
           ) : (
             <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><TreePine size={17} /> Criar minha árvore</button>
           )}
+          {giftPreviewEnabled && (
+            <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-5 py-3 text-sm font-semibold text-white/75 shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> Experimentar presente personalizado</button>
+          )}
         </div>
       )}
 
-      {tree && !receipt && ornamentsReady && !isRecording && (
+      {tree && !receipt && ornamentsReady && !isRecording && !giftPreviewOpen && (
         <TreeProgressIndicator
           progression={progression}
           isOwner={isOwner}
@@ -476,6 +486,10 @@ const App: React.FC = () => {
           startVideoCapture={startStoryVideoCapture}
           onClose={() => setShareModalOpen(false)}
         />
+      )}
+
+      {giftPreviewEnabled && giftPreviewOpen && (
+        <GiftPreviewModal maxPhotoBytes={giftPhotoMaxBytes} onClose={() => setGiftPreviewOpen(false)} />
       )}
 
       {selectedOrnament && !ornamentModalOpen && (

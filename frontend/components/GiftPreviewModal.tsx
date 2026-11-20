@@ -1,0 +1,173 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import { Gift, ImagePlus, Loader2, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import * as THREE from 'three';
+import { GiftBoxModel } from './Presents';
+import {
+  GIFT_COMPOSITION_MODES,
+  GIFT_STYLES,
+  createCanvasTexture,
+  createPersonalizedGiftCanvases,
+  decodeGiftPhoto,
+  disposeGiftTextures,
+  replaceDecodedGiftPhoto,
+} from '../utils/giftTextures';
+import type { DecodedGiftPhoto, GiftCompositionMode, GiftStyleId } from '../utils/giftTextures';
+
+interface GiftPreviewModalProps {
+  maxPhotoBytes: number;
+  onClose: () => void;
+}
+
+const PersonalizedGift: React.FC<{
+  photo: DecodedGiftPhoto;
+  style: GiftStyleId;
+  mode: GiftCompositionMode;
+}> = ({ photo, style, mode }) => {
+  const selectedStyle = GIFT_STYLES.find((candidate) => candidate.id === style) ?? GIFT_STYLES[0];
+  const textures = useMemo(() => {
+    const canvases = createPersonalizedGiftCanvases(photo, style, mode);
+    return {
+      paper: createCanvasTexture(canvases.paper),
+      front: canvases.front ? createCanvasTexture(canvases.front) : null,
+    };
+  }, [photo, style, mode]);
+
+  useEffect(() => () => disposeGiftTextures(textures.front ? [textures.paper, textures.front] : [textures.paper]), [textures]);
+
+  return (
+    <group rotation={[0.08, -0.45, 0]} scale={2.1} position={[0, -0.95, 0]}>
+      <GiftBoxModel texture={textures.paper} frontTexture={textures.front} ribbonColor={selectedStyle.ribbon} />
+    </group>
+  );
+};
+
+const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, onClose }) => {
+  const [photo, setPhoto] = useState<DecodedGiftPhoto | null>(null);
+  const [style, setStyle] = useState<GiftStyleId>('classic');
+  const [mode, setMode] = useState<GiftCompositionMode>('repeated');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const photoRef = useRef<DecodedGiftPhoto | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const requestId = useRef(0);
+
+  const releasePhoto = () => {
+    requestId.current += 1;
+    photoRef.current = replaceDecodedGiftPhoto(photoRef.current, null);
+    setPhoto(null);
+  };
+
+  useEffect(() => () => {
+    requestId.current += 1;
+    photoRef.current = replaceDecodedGiftPhoto(photoRef.current, null);
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
+  const selectPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    const currentRequest = ++requestId.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const decoded = await decodeGiftPhoto(file, maxPhotoBytes);
+      if (currentRequest !== requestId.current) {
+        decoded.dispose();
+        return;
+      }
+      photoRef.current = replaceDecodedGiftPhoto(photoRef.current, decoded);
+      setPhoto(decoded);
+    } catch (caught) {
+      if (currentRequest === requestId.current) setError(caught instanceof Error ? caught.message : 'Não foi possível preparar a fotografia.');
+    } finally {
+      if (currentRequest === requestId.current) setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="gift-preview-title" onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+      <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#fff1a1]/20 bg-[#07120d] text-white shadow-2xl md:max-h-[92vh] md:rounded-3xl">
+        <button type="button" onClick={onClose} className="absolute right-3 top-3 z-20 rounded-full bg-black/35 p-2 text-white/65 hover:bg-white/10 hover:text-white" aria-label="Fechar prévia"><X size={20} /></button>
+
+        <div className="grid min-h-0 flex-1 md:grid-cols-[0.92fr_1.08fr]">
+          <section className="order-2 min-h-0 overflow-y-auto p-5 md:order-1 md:p-7">
+            <div className="flex items-center gap-2 text-[#fff1a1]"><Gift size={22} /><span className="text-xs font-bold uppercase tracking-[0.18em]">Experimento local</span></div>
+            <h2 id="gift-preview-title" className="mt-3 text-2xl font-bold">Prévia de presente personalizado</h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">Transforme uma fotografia em uma embalagem de presente natalina!</p>
+            <div className="mt-4 flex gap-2 rounded-2xl border border-emerald-300/15 bg-emerald-300/5 p-3 text-xs leading-relaxed text-emerald-100/75">
+              <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-300" />
+              <p>Esta é uma demonstração. A fotografia não será enviada nem salva no servidor.</p>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">1. Escolha sua fotografia</p>
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void selectPhoto(event.target.files?.[0])} />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#1cbd62] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#24cf70] disabled:opacity-60">
+                  {loading ? <Loader2 size={17} className="animate-spin" /> : photo ? <RefreshCw size={17} /> : <ImagePlus size={17} />}
+                  {loading ? 'Preparando…' : photo ? 'Trocar fotografia' : 'Selecionar foto'}
+                </button>
+                {photo && <button type="button" onClick={releasePhoto} className="min-h-11 rounded-full border border-white/15 px-4 py-2.5 text-sm text-white/65 hover:bg-white/5">Remover</button>}
+              </div>
+              <p className="mt-2 text-[11px] text-white/35">JPEG, PNG ou WebP; até {Math.round(maxPhotoBytes / 1024 / 1024)} MB. Processamento 512×512 somente neste navegador.</p>
+              {error && <p className="mt-2 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-xs text-red-100" role="alert">{error}</p>}
+            </div>
+
+            <fieldset className="mt-6" disabled={!photo || loading}>
+              <legend className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">2. Escolha a embalagem</legend>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3">
+                {GIFT_STYLES.map((option) => (
+                  <button key={option.id} type="button" onClick={() => setStyle(option.id)} aria-pressed={style === option.id} className={`rounded-xl border p-3 text-left text-xs font-semibold transition ${style === option.id ? 'border-[#fff1a1]/55 bg-[#fff1a1]/10 text-[#fff1a1]' : 'border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.06]'}`}>
+                    <span className="mb-2 block h-3 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${option.background}, ${option.ribbon})` }} />{option.name}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mt-6" disabled={!photo || loading}>
+              <legend className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">3. Personalize a estampa</legend>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {GIFT_COMPOSITION_MODES.map((option) => (
+                  <button key={option.id} type="button" onClick={() => setMode(option.id)} aria-pressed={mode === option.id} className={`rounded-xl border px-3 py-3 text-xs font-semibold transition ${mode === option.id ? 'border-[#fff1a1]/55 bg-[#fff1a1]/10 text-[#fff1a1]' : 'border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.06]'}`}>{option.name}</button>
+                ))}
+              </div>
+            </fieldset>
+          </section>
+
+          <section className="order-1 relative min-h-[19rem] border-b border-white/10 bg-gradient-to-b from-[#0d2018] to-[#020705] md:order-2 md:min-h-[36rem] md:border-b-0 md:border-l">
+            {photo ? (
+              <>
+                <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 1.1, 4.4], fov: 42 }} gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping }}>
+                  <ambientLight intensity={0.7} />
+                  <directionalLight position={[4, 6, 5]} intensity={2.2} color="#fff1c7" />
+                  <directionalLight position={[-4, 2, -3]} intensity={1.1} color="#8eb7ff" />
+                  <PersonalizedGift photo={photo} style={style} mode={mode} />
+                  <OrbitControls makeDefault enablePan={false} minDistance={3.2} maxDistance={6} target={[0, 0.15, 0]} />
+                </Canvas>
+                <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1.5 text-[11px] text-white/55 backdrop-blur">Arraste para girar · use dois dedos ou a roda para aproximar</div>
+                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#fff1a1]/20 bg-black/35 px-3 py-1.5 text-xs font-semibold text-[#fff1a1]">🎁 Sua embalagem personalizada está pronta!</div>
+              </>
+            ) : (
+              <div className="flex h-full min-h-[19rem] flex-col items-center justify-center px-8 text-center text-white/35">
+                <Gift size={54} strokeWidth={1.2} />
+                <p className="mt-4 text-sm font-semibold text-white/55">Selecione uma fotografia para visualizar seu presente em 3D.</p>
+                <p className="mt-2 max-w-sm text-xs leading-relaxed">A prévia é temporária e não cria pedidos, compras ou presentes na árvore pública.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GiftPreviewModal;

@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: '/assets/app/',
+    envDir: '..',
     server: {
       port: 5173,
       host: '127.0.0.1',

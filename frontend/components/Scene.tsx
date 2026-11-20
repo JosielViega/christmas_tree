@@ -48,6 +48,7 @@ interface SceneProps {
   progressionEffects: TreeProgressionEffects;
   isProgressionCelebrating?: boolean;
   reducedMotion: boolean;
+  paused?: boolean;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -585,6 +586,7 @@ const Scene: React.FC<SceneProps> = ({
   progressionEffects,
   isProgressionCelebrating = false,
   reducedMotion,
+  paused = false,
 }) => {
   const captureActive = useRef(false);
   const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>(() => getInitialAmbientQuality({
@@ -594,6 +596,7 @@ const Scene: React.FC<SceneProps> = ({
 
   return (
     <Canvas
+      frameloop={paused ? 'never' : 'always'}
       dpr={[1, 2]}
       camera={{ position: CAMERA_CONFIG.DEFAULT_POS, fov: CAMERA_CONFIG.FOV }}
       gl={{

@@ -1,15 +1,17 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, TREE_CONFIG } from '../constants';
+import { createProceduralGiftTexture } from '../utils/giftTextures';
+import type { GiftWrappingPattern } from '../utils/giftTextures';
 
 interface PresentProps {
   position: THREE.Vector3;
   rotation: THREE.Euler;
   scale: THREE.Vector3;
   color: string;
-  pattern: 'solid' | 'stripes' | 'dots' | 'checkers';
+  pattern: GiftWrappingPattern;
   ribbonColor: string;
   explodeDir?: THREE.Vector3;
   explodeRotation?: THREE.Vector3;
@@ -34,60 +36,11 @@ const RibbonMaterial: React.FC<{ color: string }> = ({ color }) => {
   );
 };
 
-// --- PROCEDURAL TEXTURE GENERATOR ---
-const useGiftTexture = (color: string, type: 'solid' | 'stripes' | 'dots' | 'checkers') => {
-  return useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new THREE.Texture();
-
-    // Base Color
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 512, 512);
-
-    if (type !== 'solid') {
-        // Pattern overlay (subtle white/black with low opacity)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-
-        if (type === 'stripes') {
-           const stripeWidth = 40;
-           ctx.save();
-           ctx.translate(256, 256);
-           ctx.rotate(Math.PI / 4);
-           ctx.translate(-512, -512);
-           for (let i = 0; i < 1024; i += stripeWidth * 2) {
-               ctx.fillRect(i, 0, stripeWidth, 1024);
-           }
-           ctx.restore();
-        } else if (type === 'dots') {
-           const spacing = 60;
-           const radius = 10;
-           for (let x = 0; x < 512; x += spacing) {
-               for (let y = 0; y < 512; y += spacing) {
-                   const offsetX = (y / spacing) % 2 === 0 ? 0 : spacing / 2;
-                   ctx.beginPath();
-                   ctx.arc(x + offsetX, y, radius, 0, Math.PI * 2);
-                   ctx.fill();
-               }
-           }
-        } else if (type === 'checkers') {
-            const size = 64;
-            for (let x = 0; x < 512; x += size) {
-                for (let y = 0; y < 512; y += size) {
-                    if (((x / size) + (y / size)) % 2 === 0) {
-                        ctx.fillRect(x, y, size, size);
-                    }
-                }
-            }
-        }
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-  }, [color, type]);
+// Shared by the original scene presents and the experimental personalized preview.
+const useGiftTexture = (color: string, type: GiftWrappingPattern) => {
+  const texture = useMemo(() => createProceduralGiftTexture(color, type), [color, type]);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return texture;
 };
 
 // --- RIBBON COMPONENTS ---
@@ -140,6 +93,52 @@ const RibbonTail: React.FC<{ rotation?: [number, number, number], length?: numbe
     );
   };
 
+interface GiftBoxModelProps {
+  texture: THREE.Texture;
+  frontTexture?: THREE.Texture | null;
+  ribbonColor: string;
+}
+
+export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTexture = null, ribbonColor }) => (
+  <group>
+    <RoundedBox args={[1, 1, 1]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
+      <meshPhysicalMaterial
+        map={texture}
+        roughness={0.3}
+        metalness={0.1}
+        clearcoat={0.3}
+        clearcoatRoughness={0.2}
+      />
+    </RoundedBox>
+
+    {frontTexture && (
+      <mesh position={[0, 0.5, 0.506]}>
+        <planeGeometry args={[0.94, 0.94]} />
+        <meshPhysicalMaterial map={frontTexture} roughness={0.32} metalness={0.05} clearcoat={0.2} polygonOffset polygonOffsetFactor={-1} />
+      </mesh>
+    )}
+
+    <RoundedBox args={[1.02, 1.02, 0.15]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
+      <RibbonMaterial color={ribbonColor} />
+    </RoundedBox>
+
+    <RoundedBox args={[0.15, 1.02, 1.02]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
+      <RibbonMaterial color={ribbonColor} />
+    </RoundedBox>
+
+    <group position={[0, 1.0, 0]}>
+      <mesh position={[0, 0.05, 0]} scale={[1, 0.6, 1]}>
+        <sphereGeometry args={[0.12, 16, 16]} />
+        <RibbonMaterial color={ribbonColor} />
+      </mesh>
+      <RibbonLoop rotation={[0.2, 0, -0.2]} scale={1.2} color={ribbonColor} />
+      <RibbonLoop rotation={[0.2, Math.PI, 0.2]} scale={1.2} color={ribbonColor} />
+      <RibbonTail rotation={[0, -0.5, 0]} length={1.2} color={ribbonColor} />
+      <RibbonTail rotation={[0, Math.PI + 0.5, 0]} length={1.1} color={ribbonColor} />
+    </group>
+  </group>
+);
+
 const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
   position, rotation, scale, color, pattern, ribbonColor, explodeDir, explodeRotation, isExploded
 }) => {
@@ -181,50 +180,7 @@ const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
 
   return (
     <group ref={groupRef} position={position} rotation={rotation} scale={scale}>
-      {/* Main Box - Upgraded to Physical Material for clearcoat/sheen */}
-      <RoundedBox args={[1, 1, 1]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
-        <meshPhysicalMaterial
-          map={texture}
-          roughness={0.3}
-          metalness={0.1}
-          clearcoat={0.3}
-          clearcoatRoughness={0.2}
-        />
-      </RoundedBox>
-
-      {/* --- CROSS RIBBONS (Rounded for soft shiny edges like the bow) --- */}
-      {/* Wraps Left, Right, Top, Bottom */}
-      <RoundedBox args={[1.02, 1.02, 0.15]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
-        <RibbonMaterial color={ribbonColor} />
-      </RoundedBox>
-
-      {/* Wraps Front, Back, Top, Bottom */}
-      <RoundedBox args={[0.15, 1.02, 1.02]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
-        <RibbonMaterial color={ribbonColor} />
-      </RoundedBox>
-
-      {/* --- BOW KNOT & LOOPS --- */}
-      <group position={[0, 1.0, 0]}>
-
-        {/* Central Knot - small sphere/rounded box */}
-        <mesh position={[0, 0.05, 0]} scale={[1, 0.6, 1]}>
-          <sphereGeometry args={[0.12, 16, 16]} />
-          <RibbonMaterial color={ribbonColor} />
-        </mesh>
-
-        {/* Loop 1 - Right */}
-        <RibbonLoop rotation={[0.2, 0, -0.2]} scale={1.2} color={ribbonColor} />
-
-        {/* Loop 2 - Left */}
-        <RibbonLoop rotation={[0.2, Math.PI, 0.2]} scale={1.2} color={ribbonColor} />
-
-        {/* Tail 1 - Draping Right */}
-        <RibbonTail rotation={[0, -0.5, 0]} length={1.2} color={ribbonColor} />
-
-        {/* Tail 2 - Draping Left */}
-        <RibbonTail rotation={[0, Math.PI + 0.5, 0]} length={1.1} color={ribbonColor} />
-
-      </group>
+      <GiftBoxModel texture={texture} ribbonColor={ribbonColor} />
     </group>
   );
 };

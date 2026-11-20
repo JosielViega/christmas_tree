@@ -77,6 +77,8 @@ Na Etapa 06, o JavaScript minificado passa a aproximadamente 1.232,0 kB (345,0 k
 
 Na Etapa 07, o JavaScript minificado passa a aproximadamente 1.239,1 kB (347,1 kB gzip), aumento de cerca de 7,0 kB antes de gzip e 2,1 kB após gzip. O CSS cresce menos de 0,1 kB e nenhuma dependência é adicionada.
 
+Na Etapa 07B.1, o build padrão com a prévia desabilitada gera aproximadamente 1.239,6 kB de JavaScript (347,4 kB gzip), aumento de 0,5 kB antes de gzip e 0,2 kB após gzip; o CSS cresce 2,7 kB (0,4 kB gzip). Quando explicitamente habilitada, a prévia leva o JavaScript a aproximadamente 1.252,5 kB (351,2 kB gzip), impacto total de 13,4 kB antes de gzip e 4,1 kB após gzip sobre a Etapa 07. Nenhuma dependência foi adicionada.
+
 ## Progressão visual
 
 `frontend/utils/treeProgression.ts` concentra os marcos de 0, 5, 10, 20, 35, 50 e 60 participações e seus efeitos cumulativos. O estágio é uma projeção pura de `ornaments.length`, coleção pública já persistida e devolvida pelo backend; elementos decorativos da cena, mensagens privadas, sessão e dados locais não participam do cálculo. Não há coluna, tabela, migration ou endpoint específico para níveis.
@@ -96,6 +98,18 @@ Como cartão e vídeo usam o mesmo `Canvas` e a mesma cena, os efeitos de progre
 Os relógios avançam dentro do `useFrame` existente, sem `setInterval`, outro renderer ou loop independente. A política pausa o agendamento e oculta os elementos durante captura vertical, gravação, movimento reduzido ou fallback de desempenho; ao terminar uma interrupção, o tempo restante continua do mesmo ponto. `PerformanceMonitor` reduz o cenário opcional após queda e pode desligá-lo após oscilações repetidas, enquanto `AdaptiveDpr` também reduz a resolução quando necessário. O estágio da Etapa 06 permanece derivado somente dos enfeites persistidos.
 
 A política previsível para mídia é suspender todas as aparições ocasionais. Assim, PNGs e vídeos não capturam o trenó pela metade, enquanto a árvore, a progressão e a restauração da câmera mantêm o fluxo anterior.
+
+## Prévia local de embalagem personalizada
+
+`frontend/utils/giftTextures.ts` valida o conteúdo pela assinatura JPEG, PNG ou WebP, antes da decodificação. O limite padrão é 8 MB, configurável por `VITE_GIFT_PHOTO_MAX_BYTES` até o teto defensivo de 32 MB. Dimensões menores que 32 pixels, maiores que 12.000 pixels ou acima de 40 megapixels são rejeitadas. `createImageBitmap` com orientação do arquivo é preferido; a alternativa usa `HTMLImageElement` e Object URL local.
+
+A fotografia decodificada fica apenas na memória do modal. Um recorte central do tipo `cover` preserva proporção e alimenta um Canvas 2D de 512×512. No modo repetido, nove cópias emolduradas são distribuídas sobre estrelas, flocos ou corações. No modo de destaque, as faces usam o padrão do estilo e uma textura separada coloca a foto maior na face frontal. Nenhum filtro facial, IA ou conversão externa é usado.
+
+`GiftBoxModel`, extraído de `Presents.tsx`, mantém a mesma caixa arredondada, materiais físicos, fitas cruzadas e laço usados na árvore. `GiftPreviewModal` cria um segundo `Canvas` somente enquanto a prévia está aberta, com uma caixa e `frameloop="demand"`; ao mesmo tempo o Canvas principal muda temporariamente para `frameloop="never"`, preservando sua câmera sem dois loops permanentes. Fechar o modal retoma a cena original.
+
+Trocas de estilo e modo reutilizam a imagem já decodificada e substituem apenas texturas Canvas. Efeitos de cleanup chamam `Texture.dispose()`, `ImageBitmap.close()` e `URL.revokeObjectURL()` quando aplicável. Não há chamada a API, storage, analytics, endpoint PHP, nova migration ou mudança nos enfeites, mensagens, progressão e compartilhamento.
+
+A entrada é habilitada automaticamente por `import.meta.env.DEV`. Produção exige `VITE_ENABLE_GIFT_PREVIEW=true` no momento do build; o padrão versionado é `false`. Mesmo quando habilitada, a função continua sendo uma demonstração local sem preço, checkout, pedido ou promessa de envio.
 
 ## Compartilhamento social
 
