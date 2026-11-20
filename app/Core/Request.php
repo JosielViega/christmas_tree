@@ -12,13 +12,14 @@ final class Request
         private readonly array $server = [],
         private readonly array $files = [],
         private readonly string $rawBody = '',
+        private readonly array $cookies = [],
     ) {
     }
 
     public static function capture(): self
     {
         $rawBody = file_get_contents('php://input');
-        return new self($_GET, $_POST, $_SERVER, $_FILES, is_string($rawBody) ? $rawBody : '');
+        return new self($_GET, $_POST, $_SERVER, $_FILES, is_string($rawBody) ? $rawBody : '', $_COOKIE);
     }
 
     public function input(string $key, mixed $default = null): mixed
@@ -88,5 +89,10 @@ final class Request
         $address = (string) ($this->server['REMOTE_ADDR'] ?? 'unknown');
 
         return filter_var($address, FILTER_VALIDATE_IP) !== false ? $address : 'unknown';
+    }
+
+    public function cookie(string $name, mixed $default = null): mixed
+    {
+        return $this->cookies[$name] ?? $default;
     }
 }

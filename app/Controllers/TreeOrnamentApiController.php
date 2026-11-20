@@ -50,6 +50,9 @@ final class TreeOrnamentApiController
         if ($response = $this->validateMutableRequest()) {
             return $response;
         }
+        if ($this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
+            return $this->error('owner_cannot_decorate', 'Convide seus amigos para decorar sua árvore.', 403);
+        }
         if (!$this->creationLimiter->consume('ornament:' . $this->request->ipAddress())) {
             return $this->error('rate_limit_exceeded', 'Muitos enfeites foram enviados recentemente. Tente novamente mais tarde.', 429);
         }
@@ -87,7 +90,7 @@ final class TreeOrnamentApiController
         if ($tree === null) {
             return $this->privateError('tree_not_found', 'Árvore não encontrada.', 404);
         }
-        if (!$this->trees->ownerIsAuthorized($treePublicId, $this->ownerSession->tokenFor($treePublicId))) {
+        if (!$this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
             return $this->privateError('owner_access_denied', 'Acesso administrativo não autorizado.', 403);
         }
 
@@ -119,7 +122,7 @@ final class TreeOrnamentApiController
         if ($tree === null) {
             return $this->error('tree_not_found', 'Árvore não encontrada.', 404);
         }
-        if (!$this->trees->ownerIsAuthorized($treePublicId, $this->ownerSession->tokenFor($treePublicId))) {
+        if (!$this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
             return $this->error('owner_access_denied', 'Apenas o responsável pode remover enfeites.', 403);
         }
 

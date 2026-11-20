@@ -100,6 +100,17 @@ final class HostgatorMirrorBuilderTest extends TestCase
         $this->builder()->validate();
     }
 
+    public function testRejectsCredentialFilesButAllowsCredentialDomainSource(): void
+    {
+        $this->write('app/Domain/PersistentTreeCredential.php', '<?php // domain model');
+        $this->builder()->validate();
+        self::assertFileExists($this->mirror . '/app/Domain/PersistentTreeCredential.php');
+
+        $this->write('config/credentials.json', '{}');
+        $this->expectException(RuntimeException::class);
+        $this->builder()->validate();
+    }
+
     private function builder(): HostgatorMirrorBuilder
     {
         return new HostgatorMirrorBuilder($this->root, $this->manifest, 'composer');

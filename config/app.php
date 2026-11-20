@@ -27,6 +27,11 @@ return [
     'session' => [
         'name' => (string) env('SESSION_NAME', 'christmas_tree_session'),
         'secure' => (bool) env('SESSION_SECURE', false),
+        'lifetime_seconds' => max(900, (int) env('SESSION_LIFETIME_SECONDS', 7200)),
+    ],
+    'persistent_access' => [
+        'cookie_name' => (string) env('TREE_ACCESS_COOKIE_NAME', 'christmas_tree_access'),
+        'lifetime_days' => (int) env('TREE_ACCESS_LIFETIME_DAYS', 90),
     ],
     'ornaments' => [
         'capacity' => (int) env('ORNAMENT_MAX_PER_TREE', 60),

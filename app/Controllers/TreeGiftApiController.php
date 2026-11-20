@@ -53,7 +53,7 @@ final class TreeGiftApiController
     public function hide(string $treePublicId, string $giftPublicId): Response
     {
         if (!$this->csrf->verify($this->request->header('X-CSRF-Token'))) return $this->error('csrf_failed', 'A sessão expirou.', 419);
-        if (!$this->trees->ownerIsAuthorized($treePublicId, $this->ownerSession->tokenFor($treePublicId))) {
+        if (!$this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
             return $this->error('owner_access_denied', 'Apenas o responsável pode ocultar presentes.', 403);
         }
         $hidden = $this->gifts->hide($treePublicId, $giftPublicId);
@@ -63,7 +63,7 @@ final class TreeGiftApiController
 
     public function message(string $treePublicId, string $giftPublicId): Response
     {
-        if (!$this->trees->ownerIsAuthorized($treePublicId, $this->ownerSession->tokenFor($treePublicId))) {
+        if (!$this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
             return $this->privateError('owner_access_denied', 'Acesso administrativo não autorizado.', 403);
         }
         $message = $this->gifts->ownerMessage($treePublicId, $giftPublicId);

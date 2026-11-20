@@ -1,5 +1,13 @@
 # Christmas Tree
 
+## Acesso persistente e interface social (Etapa 07C)
+
+Ao criar ou recuperar uma árvore, o navegador recebe uma credencial persistente `HttpOnly`, `SameSite=Lax`, válida por 90 dias por padrão e marcada `Secure` em HTTPS. O banco conserva apenas seletor e hash do verificador. Ao retornar a `/`, uma credencial válida restaura a autorização e redireciona para a árvore principal; uma credencial inválida, expirada ou revogada é apagada e nunca concede acesso.
+
+O vínculo representa **uma árvore principal por navegador reconhecido**, não uma identidade global por pessoa: não usa IP nem fingerprint, e o proprietário continua podendo visitar árvores de amigos. Limpar cookies ou usar navegação privada exige o código de recuperação. A recuperação rotaciona o código administrativo e revoga as credenciais persistentes anteriores daquela árvore.
+
+Na experiência social, o proprietário compartilha sua árvore, mas não pode criar enfeites gratuitos nela; visitantes continuam decorando e enviando presentes premium conforme as regras existentes. O menu secundário fica no topo, respeita as áreas seguras do celular e mantém apenas música, tela cheia quando suportada e créditos. Controles de demonstração foram retirados da interface pública sem remover captura de Stories ou vídeo.
+
 ## Presentes premium publicados (Etapa 07B.4)
 
 Enfeites gratuitos e presentes premium são fluxos distintos. Novas decorações gratuitas aceitam bolinhas, coração e estrela; o tipo legado `present` continua renderizável e removível, mas não pode mais ser criado. Presentes personalizados usam o `GiftBoxModel` no chão e só aparecem após o backend confirmar um pedido Pix pago e publicar a textura privada verificada.

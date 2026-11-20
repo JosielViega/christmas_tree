@@ -47,6 +47,8 @@ $session->start([
     'cookie_secure' => $appConfig['session']['secure'] || $httpsActive,
     'cookie_samesite' => 'Lax',
     'cookie_path' => '/',
+    'cookie_lifetime' => 0,
+    'gc_maxlifetime' => $appConfig['session']['lifetime_seconds'],
     'use_strict_mode' => true,
     'use_only_cookies' => true,
 ]);

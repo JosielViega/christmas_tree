@@ -133,6 +133,24 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertSame(404, $this->controller($deleteRequest)->destroy($creation->tree->publicId, $ornamentId)->status());
     }
 
+    public function testOwnerCannotDecorateOwnTreeButCanDecorateFriendsTree(): void
+    {
+        $owner = $this->trees->create('Proprietária');
+        $friend = $this->trees->create('Amiga');
+        $this->ownerSession->grant($owner->tree->publicId, $owner->adminToken);
+
+        $own = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'heart', 'sender_name' => 'Proprietária', 'message' => 'Minha mensagem',
+        ], str_repeat('q', 16)))->store($owner->tree->publicId);
+        self::assertSame(403, $own->status());
+        self::assertStringContainsString('owner_cannot_decorate', $own->body());
+
+        $friends = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'heart', 'sender_name' => 'Visitante', 'message' => 'Boas festas',
+        ], str_repeat('r', 16)))->store($friend->tree->publicId);
+        self::assertSame(201, $friends->status());
+    }
+
     public function testPrivateMessagesRequireOwnerAndRemainLockedWithoutLeakingContent(): void
     {
         $creation = $this->trees->create('Cecília');

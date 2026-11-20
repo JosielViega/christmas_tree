@@ -15,6 +15,8 @@ use App\Services\TreeOwnerSession;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
 use Tests\Support\InMemoryChristmasTreeRepository;
+use Tests\Support\InMemoryPersistentTreeCredentialRepository;
+use App\Services\PersistentTreeAccessService;
 
 final class TreePageControllerTest extends TestCase
 {
@@ -55,6 +57,23 @@ final class TreePageControllerTest extends TestCase
         self::assertStringContainsString('Árvore não encontrada', $response->body());
     }
 
+    public function testOwnerCanVisitFriendTreeWithoutLosingPrimaryTreeLink(): void
+    {
+        $session = new Session(false);
+        $ownerSession = new TreeOwnerSession($session);
+        $service = new ChristmasTreeIdentityService(new InMemoryChristmasTreeRepository());
+        $own = $service->create('Minha família');
+        $friend = $service->create('Família amiga');
+        $ownerSession->grant($own->tree->publicId, $own->adminToken);
+
+        $response = $this->controller($service, $ownerSession, new Csrf($session))->show($friend->tree->publicId);
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('"is_owner":false', $response->body());
+        self::assertStringContainsString('"has_own_tree":true', $response->body());
+        self::assertStringContainsString('"own_tree_path":"/t/' . $own->tree->publicId . '"', $response->body());
+    }
+
     public function testInitialHtmlAndMetadataNeverContainOrnamentMessage(): void
     {
         $session = new Session(false);
@@ -85,6 +104,7 @@ final class TreePageControllerTest extends TestCase
             $service,
             $ownerSession,
             ['url' => 'https://admin:private@christmas.test'],
+            new PersistentTreeAccessService(new InMemoryPersistentTreeCredentialRepository(), $ownerSession, 'tree_access'),
         );
     }
 }

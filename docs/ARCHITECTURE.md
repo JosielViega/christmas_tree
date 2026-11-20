@@ -1,5 +1,17 @@
 # Arquitetura
 
+## Reconhecimento persistente do navegador
+
+`PersistentTreeAccessService` usa uma credencial dividida em seletor e verificador. O cookie contém os dois valores aleatórios; `christmas_tree_persistent_credentials` armazena o seletor pesquisável e somente o SHA-256 do verificador, além de criação, último uso, expiração e revogação. A comparação é feita em tempo constante e a credencial só restaura árvores ativas.
+
+Cada requisição tenta restaurar a credencial antes de construir os controllers. A restauração cria uma marca administrativa na sessão PHP, sem recuperar nem expor o token administrativo histórico. Requisições concorrentes podem validar a mesma credencial estável; a rotação ocorre na recuperação, quando todas as credenciais anteriores da árvore são revogadas e uma nova é emitida. Isso evita uma corrida em que duas respostas rotacionadas invalidariam uma à outra.
+
+`TreeOwnerSession` mantém separadamente as autorizações da sessão e a árvore principal. Somente `/` redireciona para `/t/{public_id}`, portanto links públicos de amigos não causam loop nem trocam silenciosamente a árvore principal. `POST /api/trees` rejeita uma segunda criação quando o acesso já está associado a uma árvore ativa.
+
+## Interface social responsiva
+
+O React recebe `is_owner`, `has_own_tree` e `own_tree_path`, nunca credenciais. Proprietários recebem o convite de compartilhamento; visitantes recebem decoração, presente premium quando habilitado e acesso à própria árvore. Selecionar enfeite ou presente oculta os controles secundários e mantém um cartão rolável com ação de retorno. O mesmo layout usa `safe-area-inset-*`, alvos de toque e limites de viewport em mobile e desktop.
+
 ## Publicação de presentes premium
 
 `GiftPaymentService` confirma o provedor fora de qualquer transação de publicação. Depois, `GiftPublicationService` valida o arquivo privado e delega a `PdoGiftPublicationRepository` a transição atômica `paid -> published`. A transação bloqueia o presente e a árvore, reconfirma que o único pedido está `paid` e reserva um `position_index` único no layout v1. O cron `composer gifts:cleanup` reconcilia pedidos e repete publicações elegíveis; todas as operações são idempotentes.

@@ -63,6 +63,8 @@ export interface ChristmasTreeBootstrap {
   tree: ChristmasTreeData | null;
   is_owner: boolean;
   public_url: string | null;
+  has_own_tree?: boolean;
+  own_tree_path?: string | null;
 }
 
 export interface ChristmasTreeAccess {

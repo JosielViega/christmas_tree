@@ -12,7 +12,7 @@ interface TreeProgressIndicatorProps {
 const TreeProgressIndicator: React.FC<TreeProgressIndicatorProps> = ({ progression, isOwner, unlockedStage, onDismissUnlock }) => {
   const label = isOwner ? 'Sua árvore está evoluindo!' : 'Esta árvore está evoluindo!';
   return (
-    <aside className="fixed left-3 top-24 z-[64] w-[min(19rem,calc(100vw-1.5rem))] text-white md:left-6" aria-label="Progresso da árvore">
+    <aside className="fixed left-3 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[64] w-[min(19rem,calc(100vw-1.5rem))] text-white md:left-6" aria-label="Progresso da árvore">
       {unlockedStage && (
         <div className="relative pointer-events-auto mb-2 animate-in fade-in slide-in-from-left-3 rounded-2xl border border-[#fff1a1]/35 bg-[#10271c]/95 p-4 shadow-2xl backdrop-blur-xl motion-reduce:animate-none" role="status" aria-live="polite">
           <button type="button" onClick={onDismissUnlock} className="absolute right-2 top-2 rounded-full p-1.5 text-white/45 hover:bg-white/10 hover:text-white" aria-label="Ignorar animação da surpresa"><X size={15} /></button>

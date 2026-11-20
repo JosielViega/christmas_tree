@@ -1,5 +1,13 @@
 # Roadmap
 
+## Etapa 07C — concluída tecnicamente
+
+- Reconhecimento persistente por cookie seguro com seletor/verificador, hash no banco, expiração, revogação e restauração da sessão.
+- Uma árvore principal por navegador reconhecido, redirecionamento na página inicial e bloqueio de criação duplicada acidental.
+- Recuperação preservada com nova credencial persistente e revogação das anteriores.
+- Proprietário impedido no frontend e backend de decorar a própria árvore, sem afetar árvores de amigos.
+- Interface social mobile-first com menu superior, áreas seguras, foco de objetos e remoção dos controles públicos de demonstração.
+
 ## Etapa 07B.4 — concluída tecnicamente
 
 - Publicação idempotente e transacional de presentes com pagamento confirmado.

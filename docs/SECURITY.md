@@ -16,6 +16,14 @@
 - Comparações de credenciais usam `hash_equals`; a rotação usa update condicional para impedir reuso concorrente.
 - Criação regenera o ID da sessão. Cookies devem ser `HttpOnly`, `SameSite=Lax` e `Secure` em produção.
 - O backend valida autorização em cada endpoint administrativo; ocultar controles no React é apenas uma camada de UX.
+- A credencial persistente usa seletor de 128 bits e verificador de 256 bits; somente o hash do verificador é armazenado no banco.
+- O cookie persistente é `HttpOnly`, `SameSite=Lax`, `Path=/`, expira em 90 dias por padrão e recebe `Secure` sempre que HTTPS está ativo.
+- Credenciais expiradas, revogadas, adulteradas ou ligadas a árvore inativa são rejeitadas e removidas do navegador; o ID público nunca é aceito como autorização.
+- A recuperação revoga credenciais persistentes anteriores e emite uma nova. O código de recuperação não entra em cookie, URL, resposta pública ou log.
+- Não há fingerprint nem identificação por IP. A regra é uma árvore principal por navegador reconhecido, não uma árvore global por pessoa.
+- O proprietário é bloqueado no backend ao tentar criar enfeite gratuito na própria árvore; visitar e decorar árvores de terceiros continua permitido.
+
+`SESSION_LIFETIME_SECONDS` controla a coleta da sessão PHP (mínimo de 15 minutos; padrão de duas horas), enquanto o cookie de sessão continua sem persistência. Fechar o navegador e voltar depende da credencial persistente validada no banco. Limpar cookies, usar modo privado ou trocar de dispositivo requer recuperação. Revogação imediata ocorre ao recuperar novamente a árvore; a remoção manual de credenciais pode ser feita administrativamente no banco sem alterar códigos de recuperação.
 
 ## Entrada e abuso
 

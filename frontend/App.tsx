@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [tree, setTree] = useState<ChristmasTreeData | null>(initialBootstrap?.tree ?? null);
   const [publicTreeUrl, setPublicTreeUrl] = useState(initialBootstrap?.public_url ?? '');
   const [isOwner, setIsOwner] = useState(initialBootstrap?.is_owner ?? false);
+  const [ownTreePath, setOwnTreePath] = useState(initialBootstrap?.own_tree_path ?? null);
   const [csrfToken, setCsrfToken] = useState(initialBootstrap?.csrf_token ?? '');
   const [initializing, setInitializing] = useState(!initialBootstrap);
   const [receipt, setReceipt] = useState<ChristmasTreeAccess | null>(null);
@@ -242,6 +243,7 @@ const App: React.FC = () => {
     setTree(access.tree);
     setPublicTreeUrl(access.public_url);
     setIsOwner(true);
+    setOwnTreePath(access.public_path);
     setUserName(access.tree.owner_name);
     setIsNameSet(true);
     setInteractionMode(InteractionMode.VIEW);
@@ -441,26 +443,10 @@ const App: React.FC = () => {
       />
 
       {!selectedOrnament && !selectedGift && <Overlay
-        controlMode={controlMode}
-        setControlMode={setControlMode}
-        interactionMode={interactionMode}
-        setInteractionMode={setInteractionMode}
-        onBulkUpload={handleBulkUpload}
-        onNext={handleNextPhoto}
-        onPrev={handlePrevPhoto}
-        zoomLevel={zoomLevel}
-        setZoomLevel={setZoomLevel}
-        isHandReady={false}
         isMusicPlaying={isMusicPlaying}
         toggleMusic={toggleMusic}
         userName={userName}
-        setUserName={setUserName}
-        isNameSet={isNameSet}
-        setIsNameSet={setIsNameSet}
-        onRecordVideo={handleRecordVideo}
         isRecording={isRecording}
-        isExploded={isExploded}
-        canEdit={isOwner}
         treeOwnerName={tree?.owner_name ?? null}
       />}
 
@@ -481,20 +467,17 @@ const App: React.FC = () => {
       )}
 
       {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && (
-        <div className="fixed bottom-32 left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto md:bottom-28">
-          <button
-            type="button"
-            onClick={() => setOrnamentModalOpen(true)}
-            disabled={ornamentsLoading || ornaments.length >= ornamentCapacity}
-            className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar gratuitamente'}
-          </button>
-          {isOwner ? (
-            <button type="button" onClick={() => { scrollToTop(); setSelectedOrnament(null); setFocusedPhoto(null); setZoomLevel(ZoomLevel.FULL_TREE); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/30 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><Share2 size={17} /> Compartilhar minha árvore 🎄</button>
-          ) : (
-            <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><TreePine size={17} /> Criar minha árvore</button>
-          )}
+        <div className="fixed bottom-[max(7.5rem,calc(env(safe-area-inset-bottom)+6rem))] left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 px-1 pointer-events-auto md:bottom-28">
+          {isOwner ? <>
+            <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70]"><Share2 size={17} /> 🎄 Convide seus amigos para decorar!</button>
+            <p className="w-full text-center text-[11px] text-white/55">Sua árvore ganha vida com as mensagens dos seus amigos.</p>
+          </> : <>
+            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60">
+              {ornamentsLoading ? 'Carregando…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar árvore'}
+            </button>
+            {ownTreePath ? <a href={ownTreePath} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Minha árvore</a>
+              : <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Criar minha árvore</button>}
+          </>}
           {giftPreviewEnabled && (
             <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-5 py-3 text-sm font-semibold text-white/75 shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> Enviar presente especial</button>
           )}
@@ -502,7 +485,7 @@ const App: React.FC = () => {
       )}
 
       {premiumGifts.length > premiumGiftLimit && !selectedGift && !selectedOrnament && !giftPreviewOpen && (
-        <div className="fixed bottom-20 left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl">
+        <div className="fixed bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.5rem))] left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl">
           <button type="button" disabled={premiumGiftPage === 0} onClick={() => setPremiumGiftPage((page) => Math.max(0, page - 1))} className="disabled:opacity-30">←</button>
           <span>Presentes {premiumGiftPage + 1}/{Math.ceil(premiumGifts.length / premiumGiftLimit)}</span>
           <button type="button" disabled={(premiumGiftPage + 1) * premiumGiftLimit >= premiumGifts.length} onClick={() => setPremiumGiftPage((page) => page + 1)} className="disabled:opacity-30">→</button>
@@ -519,7 +502,7 @@ const App: React.FC = () => {
       )}
 
       {tree && isOwner && messageOverview && !receipt && !selectedOrnament && !selectedGift && (
-        <div className="fixed right-3 top-24 z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none">
+        <div className="fixed right-3 top-[max(14rem,calc(env(safe-area-inset-top)+13rem))] z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none sm:top-[max(6rem,calc(env(safe-area-inset-top)+5rem))]">
           <p className="text-xs font-semibold text-[#fff1a1]">🎁 Você recebeu {messageOverview.count} {messageOverview.count === 1 ? 'mensagem especial' : 'mensagens especiais'}!</p>
           <p className="mt-1 text-[11px] leading-relaxed text-white/50">
             {messagesLoading ? 'Consultando presentes…' : messageOverview.revealed ? 'Seus presentes de Natal estão disponíveis!' : 'Suas mensagens serão reveladas em 25 de dezembro.'}
@@ -558,7 +541,7 @@ const App: React.FC = () => {
       )}
 
       {selectedOrnament && !ornamentModalOpen && (
-        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
+        <div className="fixed left-1/2 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[75] max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] w-[min(92vw,22rem)] -translate-x-1/2 overflow-y-auto animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
           {ownerMessages[selectedOrnament.public_id] ? <MailOpen className="mx-auto text-[#fff1a1]" size={25} /> : <Gift className="mx-auto text-[#fff1a1]" size={24} />}
           <p className="mt-2 font-semibold">🎁 Presente de {selectedOrnament.sender_name}</p>
@@ -583,7 +566,7 @@ const App: React.FC = () => {
       )}
 
       {selectedGift && (
-        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-[#fff1a1]/20 bg-black/80 p-5 text-center text-white shadow-2xl backdrop-blur-xl motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()}>
+        <div className="fixed left-1/2 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[75] max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] w-[min(92vw,22rem)] -translate-x-1/2 overflow-y-auto rounded-2xl border border-[#fff1a1]/20 bg-black/80 p-5 text-center text-white shadow-2xl backdrop-blur-xl motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
           <Gift className="mx-auto text-[#fff1a1]" size={26} />
           <p className="mt-2 font-semibold">🎁 Presente especial de {selectedGift.sender_name}</p>
@@ -600,8 +583,8 @@ const App: React.FC = () => {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-right-8 fade-in duration-300">
-          <div className={`min-w-[300px] max-w-md p-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${toast.type === 'error' ? 'bg-red-950/40 border-red-500/30 text-red-100' : 'bg-green-950/40 border-green-500/30 text-green-100'} flex items-start gap-4 relative overflow-hidden group`}>
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-[100] animate-in slide-in-from-right-8 fade-in duration-300 sm:left-auto sm:right-6">
+          <div className={`w-full sm:min-w-[300px] sm:max-w-md p-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${toast.type === 'error' ? 'bg-red-950/40 border-red-500/30 text-red-100' : 'bg-green-950/40 border-green-500/30 text-green-100'} flex items-start gap-4 relative overflow-hidden group`}>
             <div className="absolute bottom-0 left-0 h-1 bg-white/10 w-full" />
             <div className={`absolute bottom-0 left-0 h-1 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} animate-[shrink_5s_linear_forwards]`} />
             <div className={`p-2 rounded-xl ${toast.type === 'error' ? 'bg-red-500/20' : 'bg-green-500/20'}`}>

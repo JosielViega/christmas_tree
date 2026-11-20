@@ -11,6 +11,7 @@ use App\Domain\TreeValidationException;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
+use App\Services\PersistentTreeAccessService;
 
 final class TreeApiController
 {
@@ -24,6 +25,7 @@ final class TreeApiController
         private readonly RateLimiter $creationLimiter,
         private readonly RateLimiter $recoveryLimiter,
         private readonly array $appConfig,
+        private readonly PersistentTreeAccessService $persistentAccess,
     ) {
     }
 
@@ -36,6 +38,13 @@ final class TreeApiController
     {
         if ($response = $this->validateMutableRequest()) {
             return $response;
+        }
+
+        $primary = $this->ownerSession->primaryPublicId();
+        if (is_string($primary) && ($existing = $this->trees->findPublic($primary)) !== null) {
+            return $this->error('tree_already_exists', 'Este navegador já possui uma árvore principal.', 409, [], [
+                'tree' => $existing->toPublicArray(), 'public_path' => '/t/' . $existing->publicId,
+            ]);
         }
 
         if (!$this->creationLimiter->consume('create:' . $this->request->ipAddress())) {
@@ -51,13 +60,15 @@ final class TreeApiController
 
         $this->ownerSession->grant($creation->tree->publicId, $creation->adminToken);
 
-        return $this->success([
+        $response = $this->success([
             'tree' => $creation->tree->toPublicArray(),
             'is_owner' => true,
             'public_path' => '/t/' . $creation->tree->publicId,
             'public_url' => public_tree_url((string) $this->appConfig['url'], $creation->tree->publicId),
             'recovery_code' => $creation->recoveryCode,
         ], 201);
+        $credential = $this->persistentAccess->issue($creation->tree, $this->cookieValue());
+        return $response->withHeader('Set-Cookie', $this->persistentAccess->cookieHeader($credential));
     }
 
     public function show(string $publicId): Response
@@ -73,9 +84,7 @@ final class TreeApiController
     public function admin(string $publicId): Response
     {
         $tree = $this->trees->findPublic($publicId);
-        $token = $this->ownerSession->tokenFor($publicId);
-
-        if ($tree === null || !$this->trees->ownerIsAuthorized($publicId, $token)) {
+        if ($tree === null || !$this->ownerSession->isAuthorized($publicId, $this->trees)) {
             return $this->error('owner_access_denied', 'Acesso administrativo não autorizado.', 403);
         }
 
@@ -103,13 +112,15 @@ final class TreeApiController
 
         $this->ownerSession->grant($publicId, $recovery->adminToken);
 
-        return $this->success([
+        $response = $this->success([
             'tree' => $recovery->tree->toPublicArray(),
             'is_owner' => true,
             'public_path' => '/t/' . $recovery->tree->publicId,
             'public_url' => public_tree_url((string) $this->appConfig['url'], $recovery->tree->publicId),
             'recovery_code' => $recovery->recoveryCode,
         ]);
+        $credential = $this->persistentAccess->issue($recovery->tree, $this->cookieValue(), true);
+        return $response->withHeader('Set-Cookie', $this->persistentAccess->cookieHeader($credential));
     }
 
     private function validateMutableRequest(): ?Response
@@ -133,13 +144,21 @@ final class TreeApiController
     }
 
     /** @param array<string, list<string>> $fields */
-    private function error(string $code, string $message, int $status, array $fields = []): Response
+    private function error(string $code, string $message, int $status, array $fields = [], array $data = []): Response
     {
         $error = ['code' => $code, 'message' => $message];
         if ($fields !== []) {
             $error['fields'] = $fields;
         }
 
-        return Response::json(['error' => $error], $status);
+        $payload = ['error' => $error];
+        if ($data !== []) $payload['data'] = $data;
+        return Response::json($payload, $status);
+    }
+
+    private function cookieValue(): ?string
+    {
+        $value = $this->request->cookie($this->persistentAccess->cookieName);
+        return is_string($value) ? $value : null;
     }
 }

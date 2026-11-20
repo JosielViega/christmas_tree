@@ -13,6 +13,8 @@ use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeRepository;
+use Tests\Support\InMemoryPersistentTreeCredentialRepository;
+use App\Services\PersistentTreeAccessService;
 
 final class TreeApiControllerTest extends TestCase
 {
@@ -21,6 +23,7 @@ final class TreeApiControllerTest extends TestCase
     private Csrf $csrf;
     private ChristmasTreeIdentityService $trees;
     private TreeOwnerSession $ownerSession;
+    private InMemoryPersistentTreeCredentialRepository $persistentRepository;
 
     protected function setUp(): void
     {
@@ -30,6 +33,7 @@ final class TreeApiControllerTest extends TestCase
         $this->csrf = new Csrf($this->session);
         $this->trees = new ChristmasTreeIdentityService(new InMemoryChristmasTreeRepository());
         $this->ownerSession = new TreeOwnerSession($this->session);
+        $this->persistentRepository = new InMemoryPersistentTreeCredentialRepository();
     }
 
     protected function tearDown(): void
@@ -61,6 +65,19 @@ final class TreeApiControllerTest extends TestCase
         self::assertStringStartsWith('/t/', $payload['data']['public_path']);
         self::assertSame('https://christmas.test' . $payload['data']['public_path'], $payload['data']['public_url']);
         self::assertStringNotContainsString('admin:private', $response->body());
+        self::assertStringContainsString('tree_access=', $response->headers()['Set-Cookie'] ?? '');
+        self::assertStringContainsString('HttpOnly', $response->headers()['Set-Cookie'] ?? '');
+        self::assertStringContainsString('SameSite=Lax', $response->headers()['Set-Cookie'] ?? '');
+        self::assertStringContainsString('Secure', $response->headers()['Set-Cookie'] ?? '');
+    }
+
+    public function testSecondTreeIsBlockedForRecognizedBrowser(): void
+    {
+        $first = $this->controller($this->postRequest(['owner_name' => 'Primeira']))->create();
+        self::assertSame(201, $first->status());
+        $second = $this->controller($this->postRequest(['owner_name' => 'Segunda']))->create();
+        self::assertSame(409, $second->status());
+        self::assertStringContainsString('tree_already_exists', $second->body());
     }
 
     public function testCreateRejectsInvalidCsrf(): void
@@ -133,6 +150,7 @@ final class TreeApiControllerTest extends TestCase
 
     private function controller(Request $request, string $appUrl = 'https://christmas.test'): TreeApiController
     {
+        $persistent = new PersistentTreeAccessService($this->persistentRepository, $this->ownerSession, 'tree_access', 90, true);
         return new TreeApiController(
             $request,
             $this->csrf,
@@ -141,6 +159,7 @@ final class TreeApiControllerTest extends TestCase
             new RateLimiter($this->rateLimitDirectory . '/create', 20, 900),
             new RateLimiter($this->rateLimitDirectory . '/recover', 20, 900),
             ['url' => $appUrl],
+            $persistent,
         );
     }
 }

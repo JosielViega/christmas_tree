@@ -17,6 +17,7 @@ use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
+use App\Repositories\PdoPersistentTreeCredentialRepository;
 use App\Payments\CurlPaymentHttpClient;
 use App\Payments\MercadoPagoPaymentGateway;
 use App\Services\ChristmasTreeGiftService;
@@ -29,20 +30,25 @@ use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
 use App\Services\GiftPublicationService;
 use App\Services\TreeOwnerSession;
+use App\Services\PersistentTreeAccessService;
 
-$home = new HomeController(
-    $app['request'],
-    $app['view'],
-    $app['session'],
-    $app['csrf'],
-    $app['validator'],
-    $app['config'],
-    $app['frontendAssets'],
-);
 $health = new HealthController();
 $treeRepository = new PdoChristmasTreeRepository($app['database']);
 $treeIdentity = new ChristmasTreeIdentityService($treeRepository);
 $treeOwnerSession = new TreeOwnerSession($app['session']);
+$persistentAccess = new PersistentTreeAccessService(
+    new PdoPersistentTreeCredentialRepository($app['database']),
+    $treeOwnerSession,
+    $app['config']['persistent_access']['cookie_name'],
+    $app['config']['persistent_access']['lifetime_days'],
+    $app['config']['session']['secure'] || $app['request']->isSecure() || str_starts_with(strtolower($app['config']['url']), 'https://'),
+);
+$persistentCookie = $app['request']->cookie($persistentAccess->cookieName);
+$persistentAccess->restore(is_string($persistentCookie) ? $persistentCookie : null);
+$home = new HomeController(
+    $app['request'], $app['view'], $app['session'], $app['csrf'], $app['validator'], $app['config'],
+    $app['frontendAssets'], $treeIdentity, $treeOwnerSession, $persistentAccess,
+);
 $rateLimitPath = dirname(__DIR__) . '/storage/cache/rate-limits';
 $treeApi = new TreeApiController(
     $app['request'],
@@ -60,6 +66,7 @@ $treeApi = new TreeApiController(
         $app['config']['rate_limits']['tree_recovery']['window_seconds'],
     ),
     $app['config'],
+    $persistentAccess,
 );
 $treePage = new TreePageController(
     $app['view'],
@@ -68,6 +75,7 @@ $treePage = new TreePageController(
     $treeIdentity,
     $treeOwnerSession,
     $app['config'],
+    $persistentAccess,
 );
 $ornamentService = new ChristmasTreeOrnamentService(
     $treeRepository,

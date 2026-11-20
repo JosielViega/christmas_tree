@@ -10,6 +10,7 @@ use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
+use App\Repositories\PdoPersistentTreeCredentialRepository;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
@@ -17,6 +18,9 @@ use App\Services\GiftTextureStorage;
 use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
 use App\Services\GiftPublicationService;
+use App\Services\PersistentTreeAccessService;
+use App\Services\TreeOwnerSession;
+use App\Core\Session;
 use App\Domain\PaymentCharge;
 use Tests\Support\FakePaymentGateway;
 use DateTimeImmutable;
@@ -58,6 +62,21 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertFalse($service->ownerIsAuthorized($created->tree->publicId, $created->adminToken));
             self::assertTrue($service->ownerIsAuthorized($created->tree->publicId, $recovered->adminToken));
             self::assertNull($service->recover($created->tree->publicId, $created->recoveryCode));
+
+            $_SESSION = [];
+            $persistent = new PersistentTreeAccessService(
+                new PdoPersistentTreeCredentialRepository($database),
+                new TreeOwnerSession(new Session(false)),
+                'tree_access',
+            );
+            $persistentCookie = $persistent->issue($created->tree);
+            $_SESSION = [];
+            $restored = (new PersistentTreeAccessService(
+                new PdoPersistentTreeCredentialRepository($database),
+                new TreeOwnerSession(new Session(false)),
+                'tree_access',
+            ))->restore($persistentCookie);
+            self::assertSame($created->tree->publicId, $restored?->publicId);
 
             $ornaments = new ChristmasTreeOrnamentService($treeRepository, new PdoChristmasTreeOrnamentRepository($database));
             $ornament = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16), "Feliz Natal 🎄\nCom carinho");

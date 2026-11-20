@@ -69,8 +69,8 @@ return [
         'uploads',
     ],
     'sensitive_name_patterns' => [
-        '/secret/i',
-        '/credential/i',
+        '/(?:^|\/)(?:secret|secrets)(?:\.|\/|$)/i',
+        '/(?:^|\/)(?:credential|credentials)(?:\.|\/|$)/i',
         '/private[-_]?key/i',
     ],
 ];
