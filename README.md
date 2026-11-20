@@ -68,11 +68,11 @@ tests/                   testes unitários, HTTP e integração opcional MySQL
 docs/                    arquitetura, segurança e operação
 ```
 
-Consulte [arquitetura](docs/ARCHITECTURE.md), [compartilhamento social](docs/SOCIAL_SHARING.md), [segurança](docs/SECURITY.md), [roadmap](docs/ROADMAP.md) e [créditos](docs/OPEN_SOURCE_CREDITS.md).
+Consulte [arquitetura](docs/ARCHITECTURE.md), [pagamentos Pix](docs/PAYMENTS.md), [armazenamento privado](docs/GIFT_STORAGE.md), [compartilhamento social](docs/SOCIAL_SHARING.md), [segurança](docs/SECURITY.md), [roadmap](docs/ROADMAP.md) e [créditos](docs/OPEN_SOURCE_CREDITS.md).
 
 ## Instalação local
 
-Pré-requisitos: PHP 8.2+, extensões PDO/PDO MySQL e mbstring, Composer 2, MySQL e Node.js 22+.
+Pré-requisitos: PHP 8.2+, extensões PDO/PDO MySQL, mbstring, fileinfo, GD/PNG e cURL, Composer 2, MySQL e Node.js 22+.
 
 ```bash
 composer install
@@ -127,6 +127,10 @@ O fluxo de embalagem aparece automaticamente no desenvolvimento e fica desabilit
 - `DELETE /api/trees/{public_id}/ornaments/{ornament_id}` — remoção exclusiva do proprietário;
 - `GET /api/trees/{public_id}/messages` — metadados bloqueados ou mensagens reveladas, sempre restritos ao proprietário e sem cache;
 - `GET /credits` e `GET /health` — créditos e health check.
+- `GET /api/payments/catalog` — catálogo e disponibilidade, sem credenciais;
+- `POST /api/gift-drafts/{gift_id}/order` — cria ou recupera a order Pix com token, CSRF e idempotência;
+- `GET /api/gift-drafts/{gift_id}/order` — consulta o estado local privado;
+- `POST /api/payments/webhook/mercadopago` — webhook assinado do tópico `order`.
 
 As APIs usam envelopes JSON consistentes: `{ "data": ... }` em sucesso e `{ "error": { "code", "message", "fields?" } }` em erro. Tokens administrativos e hashes nunca fazem parte das respostas públicas.
 
@@ -178,7 +182,18 @@ Sem automação gráfica, conferir em desktop e em pelo menos um celular real:
 - trocar repetidamente estilo, modo e fotografia não causa travamentos ou aumento contínuo perceptível de memória;
 - fechar a prévia restaura a árvore, câmera, progressão, enfeites, PNG e vídeo sem alterações;
 - antes de preparar, nenhuma imagem sai do navegador; ao preparar, somente o PNG final aparece na rede e o token privado fica no `sessionStorage`, nunca a fotografia original;
-- textos deixam claro que a experiência é demonstração, sem preço, pedido, envio ou pagamento.
+- sem sandbox configurado, textos deixam claro que o pagamento está indisponível e nenhuma cobrança é criada.
+
+### Validação manual da Etapa 07B.3
+
+Em uma conta e credenciais de teste do Mercado Pago, nunca com cobrança real:
+
+- habilitar conscientemente o sandbox e confirmar que produto, valor, QR Code, Copia e Cola e expiração aparecem em viewport móvel;
+- repetir o envio e recarregar a tela sem criar uma segunda cobrança;
+- pagar com usuário de teste, simular/repetir o webhook no painel e confirmar `pending → paid` uma única vez;
+- verificar que o presente pago continua ausente da árvore pública e que enfeites/mensagens não mudaram;
+- testar assinatura inválida, valor divergente, provedor indisponível e expiração sem expor payload, e-mail ou credenciais;
+- executar o cron e confirmar que pedidos pendentes/pagos conservam a textura e que rascunhos comuns expirados são removidos.
 
 O teste MySQL real é opt-in para impedir uso acidental de bancos comuns. Aponte as variáveis `DB_*` para um banco **isolado**, aplique a migration e execute:
 
@@ -192,7 +207,7 @@ O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `c
 
 No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `APP_URL` deve ser a origem HTTPS pública, sem usuário, senha, query ou fragmento, pois define links canônicos e Open Graph. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 
-## Etapa 07B.2 — rascunhos privados de presentes
+## Etapas 07B.2 e 07B.3 — presentes privados e Pix
 
 Em desenvolvimento, a prévia pode preparar um rascunho associado à árvore. A fotografia original permanece no navegador; somente um PNG final 512×512 é enviado, validado e reprocessado pelo GD. O arquivo fica em `storage/private/gift-textures`, fora de `public/`, e expira em 24 horas.
 
@@ -202,8 +217,8 @@ Rotas:
 - `GET /api/gift-drafts/{gift_id}` — consulta com `X-Gift-Draft-Token`;
 - `DELETE /api/gift-drafts/{gift_id}` — cancela com token e CSRF.
 
-Não existem rotas para pagamento, publicação ou download privado. Execute `composer gifts:cleanup` por cron. Os limites usam `GIFT_TEXTURE_MAX_BYTES`, `GIFT_REQUEST_MAX_BYTES`, `GIFT_DRAFT_EXPIRATION_HOURS` e `GIFT_CLEANUP_BATCH_SIZE`. Veja [armazenamento privado](docs/GIFT_STORAGE.md).
+O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox é configurado explicitamente. Sem credenciais, informa indisponibilidade e não cria cobranças. Pagamento confirmado muda apenas o estado para `paid`; não publica o presente. Execute `composer gifts:cleanup` por cron para reconciliar pendências antes da limpeza. Veja [armazenamento privado](docs/GIFT_STORAGE.md) e [pagamentos](docs/PAYMENTS.md).
 
 ## Escopo futuro
 
-Upload de mídia, conversão de codecs, fotografias persistentes, pagamentos, pedidos e otimizações finais de lançamento pertencem às próximas etapas.
+Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

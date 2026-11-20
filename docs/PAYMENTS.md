@@ -1,0 +1,55 @@
+# Pagamentos Pix
+
+## Escopo e provedor
+
+A Etapa 07B.3 usa exclusivamente o Checkout Transparente do Mercado Pago pela **Orders API**: `POST /v1/orders` para criar a order Pix e `GET /v1/orders/{id}` para confirmação e reconciliação. Não usa a Payments API legada, Checkout Pro, cartão ou Asaas. O gateway fica atrás de `PaymentGateway`, permitindo substituir o provedor sem acoplar o domínio ao JSON externo.
+
+Pagamentos ficam desabilitados por padrão. Desenvolvimento exige credenciais de uma conta de teste apropriada, `PAYMENTS_ENVIRONMENT=sandbox`, segredo de Webhook e ativação explícita. Produção exige adicionalmente `APP_ENV=production`, `APP_URL` HTTPS e `PAYMENTS_ALLOW_PRODUCTION=true`. Nunca use credenciais reais no ambiente local.
+
+## Produtos e pedidos
+
+O catálogo do servidor define `special` por 199 centavos, `personalized` por 399 e `magic` por 599. Valores e versão são configuráveis, mas cada pedido copia produto, centavos, moeda `BRL` e versão vigentes; mudanças posteriores não alteram pedidos existentes. O frontend envia somente código do produto e e-mail obrigatório pelo provedor. O e-mail não é persistido localmente.
+
+Um presente possui no máximo um pedido. O banco grava hashes das chaves de idempotência e da solicitação, nunca tokens ou credenciais. A chave enviada ao Mercado Pago deriva do ID aleatório do pedido e é reutilizada após timeout. Assim, uma resposta incerta pode ser repetida sem criar outra cobrança.
+
+## Estados
+
+Estados financeiros: `pending`, `paid`, `expired`, `cancelled`, `failed` e `refunded`. `pending` pode avançar a um estado final; `paid` pode avançar somente para `refunded`. Estados finais nunca retornam a `pending`.
+
+`processed/accredited` vira `paid`; `action_required/waiting_transfer`, `created` e `processing` permanecem `pending`; cancelamento e expiração são separados; reembolso integral, parcial ou decorrente de estorno vira `refunded`. O estado financeiro é separado da publicação. Uma confirmação confiável muda o presente de `draft` para `paid`, mas não existe rota que o torne `published`.
+
+## Webhook e confirmação
+
+Endpoint: `POST /api/payments/webhook/mercadopago?data.id={order_id}&type=order`.
+
+O backend valida tamanho, tópico, identificadores, `x-request-id` e `x-signature`. A assinatura usa o manifesto oficial `id:{data.id};request-id:{x-request-id};ts:{ts};` e HMAC-SHA256 com comparação em tempo constante. Depois da validação, o corpo serve apenas para identificar o evento; o estado financeiro é consultado em `GET /v1/orders/{id}`.
+
+Antes da transição, o backend confere ID externo, order do provedor, valor em centavos, moeda derivada da conta brasileira e ambiente. A gravação de evento, mudança do pedido e `draft -> paid` ocorrem em transação MySQL. `event_key` único bloqueia replay. QR Code, Pix Copia e Cola e ticket nunca entram nos logs.
+
+## Reconciliação, expiração e limpeza
+
+`composer gifts:cleanup` primeiro reconcilia pedidos `pending` que já possuem ID no provedor, depois limpa rascunhos. Um rascunho associado a pedido `pending` ou `paid` é excluído da seleção de limpeza. Falha ou indisponibilidade do provedor conserva o arquivo e o pedido para a próxima execução. Pedidos e eventos financeiros não são apagados pelo cron.
+
+Configure o cron do cPanel em intervalo conservador. O polling do navegador lê apenas o banco local a cada dez segundos e para após dez minutos; ele nunca consulta o Mercado Pago diretamente.
+
+## Configuração sandbox
+
+Variáveis: `PAYMENTS_ENABLED`, `PAYMENTS_PROVIDER`, `PAYMENTS_ENVIRONMENT`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`, `PAYMENTS_PIX_EXPIRATION_MINUTES`, preços em centavos e limites de reconciliação/rate limit. O Access Token é usado somente no backend. Cadastre a URL HTTPS do webhook no painel do Mercado Pago para o tópico de orders.
+
+Sem credenciais configuradas, `GET /api/payments/catalog` informa `available=false` e nenhuma cobrança é criada. Testes automatizados usam gateway e HTTP falsos. Uma integração sandbox real somente deve ser executada quando credenciais de teste forem fornecidas conscientemente; jamais faz parte da suíte padrão.
+
+## Limitações da etapa
+
+- Nenhum presente pago é publicado ou renderizado na árvore.
+- Não há abertura de presentes, cartão, boleto, reembolso iniciado pelo aplicativo ou painel financeiro.
+- A Orders API brasileira não devolve um campo de moeda na consulta documentada; a integração exige `country_code=BRA` e normaliza a moeda contratada para `BRL`.
+- Se a conexão cair antes de o provedor devolver o ID da order, o pedido local permanece `pending` e protegido. A mesma solicitação deve ser repetida com o mesmo e-mail; a chave idempotente do provedor recupera a cobrança sem duplicá-la. Sem ID oficial não há consulta segura por cron, portanto o arquivo não é apagado automaticamente.
+- A ativação comercial exige revisão jurídica/fiscal, credenciais de produção, HTTPS e teste manual do webhook no painel do provedor.
+
+Referências oficiais consultadas em 20/11/2026:
+
+- [Pix no Checkout Transparente via Orders API](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix)
+- [Notificações de orders](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications)
+- [Criar order](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/create-order/post)
+- [Consultar order](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/get-order/get)
+- [Estados de order](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-management/status/order-status)

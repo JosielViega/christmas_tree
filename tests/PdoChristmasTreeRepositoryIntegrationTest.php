@@ -8,10 +8,15 @@ use App\Core\Database;
 use App\Repositories\PdoChristmasTreeRepository;
 use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Repositories\PdoChristmasTreeGiftRepository;
+use App\Repositories\PdoPaymentOrderRepository;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\GiftTextureStorage;
+use App\Services\GiftPaymentService;
+use App\Services\GiftProductCatalog;
+use App\Domain\PaymentCharge;
+use Tests\Support\FakePaymentGateway;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
@@ -92,8 +97,35 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertFalse($repeatedGift->created);
             self::assertSame($gift->gift->publicId, $repeatedGift->gift->publicId);
             self::assertSame('cancelled', $gifts->cancel($gift->gift->publicId, $gift->accessToken)?->status);
+
+            $paidGift = $gifts->create($created->tree->publicId, 'Pagador', 'magic', 'featured', 'Mensagem paga', str_repeat('h', 16), true, $upload);
+            $gateway = new FakePaymentGateway();
+            $payments = new GiftPaymentService(
+                $gifts,
+                new PdoPaymentOrderRepository($database),
+                new GiftProductCatalog(['special' => 199, 'personalized' => 399, 'magic' => 599], 'integration'),
+                $gateway,
+                60,
+                false,
+            );
+            $order = $payments->create($paidGift->gift->publicId, $paidGift->accessToken, 'magic', 'payer@example.com', str_repeat('j', 16));
+            self::assertSame(599, $order?->amountCents);
+            self::assertSame('pending', $order?->status);
+            self::assertSame('draft', $gifts->cancel($paidGift->gift->publicId, $paidGift->accessToken)?->status);
+            $gateway->charge = new PaymentCharge(
+                (string) $order?->providerOrderId, 'PAY_INTEGRATION', (string) $order?->publicId,
+                599, 'BRL', 'paid', false, null, null, null,
+            );
+            self::assertTrue($payments->processNotification('signed', 'request', (string) $order?->providerOrderId, '{"id":"integration"}'));
+            self::assertTrue($payments->processNotification('signed', 'request', (string) $order?->providerOrderId, '{"id":"integration"}'));
+            self::assertSame('paid', $payments->findAuthorized($paidGift->gift->publicId, $paidGift->accessToken)?->status);
+            self::assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM christmas_tree_payment_events')->fetchColumn());
+            self::assertSame('paid', $pdo->query("SELECT status FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id}")->fetchColumn());
+            self::assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id} AND published_at IS NOT NULL")->fetchColumn());
         } finally {
             if (is_int($treeId)) {
+                $pdo->exec('DELETE payment_events FROM christmas_tree_payment_events payment_events INNER JOIN christmas_tree_gift_orders gift_orders ON gift_orders.id = payment_events.order_id INNER JOIN christmas_tree_gifts gifts ON gifts.id = gift_orders.gift_id WHERE gifts.tree_id = ' . $treeId);
+                $pdo->exec('DELETE gift_orders FROM christmas_tree_gift_orders gift_orders INNER JOIN christmas_tree_gifts gifts ON gifts.id = gift_orders.gift_id WHERE gifts.tree_id = ' . $treeId);
                 $cleanup = $pdo->prepare('DELETE FROM christmas_trees WHERE id = :id');
                 $cleanup->execute(['id' => $treeId]);
             }

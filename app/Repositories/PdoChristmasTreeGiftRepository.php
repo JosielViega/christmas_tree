@@ -88,7 +88,11 @@ final class PdoChristmasTreeGiftRepository implements ChristmasTreeGiftRepositor
         $statement = $this->database->connection()->prepare(
             'UPDATE christmas_tree_gifts SET status = :next_status '
             . 'WHERE public_id = :public_id AND status = :current_status '
-            . ($to === 'expired' ? 'AND expires_at <= :now' : '')
+            . ($to === 'expired' ? 'AND expires_at <= :now ' : '')
+            . (in_array($to, ['cancelled', 'expired'], true)
+                ? "AND NOT EXISTS (SELECT 1 FROM christmas_tree_gift_orders gift_orders "
+                    . "WHERE gift_orders.gift_id = christmas_tree_gifts.id AND gift_orders.status IN ('pending', 'paid'))"
+                : '')
         );
         $parameters = ['public_id' => $publicId, 'current_status' => $from, 'next_status' => $to];
         if ($to === 'expired') {
@@ -110,9 +114,11 @@ final class PdoChristmasTreeGiftRepository implements ChristmasTreeGiftRepositor
     {
         $limit = max(1, min(500, $limit));
         $statement = $this->database->connection()->prepare(
-            "SELECT * FROM christmas_tree_gifts WHERE texture_path IS NOT NULL AND "
-            . "((status = 'draft' AND expires_at <= :now) OR status IN ('cancelled', 'expired')) "
-            . "ORDER BY expires_at ASC, id ASC LIMIT {$limit}"
+            "SELECT gifts.* FROM christmas_tree_gifts gifts WHERE gifts.texture_path IS NOT NULL AND "
+            . "((gifts.status = 'draft' AND gifts.expires_at <= :now AND NOT EXISTS ("
+            . "SELECT 1 FROM christmas_tree_gift_orders gift_orders WHERE gift_orders.gift_id = gifts.id "
+            . "AND gift_orders.status IN ('pending', 'paid'))) OR gifts.status IN ('cancelled', 'expired')) "
+            . "ORDER BY gifts.expires_at ASC, gifts.id ASC LIMIT {$limit}"
         );
         $statement->execute(['now' => $now]);
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));

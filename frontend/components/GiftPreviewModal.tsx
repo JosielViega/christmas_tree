@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { CheckCircle2, Gift, ImagePlus, Loader2, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, Gift, ImagePlus, Loader2, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
 import * as THREE from 'three';
 import { GiftBoxModel } from './Presents';
 import {
@@ -18,6 +18,8 @@ import {
 import type { DecodedGiftPhoto, GiftCompositionMode, GiftStyleId } from '../utils/giftTextures';
 import { cancelGiftDraft, createGiftIdempotencyKey, prepareGiftDraft } from '../api/giftDrafts';
 import type { GiftDraftAccess } from '../api/giftDrafts';
+import { createGiftPaymentOrder, fetchGiftCatalog, fetchGiftPaymentOrder } from '../api/giftPayments';
+import type { GiftPaymentOrder, GiftProduct } from '../api/giftPayments';
 
 interface GiftPreviewModalProps {
   maxPhotoBytes: number;
@@ -62,6 +64,14 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
   const [cancelling, setCancelling] = useState(false);
   const [draft, setDraft] = useState<GiftDraftAccess | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [paymentAvailable, setPaymentAvailable] = useState(false);
+  const [products, setProducts] = useState<GiftProduct[]>([]);
+  const [productCode, setProductCode] = useState('personalized');
+  const [payerEmail, setPayerEmail] = useState('');
+  const [order, setOrder] = useState<GiftPaymentOrder | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const paymentIdempotencyKey = useRef(createGiftIdempotencyKey());
   const photoRef = useRef<DecodedGiftPhoto | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
@@ -70,6 +80,36 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
   useEffect(() => {
     idempotencyKey.current = createGiftIdempotencyKey();
   }, [photo, style, mode, senderName, message]);
+
+  useEffect(() => {
+    if (!draft || draft.gift.status !== 'draft') return;
+    let active = true;
+    void fetchGiftCatalog().then((result) => {
+      if (!active) return;
+      setPaymentAvailable(result.available);
+      setProducts(result.products);
+      if (!result.products.some((product) => product.code === productCode) && result.products[0]) setProductCode(result.products[0].code);
+    }).catch(() => {
+      if (active) setPaymentAvailable(false);
+    });
+    return () => { active = false; };
+  }, [draft, productCode]);
+
+  useEffect(() => {
+    if (!draft || !accessToken || order?.status !== 'pending') return;
+    let active = true;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      if (++attempts > 60) {
+        window.clearInterval(timer);
+        return;
+      }
+      void fetchGiftPaymentOrder(draft.gift.public_id, accessToken).then((result) => {
+        if (active) setOrder(result.order);
+      }).catch(() => undefined);
+    }, 10000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [draft, accessToken, order?.status]);
 
   const releasePhoto = () => {
     requestId.current += 1;
@@ -151,6 +191,36 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
     }
   };
 
+  const startPayment = async () => {
+    if (!draft || !accessToken || !paymentAvailable || paying) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const result = await createGiftPaymentOrder(
+        draft.gift.public_id, accessToken, csrfToken, productCode, payerEmail, paymentIdempotencyKey.current,
+      );
+      setOrder(result.order);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível iniciar o pagamento Pix.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const copyPix = async () => {
+    if (!order?.pix_qr_code) return;
+    try {
+      await navigator.clipboard.writeText(order.pix_qr_code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Não foi possível copiar automaticamente. Selecione o código Pix manualmente.');
+    }
+  };
+
+  const formatPrice = (amountCents: number, currency: string) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(amountCents / 100);
+
   return (
     <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="gift-preview-title" onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
       <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#fff1a1]/20 bg-[#07120d] text-white shadow-2xl md:max-h-[92vh] md:rounded-3xl">
@@ -210,10 +280,49 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
 
             {draft && <div className="mt-5 rounded-2xl border border-[#fff1a1]/25 bg-[#fff1a1]/[0.07] p-4 text-sm">
               <div className="flex items-center gap-2 font-semibold text-[#fff1a1]"><CheckCircle2 size={19} />🎁 Seu presente foi preparado!</div>
-              <p className="mt-2 text-xs leading-relaxed text-white/65">Este presente ainda não foi enviado. A publicação dependerá de pagamento, que será implementado posteriormente.</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/65">Este presente ainda não foi publicado. O pagamento apenas confirma o pedido; a publicação 3D ocorrerá em uma etapa futura.</p>
               <p className="mt-2 text-[11px] uppercase tracking-wide text-white/40">Estado: {draft.gift.status}</p>
-              {draft.gift.status === 'draft' && <button type="button" onClick={() => void cancelDraft()} disabled={cancelling} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300/20 px-3 py-2 text-xs text-red-100 hover:bg-red-400/10 disabled:opacity-50"><Trash2 size={14} />{cancelling ? 'Cancelando…' : 'Cancelar rascunho'}</button>}
+              {draft.gift.status === 'draft' && !order && <button type="button" onClick={() => void cancelDraft()} disabled={cancelling} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300/20 px-3 py-2 text-xs text-red-100 hover:bg-red-400/10 disabled:opacity-50"><Trash2 size={14} />{cancelling ? 'Cancelando…' : 'Cancelar rascunho'}</button>}
             </div>}
+
+            {draft?.gift.status === 'draft' && !order && <section className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.05] p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">5. Pagamento Pix</p>
+              {!paymentAvailable ? (
+                <p className="mt-3 text-xs leading-relaxed text-white/55">O pagamento Pix está indisponível neste ambiente. Nenhuma cobrança foi criada.</p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {products.map((product) => <button key={product.code} type="button" onClick={() => { setProductCode(product.code); paymentIdempotencyKey.current = createGiftIdempotencyKey(); }} aria-pressed={productCode === product.code} className={`rounded-xl border p-3 text-left ${productCode === product.code ? 'border-emerald-300/50 bg-emerald-300/10' : 'border-white/10 bg-black/15'}`}>
+                      <span className="block text-xs font-semibold text-white/80">{product.name}</span>
+                      <span className="mt-1 block text-sm font-bold text-emerald-200">{formatPrice(product.amount_cents, product.currency)}</span>
+                    </button>)}
+                  </div>
+                  <label className="block text-xs text-white/65">E-mail exigido pelo Mercado Pago
+                    <input type="email" autoComplete="email" value={payerEmail} onChange={(event) => { setPayerEmail(event.target.value); paymentIdempotencyKey.current = createGiftIdempotencyKey(); }} maxLength={160} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-black/25 px-3 text-sm text-white outline-none focus:border-emerald-300/50" placeholder="voce@exemplo.com" />
+                  </label>
+                  <p className="text-[11px] leading-relaxed text-white/40">O e-mail é enviado diretamente ao provedor para gerar o Pix e não é armazenado no banco local.</p>
+                  <button type="button" onClick={() => void startPayment()} disabled={!payerEmail.includes('@') || paying} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-semibold hover:bg-emerald-400 disabled:opacity-50">
+                    {paying && <Loader2 size={17} className="animate-spin" />}{paying ? 'Gerando Pix…' : 'Gerar pagamento Pix'}
+                  </button>
+                </div>
+              )}
+            </section>}
+
+            {order && <section className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.06] p-4 text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">Pagamento {order.status === 'pending' ? 'aguardando Pix' : order.status}</p>
+              <p className="mt-2 text-lg font-bold">{order.product_name} · {formatPrice(order.amount_cents, order.currency)}</p>
+              {order.status === 'pending' && <>
+                {order.pix_qr_code_base64 && <img src={`data:image/png;base64,${order.pix_qr_code_base64}`} alt="QR Code Pix" className="mx-auto mt-4 h-48 w-48 rounded-xl bg-white p-2" />}
+                {order.pix_qr_code && <div className="mt-4">
+                  <textarea readOnly value={order.pix_qr_code} rows={3} className="w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 text-[10px] text-white/55" aria-label="Pix Copia e Cola" />
+                  <button type="button" onClick={() => void copyPix()} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-emerald-300/30 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/10"><Copy size={16} />{copied ? 'Código copiado' : 'Copiar código Pix'}</button>
+                </div>}
+                {order.pix_ticket_url && <a href={order.pix_ticket_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-emerald-200 underline"><ExternalLink size={14} />Abrir instruções no Mercado Pago</a>}
+                <p className="mt-3 text-[11px] text-white/40">A confirmação ocorre de forma segura pelo provedor. Esta tela não publica o presente.</p>
+              </>}
+              {order.status === 'paid' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />Pagamento confirmado. O presente permanece privado até a futura etapa de publicação.</div>}
+              {['expired', 'cancelled', 'failed', 'refunded'].includes(order.status) && <p className="mt-3 text-xs text-amber-100">Este pagamento não está ativo. Nenhuma publicação foi realizada.</p>}
+            </section>}
 
             <fieldset className="mt-6" disabled={!photo || loading}>
               <legend className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">3. Personalize a estampa</legend>

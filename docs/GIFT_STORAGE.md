@@ -10,7 +10,7 @@ O PHP confere limite do corpo, erro de upload, assinatura PNG, MIME real via `fi
 
 O ID público de 128 bits identifica o rascunho, mas não autoriza consulta. A criação devolve um segredo de 256 bits; somente seu SHA-256 é persistido. Consulta e cancelamento exigem `X-Gift-Draft-Token`, nunca query string. Respostas privadas usam `Cache-Control: private, no-store` e não incluem mensagem, caminho ou textura.
 
-A mensagem permanece privada e não participa das APIs públicas da árvore. A pessoa deve confirmar que a fotografia poderá ficar visível após uma futura publicação paga. Nesta etapa não existe rota para pagamento, publicação ou download da textura.
+A mensagem permanece privada e não participa das APIs públicas da árvore. A pessoa deve confirmar que a fotografia poderá ficar visível após uma futura publicação paga. O pagamento Pix da Etapa 07B.3 pode mudar o rascunho para `paid`, mas não existe rota de publicação nem download da textura.
 
 ## Idempotência e compensação
 
@@ -24,7 +24,7 @@ Rascunhos expiram em 24 horas por padrão. Execute periodicamente:
 composer gifts:cleanup
 ```
 
-O lote é configurado por `GIFT_CLEANUP_BATCH_SIZE`. O comando primeiro transiciona `draft` para `expired`, depois remove o arquivo e limpa o caminho. Estados `cancelled` e `expired` com arquivo residual são retomados em execuções seguintes. `paid` e `published` nunca são eliminados pelo comando, preparando concorrência segura com o fluxo futuro.
+O lote é configurado por `GIFT_CLEANUP_BATCH_SIZE`. O comando reconcilia primeiro pedidos pendentes e só então transiciona rascunhos elegíveis para `expired`. Pedidos `pending` ou `paid` bloqueiam a remoção; indisponibilidade do provedor conserva o arquivo. Estados `cancelled` e `expired` com arquivo residual são retomados em execuções seguintes. `paid` e `published` nunca são eliminados.
 
 ## HostGator
 

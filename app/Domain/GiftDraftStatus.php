@@ -14,7 +14,7 @@ final class GiftDraftStatus
 
     public static function canTransition(string $from, string $to): bool
     {
-        return $from === self::DRAFT && in_array($to, [self::CANCELLED, self::EXPIRED], true);
+        return $from === self::DRAFT && in_array($to, [self::PAID, self::CANCELLED, self::EXPIRED], true);
     }
 
     public static function isPublic(string $status): bool

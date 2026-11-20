@@ -40,8 +40,12 @@ Prévia experimental de uma fotografia local aplicada como papel de presente 3D,
 
 Rascunhos privados associados à árvore, contendo somente a textura final reprocessada, metadados mínimos, mensagem secreta, idempotência, credencial própria, expiração e limpeza em lote. Os estados `paid` e `published` estão reservados, mas não possuem transições ou endpoints públicos. Nada aparece na árvore e nenhum pagamento é simulado.
 
+## 7B.3. Pagamentos Pix — concluída
+
+Catálogo controlado pelo servidor, pedidos imutáveis em centavos, Checkout Transparente Mercado Pago pela Orders API, Pix privado, assinatura HMAC de webhook, confirmação por consulta oficial, reconciliação e limpeza segura. Pagamento confirmado muda o presente somente para `paid`; publicação e abertura permanecem fora do escopo.
+
 ## 8. Otimização e lançamento
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias originais persistentes permanecem fora do escopo. A Etapa 07B.2 armazena somente a textura final privada; pagamentos e publicação pertencem a uma etapa futura.
+Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.

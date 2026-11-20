@@ -73,6 +73,8 @@ Não há caminho absoluto de conta embutido no template.
 
 O mirror inclui somente `storage/private/.gitkeep`, nunca texturas. Crie `storage/private/gift-textures` fora do Document Root, com escrita exclusiva para o usuário PHP. Confirme `fileinfo` e GD com PNG e configure o cron do cPanel para executar `composer gifts:cleanup`. Se não for possível isolar esse diretório de `public/`, mantenha a funcionalidade desabilitada.
 
+Pagamentos exigem também cURL, HTTPS e cron. Mantenha `PAYMENTS_ENABLED=false` até configurar credenciais de teste, segredo do webhook e URL HTTPS do tópico `order`. Produção requer opt-in separado; não copie credenciais entre ambientes. O cron reconcilia orders pendentes antes de remover qualquer textura.
+
 ## Atualizações futuras
 
 1. Atualize e teste o código localmente.

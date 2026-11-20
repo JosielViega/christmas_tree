@@ -8,6 +8,14 @@ if ($giftStoragePath === '') {
 } elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $giftStoragePath) !== 1) {
     $giftStoragePath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $giftStoragePath), '/');
 }
+$paymentEnvironment = (string) env('PAYMENTS_ENVIRONMENT', 'sandbox');
+$paymentRequested = filter_var(env('PAYMENTS_ENABLED', false), FILTER_VALIDATE_BOOL);
+$paymentProductionAllowed = filter_var(env('PAYMENTS_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL);
+$paymentEnabled = $paymentRequested && ($paymentEnvironment === 'sandbox' || (
+    $paymentEnvironment === 'production' && $paymentProductionAllowed
+    && (string) env('APP_ENV', 'production') === 'production'
+    && str_starts_with((string) env('APP_URL', ''), 'https://')
+));
 
 return [
     'name' => (string) env('APP_NAME', 'Christmas Tree'),
@@ -34,6 +42,21 @@ return [
         'draft_expiration_hours' => (int) env('GIFT_DRAFT_EXPIRATION_HOURS', 24),
         'cleanup_batch_size' => (int) env('GIFT_CLEANUP_BATCH_SIZE', 100),
     ],
+    'payments' => [
+        'enabled' => $paymentEnabled,
+        'provider' => (string) env('PAYMENTS_PROVIDER', 'mercadopago'),
+        'environment' => $paymentEnvironment,
+        'access_token' => trim((string) env('MERCADOPAGO_ACCESS_TOKEN', '')),
+        'webhook_secret' => trim((string) env('MERCADOPAGO_WEBHOOK_SECRET', '')),
+        'expiration_minutes' => (int) env('PAYMENTS_PIX_EXPIRATION_MINUTES', 1440),
+        'reconciliation_batch_size' => (int) env('PAYMENTS_RECONCILIATION_BATCH_SIZE', 20),
+        'catalog_version' => (string) env('GIFT_PRICE_VERSION', '2026-11'),
+        'prices' => [
+            'special' => (int) env('GIFT_PRICE_SPECIAL_CENTS', 199),
+            'personalized' => (int) env('GIFT_PRICE_PERSONALIZED_CENTS', 399),
+            'magic' => (int) env('GIFT_PRICE_MAGIC_CENTS', 599),
+        ],
+    ],
     'rate_limits' => [
         'tree_creation' => [
             'max_attempts' => (int) env('TREE_CREATE_RATE_LIMIT', 5),
@@ -50,6 +73,10 @@ return [
         'gift_draft_creation' => [
             'max_attempts' => (int) env('GIFT_DRAFT_RATE_LIMIT', 6),
             'window_seconds' => (int) env('GIFT_DRAFT_RATE_WINDOW', 900),
+        ],
+        'gift_payment_creation' => [
+            'max_attempts' => (int) env('GIFT_PAYMENT_RATE_LIMIT', 5),
+            'window_seconds' => (int) env('GIFT_PAYMENT_RATE_WINDOW', 900),
         ],
     ],
 ];

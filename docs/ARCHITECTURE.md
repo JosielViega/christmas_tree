@@ -65,6 +65,12 @@ O código de recuperação aparece uma única vez ao usuário. Quando usado, o b
 - `ChristmasTreeOrnamentService` valida tipos, nomes e mensagens, define cores, controla capacidade e aplica a data de revelação;
 - `SocialOrnament` reutiliza o Canvas, câmera e iluminação existentes com geometrias nativas do Three.js.
 
+## Pedidos e pagamentos Pix
+
+`christmas_tree_gift_orders` mantém o preço contratado, estado financeiro e identificadores da Orders API; `christmas_tree_payment_events` registra eventos idempotentes sem conservar payloads. `GiftPaymentService` autoriza pelo token do rascunho e não conhece JSON do provedor. `PaymentGateway` define criação, consulta, interpretação e assinatura; `MercadoPagoPaymentGateway` implementa somente `POST/GET /v1/orders`.
+
+Chamadas externas ocorrem fora de transações. A idempotência do provedor permite repetir uma criação incerta. Após consultar a fonte oficial, `PdoPaymentOrderRepository` bloqueia o pedido e grava evento, estado financeiro e eventual `draft → paid` em uma transação curta. Não existe transição para `published` nesta etapa.
+
 ## Frontend 3D
 
 `frontend/App.tsx` inicializa o contexto vindo do PHP, carrega os enfeites uma vez por árvore e atualiza o estado somente após confirmação da API. `Overlay` mostra a identidade da árvore e só oferece edição ao proprietário. O modal social é mobile-first; tocar no enfeite usa o foco de câmera já existente. Apenas o modo proprietário consulta a API privada, uma vez por carregamento e após novas participações do próprio fluxo, sem polling. Mensagens são renderizadas como texto React com quebras de linha preservadas. Dados administrativos não são persistidos em `localStorage`.

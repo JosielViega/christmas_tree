@@ -11,12 +11,14 @@ final class Request
         private readonly array $parsedBody = [],
         private readonly array $server = [],
         private readonly array $files = [],
+        private readonly string $rawBody = '',
     ) {
     }
 
     public static function capture(): self
     {
-        return new self($_GET, $_POST, $_SERVER, $_FILES);
+        $rawBody = file_get_contents('php://input');
+        return new self($_GET, $_POST, $_SERVER, $_FILES, is_string($rawBody) ? $rawBody : '');
     }
 
     public function input(string $key, mixed $default = null): mixed
@@ -74,6 +76,11 @@ final class Request
     public function contentLength(): int
     {
         return max(0, (int) ($this->server['CONTENT_LENGTH'] ?? 0));
+    }
+
+    public function rawBody(): string
+    {
+        return $this->rawBody;
     }
 
     public function ipAddress(): string

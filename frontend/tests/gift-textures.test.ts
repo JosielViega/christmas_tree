@@ -183,17 +183,30 @@ test('texture generation remains local and contains no network or payment code',
   assert.doesNotMatch(source, /checkout|pagamento|comprar|pedido concluído/i);
 });
 
-test('draft preparation uploads only the final texture to same-origin APIs without checkout', () => {
+test('draft preparation uploads only the final texture and payment remains same-origin', () => {
   const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
   const textures = readFileSync(new URL('../utils/giftTextures.ts', import.meta.url), 'utf8');
   const api = readFileSync(new URL('../api/giftDrafts.ts', import.meta.url), 'utf8');
+  const payments = readFileSync(new URL('../api/giftPayments.ts', import.meta.url), 'utf8');
   assert.match(api, /FormData/);
   assert.match(api, /body\.set\('texture'/);
   assert.doesNotMatch(api, /original_photo|source_photo/);
-  assert.doesNotMatch(`${modal}\n${textures}\n${api}`, /https?:\/\//);
-  assert.doesNotMatch(`${modal}\n${api}`, /checkout|comprar|pedido conclu/i);
-  assert.match(modal, /ainda n.o foi enviado/i);
+  assert.doesNotMatch(`${modal}\n${textures}\n${api}\n${payments}`, /https?:\/\//);
+  assert.match(payments, /\/api\/gift-drafts\/\$\{encodeURIComponent\(giftPublicId\)\}\/order/);
+  assert.match(payments, /X-Gift-Draft-Token/);
+  assert.match(payments, /X-CSRF-Token/);
+  assert.doesNotMatch(payments, /amount_cents.*body|price.*body/i);
+  assert.match(modal, /ainda n.o foi publicado/i);
   assert.match(modal, /consent/i);
+});
+
+test('Pix checkout never accepts paid state or publishes from the browser', () => {
+  const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
+  const payments = readFileSync(new URL('../api/giftPayments.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(payments, /set.*paid|status.*body|publish/i);
+  assert.match(modal, /confirma..o ocorre de forma segura pelo provedor/i);
+  assert.match(modal, /permanece privado/i);
+  assert.match(payments, /cache: 'no-store'/);
 });
 
 test('persistence selects one final 512 texture and encodes PNG only', async () => {

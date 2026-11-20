@@ -59,7 +59,19 @@ O proprietário pode excluir um enfeite antes ou depois da liberação, e a mens
 - o ID público não autoriza acesso; um token de 256 bits é entregue fora da URL e somente seu hash é salvo;
 - respostas privadas não incluem mensagem, textura ou caminho e usam `Cache-Control: private, no-store`;
 - idempotência vincula chave e hash do payload; falhas compensam arquivos, e o cron retoma cancelamentos/expirações interrompidos;
-- somente `draft → cancelled|expired` é permitido. Não há rota pública para `paid` ou `published`.
+- `draft → paid` ocorre somente após confirmação oficial do gateway; cancelamento e expiração continuam protegidos. Não há rota para o navegador definir `paid` ou `published`.
+
+## Pagamentos Pix
+
+- preços, moeda e versão do catálogo são definidos no servidor e persistidos em centavos inteiros;
+- pedidos exigem token do rascunho, CSRF, rate limit e idempotência local e no provedor;
+- Access Token e segredo de webhook ficam exclusivamente no `.env` do backend e nunca são serializados;
+- notificações validam HMAC-SHA256 oficial, são confirmadas pela Orders API e possuem chave única contra replay;
+- valor, moeda, referência externa, ID da order e ambiente são conferidos antes da transição transacional;
+- e-mail é enviado ao provedor porque a Orders API o exige, mas não é salvo localmente;
+- QR Code e Pix Copia e Cola são privados, sem cache e nunca escritos em logs;
+- `paid` não implica `published`; o frontend não possui endpoint de confirmação ou publicação;
+- produção permanece bloqueada sem HTTPS, ambiente de produção e opt-in explícito.
 
 ## Regras gerais
 
