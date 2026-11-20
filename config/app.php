@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+$appEnvironment = (string) env('APP_ENV', 'production');
+$treeCreationRateLimit = $appEnvironment === 'local' ? 30 : 5;
+
 $giftStoragePath = trim((string) env('GIFT_PRIVATE_STORAGE_PATH', ''));
 if ($giftStoragePath === '') {
     $giftStoragePath = dirname(__DIR__) . '/storage/private/gift-textures';
@@ -19,13 +22,13 @@ $paymentRequested = filter_var(env('PAYMENTS_ENABLED', false), FILTER_VALIDATE_B
 $paymentProductionAllowed = filter_var(env('PAYMENTS_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL);
 $paymentEnabled = $paymentRequested && ($paymentEnvironment === 'sandbox' || (
     $paymentEnvironment === 'production' && $paymentProductionAllowed
-    && (string) env('APP_ENV', 'production') === 'production'
+    && $appEnvironment === 'production'
     && str_starts_with((string) env('APP_URL', ''), 'https://')
 ));
 
 return [
     'name' => (string) env('APP_NAME', 'Christmas Tree'),
-    'environment' => (string) env('APP_ENV', 'production'),
+    'environment' => $appEnvironment,
     'debug' => (bool) env('APP_DEBUG', false),
     'url' => (string) env('APP_URL', 'http://localhost'),
     'port' => (int) env('APP_PORT', 0),
@@ -76,7 +79,7 @@ return [
     ],
     'rate_limits' => [
         'tree_creation' => [
-            'max_attempts' => (int) env('TREE_CREATE_RATE_LIMIT', 5),
+            'max_attempts' => (int) env('TREE_CREATE_RATE_LIMIT', $treeCreationRateLimit),
             'window_seconds' => (int) env('TREE_CREATE_RATE_WINDOW', 900),
         ],
         'tree_recovery' => [
