@@ -11,6 +11,7 @@ use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
 use App\Repositories\PdoPersistentTreeCredentialRepository;
+use App\Repositories\PdoChristmasTreeMemoryRepository;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
@@ -20,6 +21,8 @@ use App\Services\GiftProductCatalog;
 use App\Services\GiftPublicationService;
 use App\Services\PersistentTreeAccessService;
 use App\Services\TreeOwnerSession;
+use App\Services\ChristmasTreeMemoryService;
+use App\Services\MemoryImageStorage;
 use App\Core\Session;
 use App\Domain\PaymentCharge;
 use Tests\Support\FakePaymentGateway;
@@ -106,6 +109,16 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             $image = imagecreatetruecolor(64, 64);
             imagepng($image, $giftUpload);
             $upload = ['tmp_name' => $giftUpload, 'size' => filesize($giftUpload), 'error' => UPLOAD_ERR_OK, 'name' => 'texture.png', 'type' => 'image/png'];
+            $memories = new ChristmasTreeMemoryService(
+                $service,
+                new PdoChristmasTreeMemoryRepository($database),
+                new MemoryImageStorage($giftStorage . '/memories'),
+            );
+            $memory = $memories->create($created->tree->publicId, 'Integração ❤️', $upload);
+            self::assertSame(0, $memory?->slotIndex);
+            self::assertCount(1, $memories->list($created->tree->publicId) ?? []);
+            self::assertNotNull($memories->image($created->tree->publicId, (string) $memory?->publicId));
+            self::assertTrue($memories->delete($created->tree->publicId, (string) $memory?->publicId));
             $gifts = new ChristmasTreeGiftService(
                 $treeRepository,
                 new PdoChristmasTreeGiftRepository($database),

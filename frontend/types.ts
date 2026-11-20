@@ -16,9 +16,28 @@ export enum InteractionMode {
 export interface PhotoData {
   id: string;
   url: string; // Data URL or Image URL
+  caption?: string | null;
+  memoryPublicId?: string;
   placeholderType?: 'snowflake' | 'bell' | 'tree';
   position: [number, number, number]; // x, y, z
   rotation: [number, number, number]; // x, y, z
+}
+
+export interface TreeMemoryData {
+  public_id: string;
+  slot_index: number;
+  layout_version: 1;
+  caption: string | null;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemoryCollection {
+  memories: TreeMemoryData[];
+  layout_version: 1;
+  capacity: 6;
+  remaining: number;
 }
 
 export interface HandLandmark {

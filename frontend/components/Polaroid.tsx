@@ -1,53 +1,46 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html, useTexture } from '@react-three/drei';
-import { Trash2 } from 'lucide-react';
-import { COLORS, PLACEHOLDER_TYPES } from '../constants';
-import { PhotoData, ControlMode, InteractionMode } from '../types';
-import { generatePlaceholderTexture } from '../utils/math';
+import { useTexture } from '@react-three/drei';
+import { COLORS } from '../constants';
+import { PhotoData } from '../types';
 
 interface PolaroidProps {
   data: PhotoData;
-  onUpload: (id: string, file: File) => void;
   onPhotoClick: (data: PhotoData) => void;
-  onDelete: (id: string) => void;
-  isZoomedIn: boolean;
-  controlMode: ControlMode;
-  interactionMode: InteractionMode;
   isExploded?: boolean;
 }
 
 const tempScale = new THREE.Vector3();
+const textureUsers = new Map<string, number>();
 
 const Polaroid: React.FC<PolaroidProps> = ({
   data,
-  onUpload,
   onPhotoClick,
-  onDelete,
-  isZoomedIn,
-  controlMode,
-  interactionMode,
   isExploded = false
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const explodeProgress = useRef(0);
   const [hovered, setHovered] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const explodeDir = useMemo(() => {
     return new THREE.Vector3(data.position[0], data.position[1], data.position[2]).normalize().multiplyScalar(15 + Math.random() * 10);
   }, [data.position]);
 
-  const textureUrl = useMemo(() => {
-    if (data.url) return data.url;
-    const type = data.placeholderType || PLACEHOLDER_TYPES.SNOWFLAKE;
-    const bg = '#2c3e50';
-    return generatePlaceholderTexture(type, bg, '#ffffff');
-  }, [data.url, data.placeholderType]);
-
-  const texture = useTexture(textureUrl);
+  const texture = useTexture(data.url);
   texture.center.set(0.5, 0.5);
+  useEffect(() => {
+    textureUsers.set(data.url, (textureUsers.get(data.url) ?? 0) + 1);
+    return () => {
+      textureUsers.set(data.url, Math.max(0, (textureUsers.get(data.url) ?? 1) - 1));
+      window.setTimeout(() => {
+        if ((textureUsers.get(data.url) ?? 0) !== 0) return;
+        textureUsers.delete(data.url);
+        texture.dispose();
+        useTexture.clear(data.url);
+      }, 0);
+    };
+  }, [data.url, texture]);
 
   useFrame((state) => {
     const targetProgress = isExploded ? 1 : 0;
@@ -128,25 +121,10 @@ const Polaroid: React.FC<PolaroidProps> = ({
   const handleClick = (e: any) => {
     e.stopPropagation();
 
-    if (interactionMode === InteractionMode.EDIT) {
-        // Edit Mode: Trigger Upload
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    } else {
-        // View Mode: Zoom to this photo
-        onPhotoClick(data);
-    }
+    onPhotoClick(data);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onUpload(data.id, e.target.files[0]);
-    }
-  };
-
-  // Changes cursor based on mode
-  const cursorStyle = interactionMode === InteractionMode.EDIT ? 'pointer' : 'zoom-in';
+  const cursorStyle = 'zoom-in';
 
   return (
     <group
@@ -212,37 +190,6 @@ const Polaroid: React.FC<PolaroidProps> = ({
            <meshBasicMaterial color={COLORS.POLAROID_BACK} />
         </mesh>
       </group>
-
-      {/* Interaction UI (Hidden Input & Delete Button) - Only render when needed for performance */}
-      {(hovered || (interactionMode === InteractionMode.EDIT && isZoomedIn)) && (
-        <Html position={[0.5, -1.4, 0.1]} transform style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.2s', pointerEvents: hovered ? 'auto' : 'none' }}>
-          <div className="flex gap-2" onPointerDown={(e) => e.stopPropagation()}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-
-              {interactionMode === InteractionMode.EDIT && (
-                   <button
-                      onClick={(e) => {
-                          e.stopPropagation();
-                          // Prevent click from propagating to group
-                          e.preventDefault();
-                          onDelete(data.id);
-                      }}
-                      className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shadow-lg hover:bg-red-700 transition-colors"
-                      title="Delete Photo"
-                      style={{ pointerEvents: 'auto' }}
-                   >
-                      <Trash2 size={14} />
-                   </button>
-              )}
-          </div>
-        </Html>
-      )}
     </group>
   );
 };

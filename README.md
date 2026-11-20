@@ -1,5 +1,11 @@
 # Christmas Tree
 
+## Memórias do Ano (Etapa 07C.1)
+
+Cada proprietário pode publicar até seis fotografias reais na própria árvore. Árvores novas começam sem cartões de demonstração; as imagens persistidas aparecem nos Polaroids 3D existentes, em seis posições determinísticas do layout v1. Visitantes podem visualizar e ampliar as memórias, mas criação, substituição, legenda e remoção exigem sessão de proprietário, CSRF e rate limit.
+
+O navegador valida JPEG, PNG ou WebP, corrige orientação durante a decodificação, recorta e reduz a imagem para JPEG 1024×1024 antes do upload. O PHP verifica assinatura, MIME, dimensões e decodificação, reprocessa novamente com GD e remove metadados. O original nunca é armazenado. As imagens finais ficam separadas em `storage/private/memories` e são entregues por uma rota pública controlada; portanto, o painel informa explicitamente que qualquer pessoa com acesso à árvore poderá vê-las.
+
 ## Acesso persistente e interface social (Etapa 07C)
 
 Ao criar ou recuperar uma árvore, o navegador recebe uma credencial persistente `HttpOnly`, `SameSite=Lax`, válida por 90 dias por padrão e marcada `Secure` em HTTPS. O banco conserva apenas seletor e hash do verificador. Ao retornar a `/`, uma credencial válida restaura a autorização e redireciona para a árvore principal; uma credencial inválida, expirada ou revogada é apagada e nunca concede acesso.

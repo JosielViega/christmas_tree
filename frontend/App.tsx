@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
@@ -7,14 +7,15 @@ import OrnamentDecorationModal from './components/OrnamentDecorationModal';
 import ShareTreeModal from './components/ShareTreeModal';
 import TreeProgressIndicator from './components/TreeProgressIndicator';
 import GiftPreviewModal from './components/GiftPreviewModal';
-import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, fetchPremiumGifts, hidePremiumGift, TreeApiError } from './api/trees';
-import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
-import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, PremiumGiftData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
-import { DEFAULT_PHOTOS_COUNT, ORNAMENT_SLOT_COUNT, PLACEHOLDER_TYPES } from './constants';
+import MemoriesPanel from './components/MemoriesPanel';
+import { createMemory, createOrnament, deleteMemory, deleteOrnament, fetchApiContext, fetchMemories, fetchOrnaments, fetchOwnerMessages, fetchPremiumGifts, hidePremiumGift, TreeApiError, updateMemory } from './api/trees';
+import { getMemorySlot, getOrnamentSlot } from './utils/math';
+import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, PremiumGiftData, SecretTreeMessage, SocialOrnamentData, TreeMemoryData, ZoomLevel } from './types';
+import { ORNAMENT_SLOT_COUNT } from './constants';
 import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
 import { useTreeInteraction } from './hooks/useTreeInteraction';
-import { processImageWithPadding } from './utils/image';
+import { prepareMemoryImage } from './utils/memoryImages';
 import type { StoryFrameCapture } from './utils/socialSharing';
 import type { StoryVideoSceneCapture } from './utils/videoRecording';
 import {
@@ -33,7 +34,9 @@ const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_M
 const App: React.FC = () => {
   const [controlMode, setControlMode] = useState<ControlMode>(ControlMode.MOUSE);
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(InteractionMode.VIEW);
-  const [photos, setPhotos] = useState<PhotoData[]>([]);
+  const [memories, setMemories] = useState<TreeMemoryData[]>([]);
+  const [memoriesPanelOpen, setMemoriesPanelOpen] = useState(false);
+  const [memoriesBusy, setMemoriesBusy] = useState(false);
   const [tree, setTree] = useState<ChristmasTreeData | null>(initialBootstrap?.tree ?? null);
   const [publicTreeUrl, setPublicTreeUrl] = useState(initialBootstrap?.public_url ?? '');
   const [isOwner, setIsOwner] = useState(initialBootstrap?.is_owner ?? false);
@@ -67,6 +70,7 @@ const App: React.FC = () => {
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
+  const loadedMemoriesFor = useRef<string | null>(null);
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
   const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
   const progressionDismissTimer = useRef<number | null>(null);
@@ -159,17 +163,17 @@ const App: React.FC = () => {
       .finally(() => setInitializing(false));
   }, [showToast]);
 
-  useEffect(() => {
-    const positions = generatePhotoPositions(DEFAULT_PHOTOS_COUNT);
-    const types = Object.values(PLACEHOLDER_TYPES);
-    setPhotos(positions.map((pos, index) => ({
-      id: `photo-${index}`,
-      url: '',
-      placeholderType: types[index % types.length],
-      position: pos.position,
-      rotation: pos.rotation,
-    })));
-  }, []);
+  const photos = useMemo<PhotoData[]>(() => memories.map((memory) => {
+    const slot = getMemorySlot(memory.slot_index, memory.layout_version);
+    return {
+      id: `memory-${memory.public_id}`,
+      memoryPublicId: memory.public_id,
+      url: memory.image_url,
+      caption: memory.caption,
+      position: slot.position,
+      rotation: slot.rotation,
+    };
+  }), [memories]);
 
   useEffect(() => {
     if (!isOwner) {
@@ -193,6 +197,14 @@ const App: React.FC = () => {
         showToast('Não foi possível carregar os enfeites desta árvore.', 'error');
       })
       .finally(() => setOrnamentsLoading(false));
+  }, [tree, showToast]);
+
+  useEffect(() => {
+    if (!tree || loadedMemoriesFor.current === tree.public_id) return;
+    loadedMemoriesFor.current = tree.public_id;
+    fetchMemories(tree.public_id)
+      .then((collection) => setMemories(collection.memories))
+      .catch(() => { loadedMemoriesFor.current = null; showToast('Não foi possível carregar as memórias desta árvore.', 'error'); });
   }, [tree, showToast]);
 
   useEffect(() => {
@@ -253,12 +265,16 @@ const App: React.FC = () => {
     dismissProgressionUnlock();
     loadedOrnamentsFor.current = null;
     loadedMessagesFor.current = null;
+    loadedMemoriesFor.current = null;
+    setMemories([]);
     setOwnerMessages({});
     setMessageOverview(null);
     setCreateOwnTreeOpen(false);
     setShareModalOpen(false);
     setGiftPreviewOpen(false);
+    setMemoriesPanelOpen(false);
     window.history.pushState({}, '', access.public_path);
+    void fetchApiContext().then((context) => setCsrfToken(context.csrf_token)).catch(() => undefined);
   };
 
   const focusOrnament = (ornament: SocialOrnamentData) => {
@@ -288,6 +304,10 @@ const App: React.FC = () => {
     setFocusedPhoto(null);
     scrollToTop();
   };
+
+  const selectedMemory = focusedPhoto?.memoryPublicId
+    ? memories.find((memory) => memory.public_id === focusedPhoto.memoryPublicId) ?? null
+    : null;
 
   const handleHideGift = async () => {
     if (!tree || !selectedGift || !isOwner || hidingGift) return;
@@ -360,55 +380,46 @@ const App: React.FC = () => {
     scrollToTop();
   };
 
-  const handleSingleUpload = async (id: string, file: File) => {
-    if (!isOwner) return;
-
-    const rawUrl = URL.createObjectURL(file);
-    const url = await processImageWithPadding(rawUrl);
-    if (url !== rawUrl) URL.revokeObjectURL(rawUrl);
-
-    const photoToUpdate = photos.find((photo) => photo.id === id);
-    if (!photoToUpdate) return;
-
-    const updatedPhoto = { ...photoToUpdate, url };
-    setPhotos((current) => current.map((photo) => photo.id === id ? updatedPhoto : photo));
-    setInteractionMode(InteractionMode.VIEW);
-    handlePhotoClick(updatedPhoto);
+  const handleAddMemory = async (file: File, caption: string) => {
+    if (!tree || !isOwner) return;
+    setMemoriesBusy(true);
+    try {
+      const prepared = await prepareMemoryImage(file);
+      const response = await createMemory(tree.public_id, prepared, caption, csrfToken);
+      setMemories((current) => [...current, response.memory].sort((a, b) => a.slot_index - b.slot_index));
+      showToast('Memória adicionada à sua árvore.', 'success');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'Não foi possível adicionar a memória.', 'error');
+      throw caught;
+    } finally { setMemoriesBusy(false); }
   };
 
-  const handleBulkUpload = async (files: FileList) => {
-    if (!isOwner) return;
-
-    const newFiles = Array.from(files);
-    const newPhotos = [...photos];
-    const sortedIndices = newPhotos
-      .map((photo, index) => ({ y: photo.position[1], index }))
-      .sort((first, second) => second.y - first.y)
-      .map((item) => item.index);
-    let fileIndex = 0;
-    let lastAddedPhoto: PhotoData | null = null;
-
-    for (const index of sortedIndices) {
-      if (fileIndex >= newFiles.length) break;
-      const rawUrl = URL.createObjectURL(newFiles[fileIndex]);
-      const url = await processImageWithPadding(rawUrl);
-      if (url !== rawUrl) URL.revokeObjectURL(rawUrl);
-      newPhotos[index] = { ...newPhotos[index], url };
-      lastAddedPhoto = newPhotos[index];
-      fileIndex++;
-    }
-
-    setPhotos(newPhotos);
-    if (lastAddedPhoto) {
-      setInteractionMode(InteractionMode.VIEW);
-      handlePhotoClick(lastAddedPhoto);
-    }
+  const handleUpdateMemory = async (memory: TreeMemoryData, file: File | null, caption: string) => {
+    if (!tree || !isOwner) return;
+    setMemoriesBusy(true);
+    try {
+      const prepared = file ? await prepareMemoryImage(file) : null;
+      const response = await updateMemory(tree.public_id, memory.public_id, prepared, caption, csrfToken);
+      setMemories((current) => current.map((item) => item.public_id === memory.public_id ? response.memory : item));
+      showToast('Memória atualizada.', 'success');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'Não foi possível atualizar a memória.', 'error');
+      throw caught;
+    } finally { setMemoriesBusy(false); }
   };
 
-  const handleDeletePhoto = (id: string) => {
-    if (!isOwner) return;
-    setPhotos((current) => current.filter((photo) => photo.id !== id));
-    if (focusedPhoto?.id === id) setFocusedPhoto(null);
+  const handleDeleteMemory = async (memory: TreeMemoryData) => {
+    if (!tree || !isOwner || !window.confirm('Remover esta memória da árvore?')) return;
+    setMemoriesBusy(true);
+    try {
+      await deleteMemory(tree.public_id, memory.public_id, csrfToken);
+      setMemories((current) => current.filter((item) => item.public_id !== memory.public_id));
+      if (focusedPhoto?.memoryPublicId === memory.public_id) closeFocusedItem();
+      showToast('Memória removida.', 'success');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'Não foi possível remover a memória.', 'error');
+      throw caught;
+    } finally { setMemoriesBusy(false); }
   };
 
   return (
@@ -417,11 +428,8 @@ const App: React.FC = () => {
 
       <Scene
         photos={photos}
-        onUpload={handleSingleUpload}
         onPhotoClick={handlePhotoClick}
-        onDelete={handleDeletePhoto}
         controlMode={controlMode}
-        interactionMode={isOwner ? interactionMode : InteractionMode.VIEW}
         zoomLevel={zoomLevel}
         panOffset={panOffset}
         focusedPhoto={focusedPhoto}
@@ -439,10 +447,10 @@ const App: React.FC = () => {
         progressionEffects={progression.stage.effects}
         isProgressionCelebrating={isProgressionCelebrating}
         reducedMotion={reducedMotion}
-        paused={giftPreviewOpen}
+        paused={giftPreviewOpen || memoriesPanelOpen}
       />
 
-      {!selectedOrnament && !selectedGift && <Overlay
+      {!selectedOrnament && !selectedGift && !selectedMemory && <Overlay
         isMusicPlaying={isMusicPlaying}
         toggleMusic={toggleMusic}
         userName={userName}
@@ -466,10 +474,11 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && (
+      {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
         <div className="fixed bottom-[max(7.5rem,calc(env(safe-area-inset-bottom)+6rem))] left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 px-1 pointer-events-auto md:bottom-28">
           {isOwner ? <>
             <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70]"><Share2 size={17} /> 🎄 Convide seus amigos para decorar!</button>
+            <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><Camera size={17} /> 📸 Minhas memórias</button>
             <p className="w-full text-center text-[11px] text-white/55">Sua árvore ganha vida com as mensagens dos seus amigos.</p>
           </> : <>
             <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60">
@@ -484,7 +493,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {premiumGifts.length > premiumGiftLimit && !selectedGift && !selectedOrnament && !giftPreviewOpen && (
+      {premiumGifts.length > premiumGiftLimit && !selectedGift && !selectedOrnament && !selectedMemory && !giftPreviewOpen && (
         <div className="fixed bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.5rem))] left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl">
           <button type="button" disabled={premiumGiftPage === 0} onClick={() => setPremiumGiftPage((page) => Math.max(0, page - 1))} className="disabled:opacity-30">←</button>
           <span>Presentes {premiumGiftPage + 1}/{Math.ceil(premiumGifts.length / premiumGiftLimit)}</span>
@@ -492,7 +501,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {tree && !receipt && ornamentsReady && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && (
+      {tree && !receipt && ornamentsReady && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
         <TreeProgressIndicator
           progression={progression}
           isOwner={isOwner}
@@ -501,7 +510,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && isOwner && messageOverview && !receipt && !selectedOrnament && !selectedGift && (
+      {tree && isOwner && messageOverview && !receipt && !selectedOrnament && !selectedGift && !selectedMemory && (
         <div className="fixed right-3 top-[max(14rem,calc(env(safe-area-inset-top)+13rem))] z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none sm:top-[max(6rem,calc(env(safe-area-inset-top)+5rem))]">
           <p className="text-xs font-semibold text-[#fff1a1]">🎁 Você recebeu {messageOverview.count} {messageOverview.count === 1 ? 'mensagem especial' : 'mensagens especiais'}!</p>
           <p className="mt-1 text-[11px] leading-relaxed text-white/50">
@@ -531,6 +540,17 @@ const App: React.FC = () => {
         />
       )}
 
+      {memoriesPanelOpen && tree && isOwner && (
+        <MemoriesPanel
+          memories={memories}
+          busy={memoriesBusy}
+          onAdd={handleAddMemory}
+          onUpdate={handleUpdateMemory}
+          onDelete={handleDeleteMemory}
+          onClose={() => setMemoriesPanelOpen(false)}
+        />
+      )}
+
       {giftPreviewEnabled && giftPreviewOpen && (
         <GiftPreviewModal
           maxPhotoBytes={giftPhotoMaxBytes}
@@ -538,6 +558,16 @@ const App: React.FC = () => {
           csrfToken={csrfToken}
           onClose={() => setGiftPreviewOpen(false)}
         />
+      )}
+
+      {selectedMemory && (
+        <div className="fixed left-1/2 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[75] w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-[#fff1a1]/20 bg-black/80 p-5 text-center text-white shadow-2xl backdrop-blur-xl" onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 min-h-11 min-w-11 rounded-full p-2 text-white/60 hover:bg-white/10" aria-label="Voltar à árvore"><X className="mx-auto" size={17} /></button>
+          <Camera className="mx-auto text-[#fff1a1]" size={25} />
+          <p className="mt-3 font-semibold">Memória de 2026</p>
+          {selectedMemory.caption && <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/80">{selectedMemory.caption}</p>}
+          <button type="button" onClick={closeFocusedItem} className="mt-4 min-h-11 w-full rounded-full border border-white/15 text-sm font-semibold text-[#fff1a1]">Voltar à árvore</button>
+        </div>
       )}
 
       {selectedOrnament && !ornamentModalOpen && (

@@ -13,7 +13,7 @@ import Snow from './Snow';
 import SocialOrnament from './SocialOrnament';
 import AmbientNight from './AmbientNight';
 import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
-import { PhotoData, ControlMode, ZoomLevel, InteractionMode, PremiumGiftData, SocialOrnamentData } from '../types';
+import { PhotoData, ControlMode, ZoomLevel, PremiumGiftData, SocialOrnamentData } from '../types';
 import {
   STORY_SCENE_HEIGHT,
   STORY_SCENE_WIDTH,
@@ -28,11 +28,8 @@ import type { AmbientQuality } from '../utils/ambientEffects';
 
 interface SceneProps {
   photos: PhotoData[];
-  onUpload: (id: string, file: File) => void;
   onPhotoClick: (data: PhotoData) => void;
-  onDelete: (id: string) => void;
   controlMode: ControlMode;
-  interactionMode: InteractionMode;
   zoomLevel: ZoomLevel;
   panOffset: React.MutableRefObject<{ x: number, y: number }>;
   focusedPhoto: PhotoData | null;
@@ -569,11 +566,8 @@ const PostProcessingEffects: React.FC<{
 
 const Scene: React.FC<SceneProps> = ({
   photos,
-  onUpload,
   onPhotoClick,
-  onDelete,
   controlMode,
-  interactionMode,
   zoomLevel,
   panOffset,
   focusedPhoto,
@@ -694,12 +688,7 @@ const Scene: React.FC<SceneProps> = ({
           <Polaroid
             key={photo.id}
             data={photo}
-            onUpload={onUpload}
             onPhotoClick={onPhotoClick}
-            onDelete={onDelete}
-            isZoomedIn={zoomLevel === ZoomLevel.ZOOMED_IN}
-            controlMode={controlMode}
-            interactionMode={interactionMode}
             isExploded={isExploded}
           />
         ))}

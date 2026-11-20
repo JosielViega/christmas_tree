@@ -8,6 +8,12 @@ if ($giftStoragePath === '') {
 } elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $giftStoragePath) !== 1) {
     $giftStoragePath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $giftStoragePath), '/');
 }
+$memoryStoragePath = trim((string) env('MEMORY_STORAGE_PATH', ''));
+if ($memoryStoragePath === '') {
+    $memoryStoragePath = dirname(__DIR__) . '/storage/private/memories';
+} elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $memoryStoragePath) !== 1) {
+    $memoryStoragePath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $memoryStoragePath), '/');
+}
 $paymentEnvironment = (string) env('PAYMENTS_ENVIRONMENT', 'sandbox');
 $paymentRequested = filter_var(env('PAYMENTS_ENABLED', false), FILTER_VALIDATE_BOOL);
 $paymentProductionAllowed = filter_var(env('PAYMENTS_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL);
@@ -35,6 +41,12 @@ return [
     ],
     'ornaments' => [
         'capacity' => (int) env('ORNAMENT_MAX_PER_TREE', 60),
+    ],
+    'memories' => [
+        'storage_path' => $memoryStoragePath,
+        'capacity' => 6,
+        'max_input_bytes' => (int) env('MEMORY_MAX_INPUT_BYTES', 8388608),
+        'max_request_bytes' => (int) env('MEMORY_MAX_REQUEST_BYTES', 8650752),
     ],
     'messages' => [
         'reveal_at' => (string) env('MESSAGE_REVEAL_AT', '2026-12-25 00:00:00'),
@@ -74,6 +86,10 @@ return [
         'ornament_creation' => [
             'max_attempts' => (int) env('ORNAMENT_CREATE_RATE_LIMIT', 12),
             'window_seconds' => (int) env('ORNAMENT_CREATE_RATE_WINDOW', 900),
+        ],
+        'memory_mutation' => [
+            'max_attempts' => (int) env('MEMORY_MUTATION_RATE_LIMIT', 20),
+            'window_seconds' => (int) env('MEMORY_MUTATION_RATE_WINDOW', 900),
         ],
         'gift_draft_creation' => [
             'max_attempts' => (int) env('GIFT_DRAFT_RATE_LIMIT', 6),

@@ -10,6 +10,7 @@ use App\Controllers\TreeGiftApiController;
 use App\Controllers\TreeApiController;
 use App\Controllers\TreePageController;
 use App\Controllers\TreeOrnamentApiController;
+use App\Controllers\TreeMemoryApiController;
 use App\Core\Request;
 use App\Core\Response;
 use App\Repositories\PdoChristmasTreeRepository;
@@ -18,6 +19,7 @@ use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
 use App\Repositories\PdoPersistentTreeCredentialRepository;
+use App\Repositories\PdoChristmasTreeMemoryRepository;
 use App\Payments\CurlPaymentHttpClient;
 use App\Payments\MercadoPagoPaymentGateway;
 use App\Services\ChristmasTreeGiftService;
@@ -31,6 +33,8 @@ use App\Services\GiftProductCatalog;
 use App\Services\GiftPublicationService;
 use App\Services\TreeOwnerSession;
 use App\Services\PersistentTreeAccessService;
+use App\Services\ChristmasTreeMemoryService;
+use App\Services\MemoryImageStorage;
 
 $health = new HealthController();
 $treeRepository = new PdoChristmasTreeRepository($app['database']);
@@ -95,6 +99,22 @@ $ornamentApi = new TreeOrnamentApiController(
         $app['config']['rate_limits']['ornament_creation']['max_attempts'],
         $app['config']['rate_limits']['ornament_creation']['window_seconds'],
     ),
+);
+$memoryService = new ChristmasTreeMemoryService(
+    $treeIdentity,
+    new PdoChristmasTreeMemoryRepository($app['database']),
+    new MemoryImageStorage($app['config']['memories']['storage_path'], $app['config']['memories']['max_input_bytes']),
+    $app['config']['memories']['capacity'],
+);
+$memoryApi = new TreeMemoryApiController(
+    $app['request'], $app['csrf'], $treeIdentity, $memoryService, $treeOwnerSession,
+    new RateLimiter(
+        $rateLimitPath . '/memories',
+        $app['config']['rate_limits']['memory_mutation']['max_attempts'],
+        $app['config']['rate_limits']['memory_mutation']['window_seconds'],
+    ),
+    $app['config']['memories']['max_request_bytes'],
+    $app['config']['memories']['capacity'],
 );
 $giftRepository = new PdoChristmasTreeGiftRepository($app['database']);
 $giftStorage = new GiftTextureStorage(
@@ -174,6 +194,11 @@ $router->get('/api/trees/{public_id}/admin', [$treeApi, 'admin']);
 $router->post('/api/trees/{public_id}/recover', [$treeApi, 'recover']);
 $router->get('/api/trees/{public_id}/ornaments', [$ornamentApi, 'index']);
 $router->get('/api/trees/{public_id}/gifts', [$treeGiftApi, 'index']);
+$router->get('/api/trees/{public_id}/memories', [$memoryApi, 'index']);
+$router->post('/api/trees/{public_id}/memories', [$memoryApi, 'store']);
+$router->post('/api/trees/{public_id}/memories/{memory_id}', [$memoryApi, 'update']);
+$router->delete('/api/trees/{public_id}/memories/{memory_id}', [$memoryApi, 'destroy']);
+$router->get('/api/trees/{public_id}/memories/{memory_id}/image', [$memoryApi, 'image']);
 $router->post('/api/trees/{public_id}/ornaments', [$ornamentApi, 'store']);
 $router->get('/api/trees/{public_id}/messages', [$ornamentApi, 'messages']);
 $router->delete('/api/trees/{public_id}/ornaments/{ornament_id}', [$ornamentApi, 'destroy']);

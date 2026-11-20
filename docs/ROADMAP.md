@@ -1,5 +1,13 @@
 # Roadmap
 
+## Etapa 07C.1 — concluída tecnicamente
+
+- Até seis memórias públicas persistentes por árvore, sem Polaroids fictícios em árvores novas.
+- Upload exclusivo do proprietário com processamento seguro no navegador e reprocessamento GD no servidor.
+- Layout v1 determinístico, legenda Unicode, foco cinematográfico, substituição e remoção com limpeza de arquivos.
+- Painel mobile-first “Memórias de 2026”, aviso de visibilidade pública e preservação das capturas PNG/vídeo.
+- Armazenamento separado de enfeites e presentes premium, compatível com o mirror HostGator.
+
 ## Etapa 07C — concluída tecnicamente
 
 - Reconhecimento persistente por cookie seguro com seletor/verificador, hash no banco, expiração, revogação e restauração da sessão.

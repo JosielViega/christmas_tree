@@ -1,5 +1,15 @@
 # Arquitetura
 
+## Memórias persistentes e Polaroids
+
+`christmas_tree_memories` pertence diretamente à árvore e não se mistura com enfeites ou presentes. A tabela conserva ID público aleatório, slot de 0 a 5, `layout_version=1`, legenda opcional, caminho lógico e timestamps UTC. A restrição única `(tree_id, slot_index)` e o bloqueio da árvore durante a criação garantem no máximo seis posições, inclusive sob concorrência.
+
+`ChristmasTreeMemoryService` coordena banco e arquivos. `MemoryImageStorage` aceita JPEG, PNG e WebP reais, decodifica com GD, faz recorte central quadrado, limita a 1024 pixels, grava JPEG com nome aleatório e nunca conserva o original ou EXIF. Substituições gravam e validam o novo arquivo antes de trocar o registro e só depois removem o anterior. Falhas de persistência compensam o novo arquivo.
+
+A listagem é pública, mas devolve somente dados de apresentação e uma URL controlada. A imagem continua fora do Document Root, é validada por caminho lógico e servida como `image/jpeg` com `nosniff`, ETag e cache. O frontend transforma `slot_index` com `getMemorySlot()`, que reutiliza `generatePhotoPositions(6)`. Os mesmos objetos `Polaroid`, Canvas, foco, captura PNG, vídeo e qualidade adaptativa continuam sendo usados.
+
+As rotas são `GET/POST /api/trees/{public_id}/memories`, `POST/DELETE /api/trees/{public_id}/memories/{memory_id}` e `GET /api/trees/{public_id}/memories/{memory_id}/image`. A atualização usa POST multipart para compatibilidade com PHP em hospedagem compartilhada e não depende de parsing multipart de requisições PUT pelo servidor.
+
 ## Reconhecimento persistente do navegador
 
 `PersistentTreeAccessService` usa uma credencial dividida em seletor e verificador. O cookie contém os dois valores aleatórios; `christmas_tree_persistent_credentials` armazena o seletor pesquisável e somente o SHA-256 do verificador, além de criação, último uso, expiração e revogação. A comparação é feita em tempo constante e a credencial só restaura árvores ativas.

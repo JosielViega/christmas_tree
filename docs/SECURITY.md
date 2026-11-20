@@ -1,5 +1,16 @@
 # Segurança
 
+## Fotografias públicas das memórias
+
+- Somente o proprietário autorizado da árvore pode criar, substituir, legendar ou remover; todas as mutações exigem CSRF, escopo da árvore e rate limiting.
+- A lista e as imagens são deliberadamente públicas para visitantes da árvore. O painel informa essa condição antes da seleção do arquivo.
+- O navegador envia apenas um JPEG quadrado otimizado de até 1024×1024; o backend não confia nele e repete validação, decodificação e reprocessamento.
+- Assinatura, MIME, tamanho, dimensões e limite de pixels são conferidos. SVG, conteúdo incompatível e arquivos indecodificáveis são rejeitados.
+- O arquivo final é um JPEG novo, sem EXIF, nome original ou metadados da fonte. Nomes físicos são aleatórios e caminhos nunca entram no JSON.
+- `storage/private/memories` permanece fora de `public/`; a rota controlada restringe o caminho lógico, fixa `image/jpeg`, adiciona `nosniff` e não executa uploads.
+- Memórias não entram em analytics, serviços externos, reconhecimento facial, mensagens secretas ou texturas premium sem nova ação explícita.
+- A legenda aceita no máximo 80 caracteres Unicode, não permite controles e é renderizada como texto pelo React.
+
 ## Presentes publicados
 
 - O navegador nunca informa os estados `paid` ou `published`; apenas notificações verificadas/reconciliação do provedor iniciam a publicação.

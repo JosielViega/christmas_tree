@@ -1,4 +1,4 @@
-import type { ChristmasTreeAccess, ChristmasTreeData, OrnamentCollection, OrnamentType, OwnerMessageCollection, PremiumGiftCollection, SocialOrnamentData } from '../types';
+import type { ChristmasTreeAccess, ChristmasTreeData, MemoryCollection, OrnamentCollection, OrnamentType, OwnerMessageCollection, PremiumGiftCollection, SocialOrnamentData, TreeMemoryData } from '../types';
 
 interface ApiErrorBody {
   error?: {
@@ -131,6 +131,32 @@ export const fetchOrnaments = (publicId: string): Promise<OrnamentCollection> =>
 
 export const fetchPremiumGifts = (publicId: string): Promise<PremiumGiftCollection> =>
   request(`/api/trees/${encodeURIComponent(publicId)}/gifts`);
+
+export const fetchMemories = (publicId: string): Promise<MemoryCollection> =>
+  request(`/api/trees/${encodeURIComponent(publicId)}/memories`);
+
+const memoryForm = (
+  path: string,
+  image: File | null,
+  caption: string,
+  csrfToken: string,
+): Promise<{ memory: TreeMemoryData; capacity: number }> => {
+  const body = new FormData();
+  body.set('caption', caption);
+  if (image) body.set('image', image, 'memory.jpg');
+  return request(path, { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body });
+};
+
+export const createMemory = (treePublicId: string, image: File, caption: string, csrfToken: string) =>
+  memoryForm(`/api/trees/${encodeURIComponent(treePublicId)}/memories`, image, caption, csrfToken);
+
+export const updateMemory = (treePublicId: string, memoryPublicId: string, image: File | null, caption: string, csrfToken: string) =>
+  memoryForm(`/api/trees/${encodeURIComponent(treePublicId)}/memories/${encodeURIComponent(memoryPublicId)}`, image, caption, csrfToken);
+
+export const deleteMemory = (treePublicId: string, memoryPublicId: string, csrfToken: string): Promise<{ deleted: true; memory_public_id: string }> =>
+  request(`/api/trees/${encodeURIComponent(treePublicId)}/memories/${encodeURIComponent(memoryPublicId)}`, {
+    method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken },
+  });
 
 export const hidePremiumGift = (treePublicId: string, giftPublicId: string, csrfToken: string): Promise<{ hidden: true }> =>
   request(`/api/trees/${encodeURIComponent(treePublicId)}/gifts/${encodeURIComponent(giftPublicId)}`, {

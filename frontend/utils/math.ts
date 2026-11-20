@@ -28,11 +28,12 @@ export const generatePhotoPositions = (count: number) => {
   const positions: { position: [number, number, number], rotation: [number, number, number], t: number }[] = [];
 
   // Start from 10% up to 90% up
-  const startT = 0.08;
-  const endT = 0.92;
+    if (count <= 0) return positions;
+    const startT = 0.14;
+    const endT = 0.79;
 
   for (let i = 0; i < count; i++) {
-    const t = startT + (i / (count - 1)) * (endT - startT);
+      const t = count === 1 ? 0.46 : startT + (i / (count - 1)) * (endT - startT);
     const pos = getSpiralPoint(t);
 
     // Calculate rotation to face outwards/tangential
@@ -67,6 +68,14 @@ export const getOrnamentSlot = (slotIndex: number, layoutVersion: number = ORNAM
     position: [Math.cos(angle) * radius, y, Math.sin(angle) * radius] as [number, number, number],
     rotation: [0, Math.atan2(Math.cos(angle) * radius, Math.sin(angle) * radius), 0] as [number, number, number],
   };
+};
+
+export const getMemorySlot = (slotIndex: number, layoutVersion = 1) => {
+  if (layoutVersion !== 1 || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= 6) {
+    throw new Error('Unsupported memory slot.');
+  }
+  const slot = generatePhotoPositions(6)[slotIndex];
+  return { position: slot.position, rotation: slot.rotation };
 };
 
 const textureCache: Record<string, string> = {};
