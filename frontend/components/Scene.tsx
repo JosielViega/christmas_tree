@@ -21,6 +21,7 @@ import {
 import type { StoryFrameCapture } from '../utils/socialSharing';
 import type { StoryVideoSceneCapture } from '../utils/videoRecording';
 import { STORY_VIDEO_DURATION_MS } from '../utils/videoRecording';
+import type { TreeProgressionEffects } from '../utils/treeProgression';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -41,6 +42,8 @@ interface SceneProps {
   onOrnamentSelect: (ornament: SocialOrnamentData) => void;
   onStoryCaptureReady?: (capture: StoryFrameCapture | null) => void;
   onStoryVideoCaptureReady?: (capture: StoryVideoSceneCapture | null) => void;
+  progressionEffects: TreeProgressionEffects;
+  isProgressionCelebrating?: boolean;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -51,11 +54,12 @@ const SceneEffects: React.FC<{
   isRecording: boolean;
   recordingType: 'FULL' | 'ALBUM' | null;
   photos: PhotoData[];
-}> = () => {
+  progressionGlow: number;
+}> = ({ progressionGlow }) => {
   return (
     <EffectComposer disableNormalPass multisampling={4}>
       <Bloom
-        intensity={0.5}
+        intensity={0.5 + progressionGlow * 0.12}
         luminanceThreshold={0.9}
         luminanceSmoothing={0.9}
       />
@@ -574,6 +578,8 @@ const Scene: React.FC<SceneProps> = ({
   onOrnamentSelect,
   onStoryCaptureReady,
   onStoryVideoCaptureReady,
+  progressionEffects,
+  isProgressionCelebrating = false,
 }) => {
   const captureActive = useRef(false);
 
@@ -614,37 +620,43 @@ const Scene: React.FC<SceneProps> = ({
       </Environment>
 
       {/* Lighting Setup */}
-      <ambientLight intensity={0.1} />
+      <ambientLight intensity={0.1 + progressionEffects.lightBoost * 0.08} />
       {/* Warm Main Light */}
-      <pointLight position={[20, 10, 20]} intensity={1} color="#ffaa00" distance={50} decay={2} />
+      <pointLight position={[20, 10, 20]} intensity={1 + progressionEffects.lightBoost} color="#ffaa00" distance={50} decay={2} />
       {/* Cool Fill Light */}
       <pointLight position={[-20, 5, -20]} intensity={0.5} color="#0055ff" distance={50} decay={2} />
       {/* Rim Light for shape definition */}
       <spotLight position={[0, 30, 0]} intensity={1} angle={0.5} penumbra={1} color="#ffffff" />
 
-      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+      <Stars radius={100} depth={50} count={3000 + Math.round(progressionEffects.atmosphereBoost * 400)} factor={4} saturation={0} fade speed={1 + progressionEffects.atmosphereBoost * 0.15} />
 
       {/* Global Snow Effect */}
-      <Snow isExploded={isExploded} />
+      <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} />
 
       {/* 3D Scene Elements */}
       <group position={[0, TREE_OFFSET_Y, 0]}>
         <TreeMesh isExploded={isExploded} photos={photos} />
-        <SpiralDecor isExploded={isExploded} photos={photos} />
-        <Star isExploded={isExploded} />
-        {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} />}
+        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} />
+        <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} />
+        {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} />}
 
         {/* Magic Flies / Sparkles around the tree */}
         <Sparkles
           position={[0, -3, 0]}
-          count={160}
+          count={160 + progressionEffects.goldenParticleCount}
           scale={[12, 10, 12]}
           size={2}
-          speed={0.2}
+          speed={0.2 + progressionEffects.atmosphereBoost * 0.08}
           opacity={0.8}
           color="#fff1a1"
           material-toneMapped={false}
         />
+
+        {isProgressionCelebrating && (
+          <Sparkles position={[0, 0, 0]} count={48} scale={[13, 16, 13]} size={3} speed={0.65} opacity={0.9} color="#fff1a1" material-toneMapped={false} />
+        )}
+
+        {progressionEffects.fullyEnchanted && <pointLight position={[0, 3, 7]} intensity={0.45} color="#fff1a1" distance={18} decay={2} />}
 
         {photos.map((photo) => (
           <Polaroid
@@ -675,6 +687,7 @@ const Scene: React.FC<SceneProps> = ({
         isRecording={isRecording}
         recordingType={recordingType}
         photos={photos}
+        progressionGlow={progressionEffects.starGlowBoost}
       />
     </Canvas>
   );

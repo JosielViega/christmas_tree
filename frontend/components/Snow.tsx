@@ -16,7 +16,7 @@ const getSnowTexture = () => {
     return new THREE.CanvasTexture(canvas);
 }
 
-const Snow: React.FC<{ isExploded?: boolean }> = ({ isExploded = false }) => {
+const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number }> = ({ isExploded = false, atmosphereBoost = 0 }) => {
   const count = 1200; // Reduced for performance
   const mesh = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
@@ -71,6 +71,7 @@ const Snow: React.FC<{ isExploded?: boolean }> = ({ isExploded = false }) => {
 
     materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
     materialRef.current.uniforms.uExplodeProgress.value = explodeProgress.current;
+    materialRef.current.uniforms.uSize.value = 0.25 + atmosphereBoost * 0.08;
   });
 
   return (

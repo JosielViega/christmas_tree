@@ -73,6 +73,18 @@ O Vite grava diretamente em `public/assets/app/`; o diretório compilado é vers
 
 Os componentes sociais não adicionam dependências. O build da Etapa 05B gera JavaScript minificado de aproximadamente 1.225,8 kB (343,1 kB gzip), crescimento de cerca de 12,0 kB antes de gzip e 3,0 kB após gzip em relação à Etapa 05A.1; o custo principal continua sendo Three.js e o pipeline visual original.
 
+Na Etapa 06, o JavaScript minificado passa a aproximadamente 1.232,0 kB (345,0 kB gzip), aumento de 6,2 kB antes de gzip e 1,9 kB após gzip sobre a Etapa 05B. O CSS cresce cerca de 1,0 kB. Nenhuma dependência foi adicionada.
+
+## Progressão visual
+
+`frontend/utils/treeProgression.ts` concentra os marcos de 0, 5, 10, 20, 35, 50 e 60 participações e seus efeitos cumulativos. O estágio é uma projeção pura de `ornaments.length`, coleção pública já persistida e devolvida pelo backend; elementos decorativos da cena, mensagens privadas, sessão e dados locais não participam do cálculo. Não há coluna, tabela, migration ou endpoint específico para níveis.
+
+A árvore-base permanece completa no estágio zero. Os estágios seguintes acrescentam, sem substituir a geometria original: um pequeno reforço de luz, até 96 partículas douradas, no máximo quatro presentes especiais, brilho da estrela e um ajuste limitado de atmosfera. Esses tetos mantêm a carga previsível em dispositivos móveis e continuam sujeitos ao perfil de desempenho existente.
+
+`App.tsx` só anuncia um desbloqueio depois que a API confirma a criação de um enfeite novo. A carga inicial apenas restaura o estágio, solicitações idempotentes não celebram duas vezes e a exclusão reduz naturalmente o estágio. A mensagem continua acessível com movimento reduzido, mas a animação temporária é suprimida quando `prefers-reduced-motion` está ativo.
+
+Como cartão e vídeo usam o mesmo `Canvas` e a mesma cena, os efeitos de progressão aparecem nessas mídias sem pipeline adicional. O indicador HTML é ocultado durante a gravação e nunca é desenhado no conteúdo capturado.
+
 ## Compartilhamento social
 
 `ShareTreeModal` oferece cópia, Web Share API e fallback explícito. A geração do cartão é iniciada somente pelo usuário: `socialSharing.ts` captura o `Canvas` já usado pelo React Three Fiber, preserva sua proporção e o compõe em um Canvas 2D de 1080×1920. Nenhuma segunda cena 3D é criada e nenhuma imagem é enviada ao servidor. URLs de objeto temporárias são revogadas após uso.

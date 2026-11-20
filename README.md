@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. As Etapas 05A e 05B adicionam compartilhamento por link, cartão vertical, vídeo local para Stories/Reels e metadados sociais renderizados pelo PHP.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 06 faz a cena evoluir de forma aditiva conforme os amigos deixam enfeites persistidos, preservando compartilhamento por link, cartão vertical e vídeo local para Stories/Reels.
 
-## Estado da Etapa 05B
+## Estado da Etapa 06
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -30,6 +30,11 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - a gravação ocorre inteiramente no navegador, em 720×1280/24 FPS ou 1080×1920/30 FPS conforme o dispositivo;
 - o formato é MP4 ou WebM somente quando confirmado pelo `MediaRecorder` do navegador;
 - gravação incompatível mantém disponíveis o cartão PNG, o link e seus respectivos fallbacks.
+- a quantidade de enfeites persistidos desbloqueia progressivamente iluminação, partículas douradas, presentes especiais, brilho da estrela e atmosfera natalina;
+- os marcos visuais são configurados no frontend em 5, 10, 20, 35, 50 e 60 participações, sem estado duplicado no banco;
+- recarregar a página restaura o estágio correto sem repetir a celebração, e remover um enfeite reduz o estágio imediatamente;
+- o indicador acessível informa o estágio atual e quanto falta para o próximo, respeitando `prefers-reduced-motion`;
+- cartões e vídeos capturam a mesma cena evoluída, sem renderer ou geometria paralela.
 
 ## Stack e estrutura
 
@@ -119,6 +124,18 @@ npm --prefix frontend run build
 npm --prefix frontend audit
 composer deploy:hostgator
 ```
+
+### Validação visual manual da Etapa 06
+
+Sem automação gráfica, conferir em navegador e em pelo menos um celular real:
+
+- árvore com zero participações preserva a composição original;
+- marcos de 5, 10, 20, 35, 50 e 60 enfeites acrescentam os efeitos esperados sem mudanças bruscas;
+- criação que cruza um marco exibe o aviso uma vez, permite dispensá-lo e mantém a cena interativa;
+- recarregamento restaura o estágio sem repetir o aviso, e exclusão abaixo de um marco reduz os efeitos;
+- indicador não cobre os controles principais em viewport estreita ou larga;
+- `prefers-reduced-motion` mantém a informação e suprime a celebração animada;
+- cartão PNG e vídeo vertical incluem os efeitos ativos sem conteúdo privado, travamentos ou queda visual evidente.
 
 O teste MySQL real é opt-in para impedir uso acidental de bancos comuns. Aponte as variáveis `DB_*` para um banco **isolado**, aplique a migration e execute:
 

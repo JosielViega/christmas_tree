@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
 import OrnamentDecorationModal from './components/OrnamentDecorationModal';
 import ShareTreeModal from './components/ShareTreeModal';
+import TreeProgressIndicator from './components/TreeProgressIndicator';
 import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, TreeApiError } from './api/trees';
 import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
 import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
@@ -15,6 +16,12 @@ import { useTreeInteraction } from './hooks/useTreeInteraction';
 import { processImageWithPadding } from './utils/image';
 import type { StoryFrameCapture } from './utils/socialSharing';
 import type { StoryVideoSceneCapture } from './utils/videoRecording';
+import {
+  getTreeProgressionFromOrnaments,
+  getUnlockedProgressionStage,
+  shouldAnimateProgressionUnlock,
+} from './utils/treeProgression';
+import type { TreeProgressionStage } from './utils/treeProgression';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 
@@ -34,6 +41,7 @@ const App: React.FC = () => {
   const [ornaments, setOrnaments] = useState<SocialOrnamentData[]>([]);
   const [ornamentCapacity, setOrnamentCapacity] = useState(ORNAMENT_SLOT_COUNT);
   const [ornamentsLoading, setOrnamentsLoading] = useState(false);
+  const [ornamentsReady, setOrnamentsReady] = useState(false);
   const [ornamentModalOpen, setOrnamentModalOpen] = useState(false);
   const [selectedOrnament, setSelectedOrnament] = useState<SocialOrnamentData | null>(null);
   const [newOrnamentId, setNewOrnamentId] = useState<string | null>(null);
@@ -43,10 +51,13 @@ const App: React.FC = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
+  const [unlockedProgressionStage, setUnlockedProgressionStage] = useState<TreeProgressionStage | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
   const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
+  const progressionDismissTimer = useRef<number | null>(null);
 
   const registerStoryCapture = useCallback((capture: StoryFrameCapture | null) => {
     storyCaptureRef.current = capture;
@@ -69,6 +80,37 @@ const App: React.FC = () => {
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
     setToast({ message, type });
     window.setTimeout(() => setToast(null), 5000);
+  }, []);
+
+  const progression = useMemo(() => getTreeProgressionFromOrnaments(ornaments), [ornaments]);
+  const isProgressionCelebrating = shouldAnimateProgressionUnlock(unlockedProgressionStage, reducedMotion);
+
+  const dismissProgressionUnlock = useCallback(() => {
+    if (progressionDismissTimer.current !== null) window.clearTimeout(progressionDismissTimer.current);
+    progressionDismissTimer.current = null;
+    setUnlockedProgressionStage(null);
+  }, []);
+
+  const announceProgressionUnlock = useCallback((stage: TreeProgressionStage) => {
+    if (progressionDismissTimer.current !== null) window.clearTimeout(progressionDismissTimer.current);
+    setUnlockedProgressionStage(stage);
+    showToast('🎁 Sua árvore ganhou uma nova surpresa!', 'success');
+    progressionDismissTimer.current = window.setTimeout(() => {
+      progressionDismissTimer.current = null;
+      setUnlockedProgressionStage(null);
+    }, 6000);
+  }, [showToast]);
+
+  useEffect(() => {
+    const preference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!preference) return;
+    const updatePreference = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
+    preference.addEventListener?.('change', updatePreference);
+    return () => preference.removeEventListener?.('change', updatePreference);
+  }, []);
+
+  useEffect(() => () => {
+    if (progressionDismissTimer.current !== null) window.clearTimeout(progressionDismissTimer.current);
   }, []);
 
   const loadOwnerMessages = useCallback(async (publicId: string, force = false) => {
@@ -127,10 +169,12 @@ const App: React.FC = () => {
     if (!tree || loadedOrnamentsFor.current === tree.public_id) return;
     loadedOrnamentsFor.current = tree.public_id;
     setOrnamentsLoading(true);
+    setOrnamentsReady(false);
     fetchOrnaments(tree.public_id)
       .then((collection) => {
         setOrnaments(collection.ornaments);
         setOrnamentCapacity(collection.capacity);
+        setOrnamentsReady(true);
       })
       .catch(() => {
         loadedOrnamentsFor.current = null;
@@ -178,6 +222,8 @@ const App: React.FC = () => {
     setInteractionMode(InteractionMode.VIEW);
     setReceipt(access);
     setOrnaments([]);
+    setOrnamentsReady(false);
+    dismissProgressionUnlock();
     loadedOrnamentsFor.current = null;
     loadedMessagesFor.current = null;
     setOwnerMessages({});
@@ -204,9 +250,13 @@ const App: React.FC = () => {
     try {
       const response = await createOrnament(tree.public_id, type, senderName, message, csrfToken, idempotencyKey);
       setOrnamentCapacity(response.capacity);
-      setOrnaments((current) => current.some((item) => item.public_id === response.ornament.public_id)
-        ? current
-        : [...current, response.ornament]);
+      const alreadyPersisted = ornaments.some((item) => item.public_id === response.ornament.public_id);
+      const unlockedStage = alreadyPersisted
+        ? null
+        : getUnlockedProgressionStage(ornaments.length, ornaments.length + 1, 'persisted-addition');
+      setOrnaments((current) => current.some((item) => item.public_id === response.ornament.public_id) ? current : [...current, response.ornament]);
+      setOrnamentsReady(true);
+      if (unlockedStage) announceProgressionUnlock(unlockedStage);
       setNewOrnamentId(response.ornament.public_id);
       window.setTimeout(() => setNewOrnamentId(null), 5000);
       focusOrnament(response.ornament);
@@ -326,6 +376,8 @@ const App: React.FC = () => {
         onOrnamentSelect={focusOrnament}
         onStoryCaptureReady={registerStoryCapture}
         onStoryVideoCaptureReady={registerStoryVideoCapture}
+        progressionEffects={progression.stage.effects}
+        isProgressionCelebrating={isProgressionCelebrating}
       />
 
       <Overlay
@@ -384,6 +436,15 @@ const App: React.FC = () => {
             <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><TreePine size={17} /> Criar minha árvore</button>
           )}
         </div>
+      )}
+
+      {tree && !receipt && ornamentsReady && !isRecording && (
+        <TreeProgressIndicator
+          progression={progression}
+          isOwner={isOwner}
+          unlockedStage={unlockedProgressionStage}
+          onDismissUnlock={dismissProgressionUnlock}
+        />
       )}
 
       {tree && isOwner && messageOverview && !receipt && (

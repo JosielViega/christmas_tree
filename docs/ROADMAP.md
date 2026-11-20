@@ -24,9 +24,9 @@ Links públicos, Web Share API com fallback, cartão local 9:16 para Stories, co
 
 Vídeos verticais personalizados de oito segundos, composição local, câmera cinematográfica, progresso, cancelamento, prévia, download, compartilhamento de arquivo e fallback para PNG. Não existe upload nem processamento no servidor.
 
-## 6. Evolução da árvore
+## 6. Evolução da árvore — concluída
 
-Representar visualmente a participação dos amigos sem comprometer desempenho.
+Progressão visual derivada da quantidade de enfeites persistidos, com seis marcos cumulativos, indicador acessível, celebração somente após confirmação do backend e limites explícitos para partículas e presentes. A árvore-base permanece completa em todos os estágios e as capturas sociais reutilizam a cena evoluída.
 
 ## 7. Cenário natalino expandido
 
@@ -36,4 +36,4 @@ Adicionar ambientes e elementos visuais somente após validar licenças e impact
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04 e o compartilhamento social, incluindo vídeo local, nas Etapas 05A e 05B.
+Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B e a progressão visual na Etapa 06.

@@ -231,9 +231,10 @@ const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
 
 interface PresentsProps {
   isExploded?: boolean;
+  specialGiftCount?: number;
 }
 
-const Presents: React.FC<PresentsProps> = ({ isExploded = false }) => {
+const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0 }) => {
   const presents = useMemo(() => {
     const items: PresentProps[] = [];
     const count = 25;
@@ -304,10 +305,35 @@ const Presents: React.FC<PresentsProps> = ({ isExploded = false }) => {
     return items;
   }, []);
 
+  const specialPresents = useMemo<PresentProps[]>(() => {
+    const positions = [
+      [6.4, -TREE_CONFIG.HEIGHT / 2 + 0.2, 1.8],
+      [-5.8, -TREE_CONFIG.HEIGHT / 2 + 0.18, 2.7],
+      [3.2, -TREE_CONFIG.HEIGHT / 2 + 0.22, -5.9],
+      [-3.9, -TREE_CONFIG.HEIGHT / 2 + 0.2, -5.2],
+    ] as const;
+    return positions.map((position, index) => {
+      const vector = new THREE.Vector3(...position);
+      return {
+        position: vector,
+        rotation: new THREE.Euler(0, index * 1.17, 0),
+        scale: new THREE.Vector3(0.82 + index * 0.04, 0.82 + index * 0.04, 0.82 + index * 0.04),
+        color: index % 2 === 0 ? '#0f8f54' : '#a9192c',
+        pattern: index % 2 === 0 ? 'checkers' : 'stripes',
+        ribbonColor: '#FFD700',
+        explodeDir: vector.clone().normalize().multiplyScalar(26 + index * 2),
+        explodeRotation: new THREE.Vector3(2 + index, 3 + index * 0.5, 1.5),
+      };
+    });
+  }, []);
+
   return (
     <group>
       {presents.map((p, i) => (
         <PresentBox key={i} {...p} isExploded={isExploded} />
+      ))}
+      {specialPresents.slice(0, specialGiftCount).map((present, index) => (
+        <PresentBox key={`special-${index}`} {...present} isExploded={isExploded} />
       ))}
     </group>
   );

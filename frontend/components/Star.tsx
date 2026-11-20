@@ -23,11 +23,14 @@ const GlowTexture = () => {
 
 interface StarProps {
   isExploded?: boolean;
+  glowBoost?: number;
+  celebrating?: boolean;
 }
 
-const Star: React.FC<StarProps> = ({ isExploded = false }) => {
+const Star: React.FC<StarProps> = ({ isExploded = false, glowBoost = 0, celebrating = false }) => {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.PointLight>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const explodeProgress = useRef(0);
   const glowTexture = useMemo(() => GlowTexture(), []);
 
@@ -79,12 +82,17 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
       groupRef.current.rotation.z = Math.sin(time * 0.5) * 0.1;
 
       // Pulsing scale
-      const pulse = 1 + Math.sin(time * 3) * 0.05;
+      const celebrationPulse = celebrating ? Math.sin(time * 8) * 0.04 : 0;
+      const pulse = 1 + Math.sin(time * 3) * (0.05 + glowBoost * 0.015) + celebrationPulse;
       groupRef.current.scale.set(pulse, pulse, pulse);
 
       // Pulse the light intensity
       if (glowRef.current) {
-        glowRef.current.intensity = (3 + Math.sin(time * 3) * 1) * (1 - explodeProgress.current * 0.8);
+        const celebrationLight = celebrating ? 1.2 : 0;
+        glowRef.current.intensity = (3 + glowBoost * 2 + celebrationLight + Math.sin(time * 3) * 1) * (1 - explodeProgress.current * 0.8);
+      }
+      if (materialRef.current) {
+        materialRef.current.emissiveIntensity = 1 + glowBoost * 0.9 + (celebrating ? 0.45 : 0);
       }
     }
   });
@@ -98,13 +106,14 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
       <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
         <mesh scale={[16, 16, 1]}>
           <planeGeometry />
-          <meshBasicMaterial map={glowTexture} transparent opacity={0.3} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+          <meshBasicMaterial map={glowTexture} transparent opacity={0.3 + glowBoost * 0.12} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
         </mesh>
       </Billboard>
 
       {/* The 3D Star Mesh */}
       <mesh geometry={starGeometry}>
         <meshStandardMaterial
+          ref={materialRef}
           color={COLORS.STAR}
           emissive={COLORS.STAR_GLOW}
           emissiveIntensity={1.0}
@@ -114,7 +123,7 @@ const Star: React.FC<StarProps> = ({ isExploded = false }) => {
       </mesh>
 
       {/* Extra Sparkles for magical feel */}
-      <Sparkles count={20} scale={4} size={3} speed={0.4} opacity={0.8} color="#fff" material-toneMapped={false} />
+      <Sparkles count={20 + Math.round(glowBoost * 16)} scale={4} size={3} speed={0.4 + glowBoost * 0.15} opacity={0.8} color="#fff" material-toneMapped={false} />
 
       {/* Light Source inside the star - No shadows for performance */}
       <pointLight

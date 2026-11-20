@@ -27,9 +27,11 @@ const getFluffTexture = () => {
 interface SpiralDecorProps {
   isExploded?: boolean;
   photos?: PhotoData[];
+  lightBoost?: number;
+  celebrating?: boolean;
 }
 
-const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = [] }) => {
+const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = [], lightBoost = 0, celebrating = false }) => {
   const lineRef = useRef<THREE.Mesh>(null);
   const pointsRef = useRef<THREE.Points>(null);
   const baubleMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -206,7 +208,8 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
     if (lineRef.current) {
         const material = lineRef.current.material as THREE.MeshStandardMaterial;
         const pulse = (Math.sin(time * 3.0) * 0.3 + 0.7);
-        material.emissiveIntensity = 3.0 * pulse * (1 - explodeProgress.current);
+        const celebrationBoost = celebrating ? 0.7 : 0;
+        material.emissiveIntensity = (3.0 + lightBoost * 3 + celebrationBoost) * pulse * (1 - explodeProgress.current);
         lineRef.current.scale.setScalar(1 - explodeProgress.current);
         lineRef.current.visible = explodeProgress.current < 0.95;
     }
@@ -450,8 +453,8 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       {/* Point lights along the spiral path to illuminate tree and photos */}
       {!isExploded && (
         <>
-            <pointLight position={[0, 2, 0]} intensity={2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
-            <pointLight position={[0, -2, 0]} intensity={2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
+            <pointLight position={[0, 2, 0]} intensity={2 + lightBoost * 2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
+            <pointLight position={[0, -2, 0]} intensity={2 + lightBoost * 2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
         </>
       )}
 
