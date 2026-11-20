@@ -69,6 +69,10 @@ Os exemplos em `server-config-examples/` ficam fora do mirror e não se chamam `
 
 Não há caminho absoluto de conta embutido no template.
 
+## Presentes privados
+
+O mirror inclui somente `storage/private/.gitkeep`, nunca texturas. Crie `storage/private/gift-textures` fora do Document Root, com escrita exclusiva para o usuário PHP. Confirme `fileinfo` e GD com PNG e configure o cron do cPanel para executar `composer gifts:cleanup`. Se não for possível isolar esse diretório de `public/`, mantenha a funcionalidade desabilitada.
+
 ## Atualizações futuras
 
 1. Atualize e teste o código localmente.

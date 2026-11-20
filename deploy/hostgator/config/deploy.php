@@ -6,6 +6,7 @@ return [
     // Production application source is copied only from this allowlist.
     'include' => [
         'app',
+        'bin/cleanup-gift-drafts.php',
         'bootstrap',
         'config',
         'database/migrations',
@@ -13,6 +14,7 @@ return [
         'public/index.php',
         'resources',
         'routes',
+        'storage/private/.gitkeep',
         'composer.json',
         'composer.lock',
     ],
@@ -22,7 +24,6 @@ return [
         '.git',
         '.github',
         '.phpunit.cache',
-        'bin',
         'deploy',
         'docs',
         'frontend',
@@ -31,6 +32,7 @@ return [
         'public/uploads',
         'storage/cache',
         'storage/logs',
+        'storage/private/gift-textures',
         'vendor',
         'node_modules',
     ],

@@ -25,6 +25,7 @@ final class HostgatorMirrorBuilderTest extends TestCase
 
         foreach ([
             'app/.keep',
+            'bin/cleanup-gift-drafts.php',
             'bootstrap/app.php',
             'config/app.php',
             'config/database.php',
@@ -32,6 +33,7 @@ final class HostgatorMirrorBuilderTest extends TestCase
             'public/assets/app/.vite/manifest.json',
             'resources/views/.keep',
             'routes/web.php',
+            'storage/private/.gitkeep',
             'composer.json',
             'composer.lock',
             'vendor/autoload.php',

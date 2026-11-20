@@ -7,8 +7,11 @@ namespace Tests;
 use App\Core\Database;
 use App\Repositories\PdoChristmasTreeRepository;
 use App\Repositories\PdoChristmasTreeOrnamentRepository;
+use App\Repositories\PdoChristmasTreeGiftRepository;
+use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
+use App\Services\GiftTextureStorage;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +33,8 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
         ]);
         $pdo = $database->connection();
         $treeId = null;
+        $giftStorage = null;
+        $giftUpload = null;
 
         try {
             $treeRepository = new PdoChristmasTreeRepository($database);
@@ -69,10 +74,36 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertTrue($ornaments->delete($created->tree->publicId, $ornament->ornament->publicId));
             self::assertSame([], $ornaments->list($created->tree->publicId));
             self::assertSame(0, $revealedOrnaments->messageOverview($created->tree->publicId)->messageCount);
+
+            $giftStorage = sys_get_temp_dir() . '/gift-mysql-' . bin2hex(random_bytes(5));
+            $giftUpload = tempnam(sys_get_temp_dir(), 'gift-mysql-png-');
+            $image = imagecreatetruecolor(64, 64);
+            imagepng($image, $giftUpload);
+            $upload = ['tmp_name' => $giftUpload, 'size' => filesize($giftUpload), 'error' => UPLOAD_ERR_OK, 'name' => 'texture.png', 'type' => 'image/png'];
+            $gifts = new ChristmasTreeGiftService(
+                $treeRepository,
+                new PdoChristmasTreeGiftRepository($database),
+                new GiftTextureStorage($giftStorage),
+            );
+            $gift = $gifts->create($created->tree->publicId, 'Visitante', 'classic', 'repeated', 'Mensagem privada', str_repeat('g', 16), true, $upload);
+            self::assertTrue($gift->created);
+            self::assertSame('draft', $gifts->findAuthorized($gift->gift->publicId, $gift->accessToken)?->status);
+            $repeatedGift = $gifts->create($created->tree->publicId, 'Visitante', 'classic', 'repeated', 'Mensagem privada', str_repeat('g', 16), true, $upload);
+            self::assertFalse($repeatedGift->created);
+            self::assertSame($gift->gift->publicId, $repeatedGift->gift->publicId);
+            self::assertSame('cancelled', $gifts->cancel($gift->gift->publicId, $gift->accessToken)?->status);
         } finally {
             if (is_int($treeId)) {
                 $cleanup = $pdo->prepare('DELETE FROM christmas_trees WHERE id = :id');
                 $cleanup->execute(['id' => $treeId]);
+            }
+            if (is_string($giftUpload) && is_file($giftUpload)) {
+                unlink($giftUpload);
+            }
+            if (is_string($giftStorage) && is_dir($giftStorage)) {
+                $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($giftStorage, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+                foreach ($iterator as $item) $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+                rmdir($giftStorage);
             }
         }
     }

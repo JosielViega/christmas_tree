@@ -344,3 +344,14 @@ export const createProceduralGiftTexture = (color: string, type: GiftWrappingPat
 export const disposeGiftTextures = (textures: readonly Pick<THREE.Texture, 'dispose'>[]): void => {
   textures.forEach((texture) => texture.dispose());
 };
+
+export const selectPersistedGiftCanvas = (canvases: PersonalizedGiftCanvases, mode: GiftCompositionMode): HTMLCanvasElement => {
+  return mode === 'featured' && canvases.front ? canvases.front : canvases.paper;
+};
+
+export const giftCanvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob?.type === 'image/png' && blob.size > 0) resolve(blob);
+    else reject(new GiftPhotoError('O navegador não conseguiu finalizar a textura do presente.'));
+  }, 'image/png');
+});

@@ -51,6 +51,16 @@ O proprietário pode excluir um enfeite antes ou depois da liberação, e a mens
 - Blobs e URLs temporárias permanecem no navegador e são liberados após compartilhamento/download. Não há upload, analytics, login do Instagram ou API de terceiros.
 - Textos dinâmicos nos metadados passam por escape HTML e o bootstrap continua usando `JSON_HEX_*`.
 
+## Rascunhos de presentes personalizados
+
+- a fotografia original é processada no navegador; somente um PNG final de até 512×512 chega ao PHP;
+- `fileinfo`, assinatura, decodificação GD, dimensões e limites de bytes são conferidos antes de um novo PNG ser gerado;
+- arquivos usam nomes aleatórios e ficam em `storage/private/gift-textures`, nunca em `public/`;
+- o ID público não autoriza acesso; um token de 256 bits é entregue fora da URL e somente seu hash é salvo;
+- respostas privadas não incluem mensagem, textura ou caminho e usam `Cache-Control: private, no-store`;
+- idempotência vincula chave e hash do payload; falhas compensam arquivos, e o cron retoma cancelamentos/expirações interrompidos;
+- somente `draft → cancelled|expired` é permitido. Não há rota pública para `paid` ou `published`.
+
 ## Regras gerais
 
 1. Nunca versionar `.env`, credenciais, certificados, logs ou dados reais.

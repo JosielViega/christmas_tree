@@ -107,9 +107,17 @@ A fotografia decodificada fica apenas na memória do modal. Um recorte central d
 
 `GiftBoxModel`, extraído de `Presents.tsx`, mantém a mesma caixa arredondada, materiais físicos, fitas cruzadas e laço usados na árvore. `GiftPreviewModal` cria um segundo `Canvas` somente enquanto a prévia está aberta, com uma caixa e `frameloop="demand"`; ao mesmo tempo o Canvas principal muda temporariamente para `frameloop="never"`, preservando sua câmera sem dois loops permanentes. Fechar o modal retoma a cena original.
 
-Trocas de estilo e modo reutilizam a imagem já decodificada e substituem apenas texturas Canvas. Efeitos de cleanup chamam `Texture.dispose()`, `ImageBitmap.close()` e `URL.revokeObjectURL()` quando aplicável. Não há chamada a API, storage, analytics, endpoint PHP, nova migration ou mudança nos enfeites, mensagens, progressão e compartilhamento.
+Trocas de estilo e modo reutilizam a imagem já decodificada e substituem apenas texturas Canvas. Efeitos de cleanup chamam `Texture.dispose()`, `ImageBitmap.close()` e `URL.revokeObjectURL()` quando aplicável. A persistência envia somente o canvas final para a API própria; não altera enfeites, mensagens, progressão ou compartilhamento.
 
-A entrada é habilitada automaticamente por `import.meta.env.DEV`. Produção exige `VITE_ENABLE_GIFT_PREVIEW=true` no momento do build; o padrão versionado é `false`. Mesmo quando habilitada, a função continua sendo uma demonstração local sem preço, checkout, pedido ou promessa de envio.
+A entrada é habilitada automaticamente por `import.meta.env.DEV`. Produção exige `VITE_ENABLE_GIFT_PREVIEW=true` no momento do build; o padrão versionado é `false`. Mesmo quando habilitada, a função apenas prepara um rascunho privado sem preço, checkout, pagamento, publicação ou promessa de envio.
+
+Na Etapa 07B.2, o build padrão continua com aproximadamente 1.239,6 kB de JavaScript (347,4 kB gzip) porque o fluxo é removido por tree-shaking. O CSS passa a 38,4 kB (7,2 kB gzip). Com habilitação explícita, o JavaScript fica em aproximadamente 1.257,6 kB (352,3 kB gzip). Nenhuma dependência frontend foi adicionada.
+
+## Persistência privada de presentes
+
+Ao preparar um rascunho, o navegador envia somente um PNG final; a fotografia original nunca é transmitida. `GiftDraftApiController` protege criação por CSRF e rate limit e consulta/cancelamento por token próprio. `ChristmasTreeGiftService` concentra validação, estados, idempotência, expiração e compensação; `GiftTextureStorage` redecodifica com GD e mantém arquivos fora do Document Root.
+
+`christmas_tree_gifts` associa o rascunho à árvore sem participar da coleção de enfeites. Por isso presentes premium futuros não alteram `ornaments.length`, os marcos da Etapa 06 nem as caixas procedurais existentes. Apenas `draft → cancelled|expired` está ativo; não existem endpoints para `paid` ou `published`. Consulte [armazenamento privado](GIFT_STORAGE.md).
 
 ## Compartilhamento social
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\GiftDraftApiController;
 use App\Controllers\TreeApiController;
 use App\Controllers\TreePageController;
 use App\Controllers\TreeOrnamentApiController;
@@ -11,9 +12,13 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Repositories\PdoChristmasTreeRepository;
 use App\Repositories\PdoChristmasTreeOrnamentRepository;
+use App\Repositories\PdoChristmasTreeGiftRepository;
+use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\RateLimiter;
+use App\Services\GiftDraftAccessSession;
+use App\Services\GiftTextureStorage;
 use App\Services\TreeOwnerSession;
 
 $home = new HomeController(
@@ -74,6 +79,26 @@ $ornamentApi = new TreeOrnamentApiController(
         $app['config']['rate_limits']['ornament_creation']['window_seconds'],
     ),
 );
+$giftApi = new GiftDraftApiController(
+    $app['request'],
+    $app['csrf'],
+    new ChristmasTreeGiftService(
+        $treeRepository,
+        new PdoChristmasTreeGiftRepository($app['database']),
+        new GiftTextureStorage(
+            $app['config']['gifts']['private_storage_path'],
+            $app['config']['gifts']['max_texture_bytes'],
+        ),
+        $app['config']['gifts']['draft_expiration_hours'],
+    ),
+    new GiftDraftAccessSession($app['session']),
+    new RateLimiter(
+        $rateLimitPath . '/gift-drafts',
+        $app['config']['rate_limits']['gift_draft_creation']['max_attempts'],
+        $app['config']['rate_limits']['gift_draft_creation']['window_seconds'],
+    ),
+    $app['config']['gifts']['max_request_bytes'],
+);
 $router = $app['router'];
 
 $router->get('/', [$home, 'index']);
@@ -90,6 +115,9 @@ $router->get('/api/trees/{public_id}/ornaments', [$ornamentApi, 'index']);
 $router->post('/api/trees/{public_id}/ornaments', [$ornamentApi, 'store']);
 $router->get('/api/trees/{public_id}/messages', [$ornamentApi, 'messages']);
 $router->delete('/api/trees/{public_id}/ornaments/{ornament_id}', [$ornamentApi, 'destroy']);
+$router->post('/api/trees/{public_id}/gift-drafts', [$giftApi, 'store']);
+$router->get('/api/gift-drafts/{gift_id}', [$giftApi, 'show']);
+$router->delete('/api/gift-drafts/{gift_id}', [$giftApi, 'destroy']);
 $router->fallback(static function (Request $request) use ($app): Response {
     return Response::html($app['view']->render('pages/404', [
         'title' => 'Page not found',

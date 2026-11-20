@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { Gift, ImagePlus, Loader2, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { CheckCircle2, Gift, ImagePlus, Loader2, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
 import * as THREE from 'three';
 import { GiftBoxModel } from './Presents';
 import {
@@ -12,11 +12,17 @@ import {
   decodeGiftPhoto,
   disposeGiftTextures,
   replaceDecodedGiftPhoto,
+  giftCanvasToPng,
+  selectPersistedGiftCanvas,
 } from '../utils/giftTextures';
 import type { DecodedGiftPhoto, GiftCompositionMode, GiftStyleId } from '../utils/giftTextures';
+import { cancelGiftDraft, createGiftIdempotencyKey, prepareGiftDraft } from '../api/giftDrafts';
+import type { GiftDraftAccess } from '../api/giftDrafts';
 
 interface GiftPreviewModalProps {
   maxPhotoBytes: number;
+  treePublicId: string;
+  csrfToken: string;
   onClose: () => void;
 }
 
@@ -43,15 +49,27 @@ const PersonalizedGift: React.FC<{
   );
 };
 
-const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, onClose }) => {
+const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, treePublicId, csrfToken, onClose }) => {
   const [photo, setPhoto] = useState<DecodedGiftPhoto | null>(null);
   const [style, setStyle] = useState<GiftStyleId>('classic');
   const [mode, setMode] = useState<GiftCompositionMode>('repeated');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [senderName, setSenderName] = useState('');
+  const [message, setMessage] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [draft, setDraft] = useState<GiftDraftAccess | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const photoRef = useRef<DecodedGiftPhoto | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
+  const idempotencyKey = useRef(createGiftIdempotencyKey());
+
+  useEffect(() => {
+    idempotencyKey.current = createGiftIdempotencyKey();
+  }, [photo, style, mode, senderName, message]);
 
   const releasePhoto = () => {
     requestId.current += 1;
@@ -93,6 +111,46 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, onCl
     }
   };
 
+  const prepare = async () => {
+    if (!photo || !consent || preparing) return;
+    setPreparing(true);
+    setError(null);
+    try {
+      const canvases = createPersonalizedGiftCanvases(photo, style, mode);
+      const texture = await giftCanvasToPng(selectPersistedGiftCanvas(canvases, mode));
+      const prepared = await prepareGiftDraft(
+        treePublicId,
+        { senderName, style, mode, message, texture },
+        csrfToken,
+        idempotencyKey.current,
+      );
+      const token = prepared.access_token ?? accessToken;
+      if (!token) throw new Error('Não foi possível preservar o acesso privado ao rascunho.');
+      setAccessToken(token);
+      setDraft(prepared);
+      sessionStorage.setItem(`gift-draft:${prepared.gift.public_id}`, token);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível preparar o presente.');
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const cancelDraft = async () => {
+    if (!draft || !accessToken || cancelling) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      const result = await cancelGiftDraft(draft.gift.public_id, accessToken, csrfToken);
+      setDraft({ ...draft, gift: result.gift });
+      sessionStorage.removeItem(`gift-draft:${draft.gift.public_id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível cancelar o rascunho.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="gift-preview-title" onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
       <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#fff1a1]/20 bg-[#07120d] text-white shadow-2xl md:max-h-[92vh] md:rounded-3xl">
@@ -100,12 +158,12 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, onCl
 
         <div className="grid min-h-0 flex-1 md:grid-cols-[0.92fr_1.08fr]">
           <section className="order-2 min-h-0 overflow-y-auto p-5 md:order-1 md:p-7">
-            <div className="flex items-center gap-2 text-[#fff1a1]"><Gift size={22} /><span className="text-xs font-bold uppercase tracking-[0.18em]">Experimento local</span></div>
+            <div className="flex items-center gap-2 text-[#fff1a1]"><Gift size={22} /><span className="text-xs font-bold uppercase tracking-[0.18em]">Preparação experimental</span></div>
             <h2 id="gift-preview-title" className="mt-3 text-2xl font-bold">Prévia de presente personalizado</h2>
             <p className="mt-2 text-sm leading-relaxed text-white/65">Transforme uma fotografia em uma embalagem de presente natalina!</p>
             <div className="mt-4 flex gap-2 rounded-2xl border border-emerald-300/15 bg-emerald-300/5 p-3 text-xs leading-relaxed text-emerald-100/75">
               <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-300" />
-              <p>Esta é uma demonstração. A fotografia não será enviada nem salva no servidor.</p>
+              <p>A fotografia original permanece neste navegador. Somente a textura final 512×512 será enviada para armazenamento privado.</p>
             </div>
 
             <div className="mt-6">
@@ -132,6 +190,30 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, onCl
                 ))}
               </div>
             </fieldset>
+
+            <fieldset className="mt-6 space-y-3" disabled={!photo || loading || draft?.gift.status === 'draft'}>
+              <legend className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">4. Prepare o rascunho privado</legend>
+              <label className="block text-xs text-white/65">Seu nome
+                <input value={senderName} onChange={(event) => setSenderName(event.target.value)} maxLength={40} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-black/25 px-3 text-sm text-white outline-none focus:border-[#fff1a1]/55" />
+              </label>
+              <label className="block text-xs text-white/65">Mensagem secreta
+                <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} rows={3} className="mt-1 w-full rounded-xl border border-white/15 bg-black/25 p-3 text-sm text-white outline-none focus:border-[#fff1a1]/55" />
+              </label>
+              <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs leading-relaxed text-white/60">
+                <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5" />
+                <span>Estou ciente de que esta fotografia poderá ficar visível publicamente somente após uma futura publicação paga.</span>
+              </label>
+              {!draft && <button type="button" onClick={() => void prepare()} disabled={!photo || !consent || senderName.trim().length < 2 || message.trim().length < 2 || preparing} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#1cbd62] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#24cf70] disabled:cursor-not-allowed disabled:opacity-50">
+                {preparing && <Loader2 size={17} className="animate-spin" />}{preparing ? 'Preparando…' : 'Preparar presente'}
+              </button>}
+            </fieldset>
+
+            {draft && <div className="mt-5 rounded-2xl border border-[#fff1a1]/25 bg-[#fff1a1]/[0.07] p-4 text-sm">
+              <div className="flex items-center gap-2 font-semibold text-[#fff1a1]"><CheckCircle2 size={19} />🎁 Seu presente foi preparado!</div>
+              <p className="mt-2 text-xs leading-relaxed text-white/65">Este presente ainda não foi enviado. A publicação dependerá de pagamento, que será implementado posteriormente.</p>
+              <p className="mt-2 text-[11px] uppercase tracking-wide text-white/40">Estado: {draft.gift.status}</p>
+              {draft.gift.status === 'draft' && <button type="button" onClick={() => void cancelDraft()} disabled={cancelling} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300/20 px-3 py-2 text-xs text-red-100 hover:bg-red-400/10 disabled:opacity-50"><Trash2 size={14} />{cancelling ? 'Cancelando…' : 'Cancelar rascunho'}</button>}
+            </div>}
 
             <fieldset className="mt-6" disabled={!photo || loading}>
               <legend className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">3. Personalize a estampa</legend>

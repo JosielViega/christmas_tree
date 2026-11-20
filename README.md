@@ -1,8 +1,8 @@
 # Christmas Tree
 
-Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 07B.1 acrescenta uma prévia experimental que transforma localmente uma fotografia em papel de presente 3D, sem upload, persistência ou pagamento.
+Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 07B.2 prepara rascunhos privados usando somente a textura final da embalagem, sem pagamento ou publicação.
 
-## Estado da Etapa 07B.1
+## Estado da Etapa 07B.2
 
 - cada árvore possui URL pública `/t/{public_id}` e nome do responsável;
 - criação persistente em MySQL com identificador público aleatório de 72 bits;
@@ -48,7 +48,7 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - a caixa, materiais físicos, fitas e laço existentes são reutilizados, enquanto a cena principal fica congelada durante a prévia;
 - trocar estilo não decodifica novamente a fotografia, e fechar ou substituir a foto libera bitmap, Object URL e texturas;
 - produção mantém a entrada desabilitada, salvo build explícito com `VITE_ENABLE_GIFT_PREVIEW=true`;
-- a demonstração não cria pedido, compra, presente público ou registro no banco.
+- a prévia isolada não cria pedido, compra ou presente público; somente “Preparar presente” cria um rascunho privado no banco.
 
 ## Stack e estrutura
 
@@ -96,7 +96,7 @@ npm --prefix frontend run dev
 
 O Vite encaminha `/api` ao `APP_URL` configurado (ou `http://127.0.0.1:8010` como fallback).
 
-O protótipo de embalagem aparece automaticamente no modo de desenvolvimento. Em build de produção ele fica desabilitado por padrão; para uma demonstração consciente, defina `VITE_ENABLE_GIFT_PREVIEW=true` **antes** de executar o build. `VITE_GIFT_PHOTO_MAX_BYTES` controla o limite local em bytes, limitado internamente a 32 MB. Essas opções são incorporadas ao JavaScript no build e não habilitam upload no PHP.
+O fluxo de embalagem aparece automaticamente no desenvolvimento e fica desabilitado por padrão no build de produção. `VITE_ENABLE_GIFT_PREVIEW=true` exige habilitação consciente; `VITE_GIFT_PHOTO_MAX_BYTES` limita apenas a fotografia local. O upload PHP aceita exclusivamente o PNG final reprocessado e nunca a fotografia original.
 
 ## Fluxo de uso
 
@@ -177,7 +177,7 @@ Sem automação gráfica, conferir em desktop e em pelo menos um celular real:
 - giro, zoom por roda e gesto de pinça funcionam sem mover a câmera da árvore;
 - trocar repetidamente estilo, modo e fotografia não causa travamentos ou aumento contínuo perceptível de memória;
 - fechar a prévia restaura a árvore, câmera, progressão, enfeites, PNG e vídeo sem alterações;
-- nenhuma requisição de imagem aparece na aba Network e nenhum dado surge em storage do navegador;
+- antes de preparar, nenhuma imagem sai do navegador; ao preparar, somente o PNG final aparece na rede e o token privado fica no `sessionStorage`, nunca a fotografia original;
 - textos deixam claro que a experiência é demonstração, sem preço, pedido, envio ou pagamento.
 
 O teste MySQL real é opt-in para impedir uso acidental de bancos comuns. Aponte as variáveis `DB_*` para um banco **isolado**, aplique a migration e execute:
@@ -191,6 +191,18 @@ CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRep
 O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `composer deploy:hostgator`, revise `deploy/hostgator/build-info.json` e copie manualmente o mirror. O builder não publica arquivos e não executa migrations.
 
 No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `APP_URL` deve ser a origem HTTPS pública, sem usuário, senha, query ou fragmento, pois define links canônicos e Open Graph. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
+
+## Etapa 07B.2 — rascunhos privados de presentes
+
+Em desenvolvimento, a prévia pode preparar um rascunho associado à árvore. A fotografia original permanece no navegador; somente um PNG final 512×512 é enviado, validado e reprocessado pelo GD. O arquivo fica em `storage/private/gift-textures`, fora de `public/`, e expira em 24 horas.
+
+Rotas:
+
+- `POST /api/trees/{public_id}/gift-drafts` — cria com CSRF, rate limit, consentimento e `Idempotency-Key`;
+- `GET /api/gift-drafts/{gift_id}` — consulta com `X-Gift-Draft-Token`;
+- `DELETE /api/gift-drafts/{gift_id}` — cancela com token e CSRF.
+
+Não existem rotas para pagamento, publicação ou download privado. Execute `composer gifts:cleanup` por cron. Os limites usam `GIFT_TEXTURE_MAX_BYTES`, `GIFT_REQUEST_MAX_BYTES`, `GIFT_DRAFT_EXPIRATION_HOURS` e `GIFT_CLEANUP_BATCH_SIZE`. Veja [armazenamento privado](docs/GIFT_STORAGE.md).
 
 ## Escopo futuro
 

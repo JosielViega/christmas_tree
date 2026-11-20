@@ -60,6 +60,7 @@ final class HostgatorMirrorBuilder
     {
         $required = [
             'app',
+            'bin/cleanup-gift-drafts.php',
             'bootstrap/app.php',
             'config/app.php',
             'config/database.php',
@@ -67,6 +68,7 @@ final class HostgatorMirrorBuilder
             'public/assets/app/.vite/manifest.json',
             'resources/views',
             'routes/web.php',
+            'storage/private/.gitkeep',
             'composer.json',
             'composer.lock',
             'vendor/autoload.php',

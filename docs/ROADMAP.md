@@ -36,8 +36,12 @@ Passagem ocasional de Papai Noel e trenó, rastro dourado limitado, estrelas cad
 
 Prévia experimental de uma fotografia local aplicada como papel de presente 3D, com três estilos e dois modos de composição. Validação, decodificação, Canvas 2D e descarte acontecem no navegador; pagamentos, pedidos, upload, persistência e vínculo com a árvore pública continuam fora do escopo.
 
+## 7B.2. Persistência segura de presentes — concluída
+
+Rascunhos privados associados à árvore, contendo somente a textura final reprocessada, metadados mínimos, mensagem secreta, idempotência, credencial própria, expiração e limpeza em lote. Os estados `paid` e `published` estão reservados, mas não possuem transições ou endpoints públicos. Nada aparece na árvore e nenhum pagamento é simulado.
+
 ## 8. Otimização e lançamento
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B, a progressão visual na Etapa 06, o cenário expandido na Etapa 07 e a prévia local de embalagens na Etapa 07B.1.
+Fotografias originais persistentes permanecem fora do escopo. A Etapa 07B.2 armazena somente a textura final privada; pagamentos e publicação pertencem a uma etapa futura.

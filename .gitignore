@@ -11,6 +11,8 @@
 /storage/logs/*.log
 /storage/cache/*
 !/storage/cache/.gitkeep
+/storage/private/*
+!/storage/private/.gitkeep
 
 /public/uploads/*
 !/public/uploads/.gitkeep

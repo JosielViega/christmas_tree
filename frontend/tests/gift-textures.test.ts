@@ -15,6 +15,8 @@ import {
   getGiftPhotoMaxBytes,
   isGiftPreviewEnabled,
   replaceDecodedGiftPhoto,
+  selectPersistedGiftCanvas,
+  giftCanvasToPng,
   validateGiftPhotoDimensions,
   validateGiftPhotoFile,
 } from '../utils/giftTextures.ts';
@@ -171,14 +173,40 @@ test('production access is disabled unless explicitly configured', () => {
   assert.equal(getGiftPhotoMaxBytes(String(64 * 1024 * 1024)), 32 * 1024 * 1024);
 });
 
-test('prototype source contains no upload, persistence, checkout or external calls', () => {
+test('texture generation remains local and contains no network or payment code', () => {
   const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
   const textures = readFileSync(new URL('../utils/giftTextures.ts', import.meta.url), 'utf8');
-  const source = `${modal}\n${textures}`;
+  const source = textures;
   assert.doesNotMatch(source, /fetch\s*\(|XMLHttpRequest|\/api\//);
   assert.doesNotMatch(source, /localStorage|indexedDB|sessionStorage/);
   assert.doesNotMatch(source, /https?:\/\//);
   assert.doesNotMatch(source, /checkout|pagamento|comprar|pedido concluído/i);
+});
+
+test('draft preparation uploads only the final texture to same-origin APIs without checkout', () => {
+  const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
+  const textures = readFileSync(new URL('../utils/giftTextures.ts', import.meta.url), 'utf8');
+  const api = readFileSync(new URL('../api/giftDrafts.ts', import.meta.url), 'utf8');
+  assert.match(api, /FormData/);
+  assert.match(api, /body\.set\('texture'/);
+  assert.doesNotMatch(api, /original_photo|source_photo/);
+  assert.doesNotMatch(`${modal}\n${textures}\n${api}`, /https?:\/\//);
+  assert.doesNotMatch(`${modal}\n${api}`, /checkout|comprar|pedido conclu/i);
+  assert.match(modal, /ainda n.o foi enviado/i);
+  assert.match(modal, /consent/i);
+});
+
+test('persistence selects one final 512 texture and encodes PNG only', async () => {
+  const paper = { width: 512, height: 512 } as HTMLCanvasElement;
+  const front = { width: 512, height: 512 } as HTMLCanvasElement;
+  assert.equal(selectPersistedGiftCanvas({ paper, front: null }, 'repeated'), paper);
+  assert.equal(selectPersistedGiftCanvas({ paper, front }, 'featured'), front);
+  const png = new Blob([PNG], { type: 'image/png' });
+  const canvas = { toBlob: (callback: BlobCallback, type?: string) => {
+    assert.equal(type, 'image/png');
+    callback(png);
+  } } as HTMLCanvasElement;
+  assert.equal(await giftCanvasToPng(canvas), png);
 });
 
 test('style changes reuse the already decoded photo in the preview component', () => {

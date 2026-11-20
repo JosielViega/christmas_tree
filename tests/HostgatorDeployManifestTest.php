@@ -17,7 +17,7 @@ final class HostgatorDeployManifestTest extends TestCase
 
     public function testProductionAllowlistContainsRequiredApplicationItems(): void
     {
-        foreach (['app', 'bootstrap', 'config', 'public/assets', 'public/index.php', 'resources', 'routes', 'composer.json', 'composer.lock'] as $item) {
+        foreach (['app', 'bin/cleanup-gift-drafts.php', 'bootstrap', 'config', 'public/assets', 'public/index.php', 'resources', 'routes', 'storage/private/.gitkeep', 'composer.json', 'composer.lock'] as $item) {
             self::assertContains($item, $this->manifest['include']);
         }
     }
@@ -28,7 +28,7 @@ final class HostgatorDeployManifestTest extends TestCase
             self::assertContains($item, $this->manifest['protected_names']);
         }
 
-        foreach (['tests', 'frontend', 'node_modules', 'public/uploads', 'storage/logs', 'storage/cache', 'vendor'] as $item) {
+        foreach (['tests', 'frontend', 'node_modules', 'public/uploads', 'storage/logs', 'storage/cache', 'storage/private/gift-textures', 'vendor'] as $item) {
             self::assertContains($item, $this->manifest['ignore']);
         }
     }

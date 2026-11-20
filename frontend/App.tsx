@@ -489,7 +489,12 @@ const App: React.FC = () => {
       )}
 
       {giftPreviewEnabled && giftPreviewOpen && (
-        <GiftPreviewModal maxPhotoBytes={giftPhotoMaxBytes} onClose={() => setGiftPreviewOpen(false)} />
+        <GiftPreviewModal
+          maxPhotoBytes={giftPhotoMaxBytes}
+          treePublicId={tree?.public_id ?? ''}
+          csrfToken={csrfToken}
+          onClose={() => setGiftPreviewOpen(false)}
+        />
       )}
 
       {selectedOrnament && !ornamentModalOpen && (
