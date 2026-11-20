@@ -32,9 +32,25 @@ final class GiftTextureStorageTest extends TestCase
         self::assertFileExists($path);
         self::assertSame('image/png', (new \finfo(FILEINFO_MIME_TYPE))->file($path));
         self::assertSame([512, 512], array_slice((array) getimagesize($path), 0, 2));
+        $inspected = (new GiftTextureStorage($this->root))->inspect($stored->logicalPath);
+        self::assertSame($stored->contentHash, $inspected['sha256']);
+        self::assertSame(filesize($path), $inspected['size']);
         self::assertTrue((new GiftTextureStorage($this->root))->delete($stored->logicalPath));
         self::assertFileDoesNotExist($path);
         unlink($upload['tmp_name']);
+    }
+
+    public function testInspectRejectsTraversalAndMissingFiles(): void
+    {
+        $storage = new GiftTextureStorage($this->root);
+        foreach (['../secret.png', '2026/11/' . str_repeat('a', 40) . '.png'] as $path) {
+            try {
+                $storage->inspect($path);
+                self::fail('Private storage path should be rejected.');
+            } catch (\RuntimeException) {
+                self::addToAssertionCount(1);
+            }
+        }
     }
 
     public function testRejectsSvgInvalidSignatureOversizeAndDimensions(): void

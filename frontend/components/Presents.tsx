@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, TREE_CONFIG } from '../constants';
 import { createProceduralGiftTexture } from '../utils/giftTextures';
 import type { GiftWrappingPattern } from '../utils/giftTextures';
+import type { PremiumGiftData } from '../types';
+import { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
+export { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
 
 interface PresentProps {
   position: THREE.Vector3;
@@ -188,9 +191,38 @@ const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
 interface PresentsProps {
   isExploded?: boolean;
   specialGiftCount?: number;
+  premiumGifts?: PremiumGiftData[];
+  onPremiumGiftSelect?: (gift: PremiumGiftData) => void;
 }
 
-const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0 }) => {
+const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: PremiumGiftData) => void }> = ({ gift, onSelect }) => {
+  const fallbackTexture = useGiftTexture('#0f8f54', 'checkers');
+  const [publishedTexture, setPublishedTexture] = useState<THREE.Texture | null>(null);
+  const transform = getPremiumGiftTransform(gift.position_index, gift.layout_version);
+  useEffect(() => {
+    let active = true;
+    let loaded: THREE.Texture | null = null;
+    new THREE.TextureLoader().load(gift.texture_url, (texture) => {
+      loaded = texture;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.needsUpdate = true;
+      if (active) setPublishedTexture(texture); else texture.dispose();
+    }, undefined, () => { if (active) setPublishedTexture(null); });
+    return () => { active = false; loaded?.dispose(); };
+  }, [gift.texture_url]);
+  const ribbon = gift.gift_style === 'romantic' ? '#e94b68' : gift.gift_style === 'magic' ? '#9f7aea' : '#FFD700';
+  return (
+    <group position={transform.position} rotation={transform.rotation} scale={0.92}
+      onClick={(event) => { event.stopPropagation(); onSelect?.(gift); }}
+      onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; }}
+      onPointerOut={() => { document.body.style.cursor = 'default'; }}>
+      <GiftBoxModel texture={publishedTexture ?? fallbackTexture} ribbonColor={ribbon} />
+    </group>
+  );
+};
+
+const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0, premiumGifts = [], onPremiumGiftSelect }) => {
   const presents = useMemo(() => {
     const items: PresentProps[] = [];
     const count = 25;
@@ -291,6 +323,7 @@ const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCoun
       {specialPresents.slice(0, specialGiftCount).map((present, index) => (
         <PresentBox key={`special-${index}`} {...present} isExploded={isExploded} />
       ))}
+      {premiumGifts.map((gift) => <PremiumPresent key={gift.public_id} gift={gift} onSelect={onPremiumGiftSelect} />)}
     </group>
   );
 };

@@ -46,6 +46,12 @@ final class InMemoryChristmasTreeGiftRepository implements ChristmasTreeGiftRepo
         return $this->records[$publicId] ?? null;
     }
 
+    public function findById(int $id): ?GiftDraftRecord
+    {
+        foreach ($this->records as $record) if ($record->gift->id === $id) return $record;
+        return null;
+    }
+
     public function transition(string $publicId, string $from, string $to, string $now): bool
     {
         $record = $this->records[$publicId] ?? null;

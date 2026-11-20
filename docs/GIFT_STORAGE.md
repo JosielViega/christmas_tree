@@ -1,5 +1,9 @@
 # Armazenamento privado de presentes
 
+## Exposição após publicação
+
+Os PNG 512×512 continuam em `storage/private/gift-textures`; o diretório jamais é copiado para `public/` ou para o mirror. Somente `GET /api/gifts/{public_id}/texture` pode ler um arquivo, e apenas para presente publicado, visível e financeiramente válido. O arquivo é resolvido pelo caminho lógico restrito `YYYY/MM/<40-hex>.png`, limitado pelo tamanho configurado e comparado ao SHA-256 persistido. O cache curto com revalidação permite que moderação e reembolso revoguem o acesso.
+
 ## Fluxo da Etapa 07B.2
 
 O navegador decodifica a fotografia original e produz um único canvas final de 512×512. Apenas esse canvas é codificado como PNG e enviado; a fotografia original não faz parte do `FormData`, do banco ou dos logs.

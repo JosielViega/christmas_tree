@@ -1,5 +1,11 @@
 # Pagamentos Pix
 
+## Publicação após confirmação
+
+Uma confirmação válida atualiza pedido e presente para `paid`; em seguida, fora da transação financeira, o serviço tenta publicar a caixa. Falha temporária não perde o pagamento: o presente permanece `paid` e o cron tenta novamente. A publicação reconfirma localmente pedido, textura e integridade em transação própria. Notificações repetidas e reconciliação são idempotentes.
+
+Pedidos `refunded` nunca são publicáveis. Se a caixa já estava publicada, ela é ocultada sem destruir pedido, eventos ou textura. Ocultar por moderação não aciona reembolso. HostGator precisa agendar `composer gifts:cleanup`; não há worker Node permanente.
+
 ## Escopo e provedor
 
 A Etapa 07B.3 usa exclusivamente o Checkout Transparente do Mercado Pago pela **Orders API**: `POST /v1/orders` para criar a order Pix e `GET /v1/orders/{id}` para confirmação e reconciliação. Não usa a Payments API legada, Checkout Pro, cartão ou Asaas. O gateway fica atrás de `PaymentGateway`, permitindo substituir o provedor sem acoplar o domínio ao JSON externo.

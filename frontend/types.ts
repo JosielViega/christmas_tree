@@ -92,3 +92,22 @@ export interface OrnamentCollection {
   capacity: number;
   remaining: number;
 }
+
+export interface PremiumGiftData {
+  public_id: string;
+  sender_name: string;
+  gift_style: 'classic' | 'magic' | 'romantic';
+  composition_mode: 'repeated' | 'featured';
+  position_index: number;
+  layout_version: 1;
+  has_message: boolean;
+  texture_url: string;
+  published_at: string;
+}
+
+export interface PremiumGiftCollection {
+  gifts: PremiumGiftData[];
+  layout_version: 1;
+  visible_limit: number;
+  total: number;
+}

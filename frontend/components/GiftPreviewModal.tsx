@@ -96,7 +96,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
   }, [draft, productCode]);
 
   useEffect(() => {
-    if (!draft || !accessToken || order?.status !== 'pending') return;
+    if (!draft || !accessToken || (order?.status !== 'pending' && !(order?.status === 'paid' && order.publication_status !== 'published'))) return;
     let active = true;
     let attempts = 0;
     const timer = window.setInterval(() => {
@@ -109,7 +109,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
       }).catch(() => undefined);
     }, 10000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [draft, accessToken, order?.status]);
+  }, [draft, accessToken, order?.status, order?.publication_status]);
 
   const releasePhoto = () => {
     requestId.current += 1;
@@ -280,7 +280,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
 
             {draft && <div className="mt-5 rounded-2xl border border-[#fff1a1]/25 bg-[#fff1a1]/[0.07] p-4 text-sm">
               <div className="flex items-center gap-2 font-semibold text-[#fff1a1]"><CheckCircle2 size={19} />🎁 Seu presente foi preparado!</div>
-              <p className="mt-2 text-xs leading-relaxed text-white/65">Este presente ainda não foi publicado. O pagamento apenas confirma o pedido; a publicação 3D ocorrerá em uma etapa futura.</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/65">Este presente ainda não foi publicado. Após a confirmação segura do Pix, ele será preparado para aparecer embaixo da árvore.</p>
               <p className="mt-2 text-[11px] uppercase tracking-wide text-white/40">Estado: {draft.gift.status}</p>
               {draft.gift.status === 'draft' && !order && <button type="button" onClick={() => void cancelDraft()} disabled={cancelling} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300/20 px-3 py-2 text-xs text-red-100 hover:bg-red-400/10 disabled:opacity-50"><Trash2 size={14} />{cancelling ? 'Cancelando…' : 'Cancelar rascunho'}</button>}
             </div>}
@@ -318,9 +318,10 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
                   <button type="button" onClick={() => void copyPix()} className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-emerald-300/30 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/10"><Copy size={16} />{copied ? 'Código copiado' : 'Copiar código Pix'}</button>
                 </div>}
                 {order.pix_ticket_url && <a href={order.pix_ticket_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-emerald-200 underline"><ExternalLink size={14} />Abrir instruções no Mercado Pago</a>}
-                <p className="mt-3 text-[11px] text-white/40">A confirmação ocorre de forma segura pelo provedor. Esta tela não publica o presente.</p>
+                <p className="mt-3 text-[11px] text-white/40">A confirmação ocorre de forma segura pelo provedor; somente o backend pode publicar o presente.</p>
               </>}
-              {order.status === 'paid' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />Pagamento confirmado. O presente permanece privado até a futura etapa de publicação.</div>}
+              {order.status === 'paid' && order.publication_status === 'published' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />🎁 Seu presente foi enviado! O presente especial está esperando embaixo da árvore.</div>}
+              {order.status === 'paid' && order.publication_status !== 'published' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />Pagamento confirmado. Estamos preparando seu presente.</div>}
               {['expired', 'cancelled', 'failed', 'refunded'].includes(order.status) && <p className="mt-3 text-xs text-amber-100">Este pagamento não está ativo. Nenhuma publicação foi realizada.</p>}
             </section>}
 

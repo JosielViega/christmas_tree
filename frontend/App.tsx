@@ -7,9 +7,9 @@ import OrnamentDecorationModal from './components/OrnamentDecorationModal';
 import ShareTreeModal from './components/ShareTreeModal';
 import TreeProgressIndicator from './components/TreeProgressIndicator';
 import GiftPreviewModal from './components/GiftPreviewModal';
-import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, TreeApiError } from './api/trees';
+import { createOrnament, deleteOrnament, fetchApiContext, fetchOrnaments, fetchOwnerMessages, fetchPremiumGifts, hidePremiumGift, TreeApiError } from './api/trees';
 import { generatePhotoPositions, getOrnamentSlot } from './utils/math';
-import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
+import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, PremiumGiftData, SecretTreeMessage, SocialOrnamentData, ZoomLevel } from './types';
 import { DEFAULT_PHOTOS_COUNT, ORNAMENT_SLOT_COUNT, PLACEHOLDER_TYPES } from './constants';
 import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
@@ -24,6 +24,7 @@ import {
 } from './utils/treeProgression';
 import type { TreeProgressionStage } from './utils/treeProgression';
 import { getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
+import { getPremiumGiftTransform } from './utils/premiumGiftLayout';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
@@ -48,6 +49,11 @@ const App: React.FC = () => {
   const [ornamentsReady, setOrnamentsReady] = useState(false);
   const [ornamentModalOpen, setOrnamentModalOpen] = useState(false);
   const [selectedOrnament, setSelectedOrnament] = useState<SocialOrnamentData | null>(null);
+  const [premiumGifts, setPremiumGifts] = useState<PremiumGiftData[]>([]);
+  const [premiumGiftPage, setPremiumGiftPage] = useState(0);
+  const [premiumGiftLimit, setPremiumGiftLimit] = useState(12);
+  const [selectedGift, setSelectedGift] = useState<PremiumGiftData | null>(null);
+  const [hidingGift, setHidingGift] = useState(false);
   const [newOrnamentId, setNewOrnamentId] = useState<string | null>(null);
   const [deletingOrnament, setDeletingOrnament] = useState(false);
   const [ownerMessages, setOwnerMessages] = useState<Record<string, SecretTreeMessage>>({});
@@ -189,6 +195,20 @@ const App: React.FC = () => {
   }, [tree, showToast]);
 
   useEffect(() => {
+    if (!tree) { setPremiumGifts([]); return; }
+    let active = true;
+    const load = () => fetchPremiumGifts(tree.public_id).then((collection) => {
+      if (!active) return;
+      setPremiumGifts(collection.gifts);
+      setPremiumGiftLimit(collection.visible_limit);
+      setPremiumGiftPage((page) => Math.min(page, Math.max(0, Math.ceil(collection.total / collection.visible_limit) - 1)));
+    }).catch(() => undefined);
+    void load();
+    const timer = window.setInterval(load, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [tree]);
+
+  useEffect(() => {
     if (!tree || !isOwner) {
       loadedMessagesFor.current = null;
       setOwnerMessages({});
@@ -242,6 +262,7 @@ const App: React.FC = () => {
   const focusOrnament = (ornament: SocialOrnamentData) => {
     const slot = getOrnamentSlot(ornament.slot_index, ornament.layout_version);
     setSelectedOrnament(ornament);
+    setSelectedGift(null);
     setFocusedPhoto({
       id: `ornament-${ornament.public_id}`,
       url: '',
@@ -249,6 +270,35 @@ const App: React.FC = () => {
       rotation: slot.rotation,
     });
     setZoomLevel(ZoomLevel.ZOOMED_IN);
+  };
+
+  const focusPremiumGift = (gift: PremiumGiftData) => {
+    const transform = getPremiumGiftTransform(gift.position_index, gift.layout_version);
+    setSelectedGift(gift);
+    setSelectedOrnament(null);
+    setFocusedPhoto({ id: `premium-gift-${gift.public_id}`, url: '', position: transform.position, rotation: transform.rotation });
+    setZoomLevel(ZoomLevel.ZOOMED_IN);
+  };
+
+  const closeFocusedItem = () => {
+    setSelectedGift(null);
+    setSelectedOrnament(null);
+    setFocusedPhoto(null);
+    scrollToTop();
+  };
+
+  const handleHideGift = async () => {
+    if (!tree || !selectedGift || !isOwner || hidingGift) return;
+    if (!window.confirm(`Ocultar o presente enviado por ${selectedGift.sender_name}? O pagamento e o histórico serão preservados.`)) return;
+    setHidingGift(true);
+    try {
+      await hidePremiumGift(tree.public_id, selectedGift.public_id, csrfToken);
+      setPremiumGifts((current) => current.filter((gift) => gift.public_id !== selectedGift.public_id));
+      closeFocusedItem();
+      showToast('Presente ocultado. O registro financeiro foi preservado.', 'success');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'Não foi possível ocultar o presente.', 'error');
+    } finally { setHidingGift(false); }
   };
 
   const handleCreateOrnament = async (type: OrnamentType, senderName: string, message: string, idempotencyKey: string) => {
@@ -380,6 +430,8 @@ const App: React.FC = () => {
         ornaments={ornaments}
         newOrnamentId={newOrnamentId}
         onOrnamentSelect={focusOrnament}
+        premiumGifts={premiumGifts.slice(premiumGiftPage * premiumGiftLimit, (premiumGiftPage + 1) * premiumGiftLimit)}
+        onPremiumGiftSelect={focusPremiumGift}
         onStoryCaptureReady={registerStoryCapture}
         onStoryVideoCaptureReady={registerStoryVideoCapture}
         progressionEffects={progression.stage.effects}
@@ -388,7 +440,7 @@ const App: React.FC = () => {
         paused={giftPreviewOpen}
       />
 
-      <Overlay
+      {!selectedOrnament && !selectedGift && <Overlay
         controlMode={controlMode}
         setControlMode={setControlMode}
         interactionMode={interactionMode}
@@ -410,7 +462,7 @@ const App: React.FC = () => {
         isExploded={isExploded}
         canEdit={isOwner}
         treeOwnerName={tree?.owner_name ?? null}
-      />
+      />}
 
       {initializing && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 text-[#fff1a1]">
@@ -428,7 +480,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && !receipt && !isRecording && !giftPreviewOpen && (
+      {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && (
         <div className="fixed bottom-32 left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto md:bottom-28">
           <button
             type="button"
@@ -436,7 +488,7 @@ const App: React.FC = () => {
             disabled={ornamentsLoading || ornaments.length >= ornamentCapacity}
             className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎁 Decorar esta árvore'}
+            {ornamentsLoading ? 'Carregando enfeites…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar gratuitamente'}
           </button>
           {isOwner ? (
             <button type="button" onClick={() => { scrollToTop(); setSelectedOrnament(null); setFocusedPhoto(null); setZoomLevel(ZoomLevel.FULL_TREE); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/30 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><Share2 size={17} /> Compartilhar minha árvore 🎄</button>
@@ -444,12 +496,20 @@ const App: React.FC = () => {
             <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-[#10271c]"><TreePine size={17} /> Criar minha árvore</button>
           )}
           {giftPreviewEnabled && (
-            <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-5 py-3 text-sm font-semibold text-white/75 shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> Experimentar presente personalizado</button>
+            <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-5 py-3 text-sm font-semibold text-white/75 shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> Enviar presente especial</button>
           )}
         </div>
       )}
 
-      {tree && !receipt && ornamentsReady && !isRecording && !giftPreviewOpen && (
+      {premiumGifts.length > premiumGiftLimit && !selectedGift && !selectedOrnament && !giftPreviewOpen && (
+        <div className="fixed bottom-20 left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl">
+          <button type="button" disabled={premiumGiftPage === 0} onClick={() => setPremiumGiftPage((page) => Math.max(0, page - 1))} className="disabled:opacity-30">←</button>
+          <span>Presentes {premiumGiftPage + 1}/{Math.ceil(premiumGifts.length / premiumGiftLimit)}</span>
+          <button type="button" disabled={(premiumGiftPage + 1) * premiumGiftLimit >= premiumGifts.length} onClick={() => setPremiumGiftPage((page) => page + 1)} className="disabled:opacity-30">→</button>
+        </div>
+      )}
+
+      {tree && !receipt && ornamentsReady && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && (
         <TreeProgressIndicator
           progression={progression}
           isOwner={isOwner}
@@ -458,7 +518,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && isOwner && messageOverview && !receipt && (
+      {tree && isOwner && messageOverview && !receipt && !selectedOrnament && !selectedGift && (
         <div className="fixed right-3 top-24 z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none">
           <p className="text-xs font-semibold text-[#fff1a1]">🎁 Você recebeu {messageOverview.count} {messageOverview.count === 1 ? 'mensagem especial' : 'mensagens especiais'}!</p>
           <p className="mt-1 text-[11px] leading-relaxed text-white/50">
@@ -499,7 +559,7 @@ const App: React.FC = () => {
 
       {selectedOrnament && !ornamentModalOpen && (
         <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => { setSelectedOrnament(null); setFocusedPhoto(null); scrollToTop(); }} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Fechar"><X size={17} /></button>
+          <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
           {ownerMessages[selectedOrnament.public_id] ? <MailOpen className="mx-auto text-[#fff1a1]" size={25} /> : <Gift className="mx-auto text-[#fff1a1]" size={24} />}
           <p className="mt-2 font-semibold">🎁 Presente de {selectedOrnament.sender_name}</p>
           <p className="mt-1 text-xs text-white/45">Posição {selectedOrnament.slot_index + 1} de {ORNAMENT_SLOT_COUNT}</p>
@@ -519,6 +579,23 @@ const App: React.FC = () => {
               {deletingOrnament ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Remover enfeite
             </button>
           )}
+        </div>
+      )}
+
+      {selectedGift && (
+        <div className="fixed left-1/2 top-24 z-[75] w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-[#fff1a1]/20 bg-black/80 p-5 text-center text-white shadow-2xl backdrop-blur-xl motion-reduce:transition-none" onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
+          <Gift className="mx-auto text-[#fff1a1]" size={26} />
+          <p className="mt-2 font-semibold">🎁 Presente especial de {selectedGift.sender_name}</p>
+          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/65">
+            <LockKeyhole className="mx-auto mb-2 text-[#fff1a1]/75" size={20} />
+            <p className="font-semibold text-white/80">Uma mensagem secreta espera por você!</p>
+            <p className="mt-1 text-xs">Disponível em 25 de dezembro.</p>
+          </div>
+          {isOwner && <button type="button" onClick={handleHideGift} disabled={hidingGift} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/25 bg-red-400/10 px-4 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/20 disabled:opacity-50">
+            {hidingGift ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Ocultar presente
+          </button>}
+          <button type="button" onClick={closeFocusedItem} className="mt-3 block w-full text-xs font-semibold text-[#fff1a1]/75 hover:text-[#fff1a1]">Voltar à árvore</button>
         </div>
       )}
 

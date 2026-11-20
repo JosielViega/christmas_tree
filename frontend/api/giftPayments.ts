@@ -21,6 +21,7 @@ export interface GiftPaymentOrder {
   pix_ticket_url: string | null;
   expires_at: string;
   paid_at: string | null;
+  publication_status: 'draft' | 'paid' | 'published' | 'cancelled' | 'expired' | null;
 }
 
 const request = async <T>(url: string, init: RequestInit = {}): Promise<T> => {

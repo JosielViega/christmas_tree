@@ -6,6 +6,7 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\GiftDraftApiController;
 use App\Controllers\GiftPaymentApiController;
+use App\Controllers\TreeGiftApiController;
 use App\Controllers\TreeApiController;
 use App\Controllers\TreePageController;
 use App\Controllers\TreeOrnamentApiController;
@@ -15,6 +16,7 @@ use App\Repositories\PdoChristmasTreeRepository;
 use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
+use App\Repositories\PdoGiftPublicationRepository;
 use App\Payments\CurlPaymentHttpClient;
 use App\Payments\MercadoPagoPaymentGateway;
 use App\Services\ChristmasTreeGiftService;
@@ -25,6 +27,7 @@ use App\Services\GiftDraftAccessSession;
 use App\Services\GiftTextureStorage;
 use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
+use App\Services\GiftPublicationService;
 use App\Services\TreeOwnerSession;
 
 $home = new HomeController(
@@ -85,14 +88,24 @@ $ornamentApi = new TreeOrnamentApiController(
         $app['config']['rate_limits']['ornament_creation']['window_seconds'],
     ),
 );
+$giftRepository = new PdoChristmasTreeGiftRepository($app['database']);
+$giftStorage = new GiftTextureStorage(
+    $app['config']['gifts']['private_storage_path'],
+    $app['config']['gifts']['max_texture_bytes'],
+);
 $giftService = new ChristmasTreeGiftService(
     $treeRepository,
-    new PdoChristmasTreeGiftRepository($app['database']),
-    new GiftTextureStorage(
-        $app['config']['gifts']['private_storage_path'],
-        $app['config']['gifts']['max_texture_bytes'],
-    ),
+    $giftRepository,
+    $giftStorage,
     $app['config']['gifts']['draft_expiration_hours'],
+);
+$giftPublication = new GiftPublicationService(
+    $treeRepository,
+    $giftRepository,
+    new PdoGiftPublicationRepository($app['database']),
+    $giftStorage,
+    $app['config']['messages']['reveal_at'],
+    $app['config']['messages']['reveal_timezone'],
 );
 $giftAccessSession = new GiftDraftAccessSession($app['session']);
 $giftApi = new GiftDraftApiController(
@@ -125,6 +138,8 @@ $paymentService = new GiftPaymentService(
     $paymentGateway,
     $app['config']['payments']['expiration_minutes'],
     $app['config']['payments']['environment'] === 'production',
+    null,
+    $giftPublication,
 );
 $paymentApi = new GiftPaymentApiController(
     $app['request'], $app['csrf'], $paymentService, $paymentCatalog, $giftAccessSession,
@@ -133,6 +148,9 @@ $paymentApi = new GiftPaymentApiController(
         $app['config']['rate_limits']['gift_payment_creation']['max_attempts'],
         $app['config']['rate_limits']['gift_payment_creation']['window_seconds'],
     ),
+);
+$treeGiftApi = new TreeGiftApiController(
+    $app['request'], $app['csrf'], $giftPublication, $treeIdentity, $treeOwnerSession,
 );
 $router = $app['router'];
 
@@ -147,9 +165,13 @@ $router->get('/api/trees/{public_id}', [$treeApi, 'show']);
 $router->get('/api/trees/{public_id}/admin', [$treeApi, 'admin']);
 $router->post('/api/trees/{public_id}/recover', [$treeApi, 'recover']);
 $router->get('/api/trees/{public_id}/ornaments', [$ornamentApi, 'index']);
+$router->get('/api/trees/{public_id}/gifts', [$treeGiftApi, 'index']);
 $router->post('/api/trees/{public_id}/ornaments', [$ornamentApi, 'store']);
 $router->get('/api/trees/{public_id}/messages', [$ornamentApi, 'messages']);
 $router->delete('/api/trees/{public_id}/ornaments/{ornament_id}', [$ornamentApi, 'destroy']);
+$router->delete('/api/trees/{public_id}/gifts/{gift_id}', [$treeGiftApi, 'hide']);
+$router->get('/api/trees/{public_id}/gifts/{gift_id}/message', [$treeGiftApi, 'message']);
+$router->get('/api/gifts/{gift_id}/texture', [$treeGiftApi, 'texture']);
 $router->post('/api/trees/{public_id}/gift-drafts', [$giftApi, 'store']);
 $router->get('/api/gift-drafts/{gift_id}', [$giftApi, 'show']);
 $router->delete('/api/gift-drafts/{gift_id}', [$giftApi, 'destroy']);

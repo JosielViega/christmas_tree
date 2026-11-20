@@ -1,5 +1,11 @@
 # Christmas Tree
 
+## Presentes premium publicados (Etapa 07B.4)
+
+Enfeites gratuitos e presentes premium são fluxos distintos. Novas decorações gratuitas aceitam bolinhas, coração e estrela; o tipo legado `present` continua renderizável e removível, mas não pode mais ser criado. Presentes personalizados usam o `GiftBoxModel` no chão e só aparecem após o backend confirmar um pedido Pix pago e publicar a textura privada verificada.
+
+A listagem pública é `GET /api/trees/{public_id}/gifts`; a imagem é servida por uma rota controlada somente enquanto o presente estiver publicado, visível e com pedido pago. A cena renderiza no máximo 12 caixas premium por página. Pagamentos continuam desabilitados por padrão e esta etapa não ativa cobrança real.
+
 Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativas. A Etapa 07B.2 prepara rascunhos privados usando somente a textura final da embalagem, sem pagamento ou publicação.
 
 ## Estado da Etapa 07B.2

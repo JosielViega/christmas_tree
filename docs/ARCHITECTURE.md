@@ -1,5 +1,11 @@
 # Arquitetura
 
+## Publicação de presentes premium
+
+`GiftPaymentService` confirma o provedor fora de qualquer transação de publicação. Depois, `GiftPublicationService` valida o arquivo privado e delega a `PdoGiftPublicationRepository` a transição atômica `paid -> published`. A transação bloqueia o presente e a árvore, reconfirma que o único pedido está `paid` e reserva um `position_index` único no layout v1. O cron `composer gifts:cleanup` reconcilia pedidos e repete publicações elegíveis; todas as operações são idempotentes.
+
+O endpoint público consulta apenas presentes `published`, visíveis e associados a pedidos ainda `paid`. A API devolve metadados mínimos e uma URL controlada. O frontend converte o índice persistido em coordenadas determinísticas e renderiza até 12 modelos por página, mantendo caixas decorativas separadas e não interativas.
+
 O Christmas Tree mantém a arquitetura sem framework do `modeloPHP`. O PHP controla rotas, autorização e persistência; o React compilado cuida da experiência 3D.
 
 ## Fluxos HTTP

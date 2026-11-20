@@ -134,6 +134,13 @@ final class PdoPaymentOrderRepository implements PaymentOrderRepository
                 $gift = $pdo->prepare("UPDATE christmas_tree_gifts SET status = 'paid', paid_at = COALESCE(paid_at, :paid_at) WHERE id = :id AND status = 'draft'");
                 $gift->execute(['paid_at' => $now, 'id' => (int) $row['gift_id']]);
             }
+            if ($nextStatus === PaymentOrderStatus::REFUNDED) {
+                $gift = $pdo->prepare(
+                    "UPDATE christmas_tree_gifts SET is_visible = 0, hidden_at = COALESCE(hidden_at, :hidden_at) "
+                    . "WHERE id = :id AND status = 'published'"
+                );
+                $gift->execute(['hidden_at' => $now, 'id' => (int) $row['gift_id']]);
+            }
             $statement->execute(['id' => $orderId]);
             $updated = $statement->fetch();
             $pdo->commit();

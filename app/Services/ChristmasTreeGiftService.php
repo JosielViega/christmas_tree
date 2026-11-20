@@ -75,6 +75,7 @@ final class ChristmasTreeGiftService
                 'composition_mode' => $mode,
                 'message' => $message,
                 'texture_path' => $stored->logicalPath,
+                'texture_sha256' => $stored->contentHash,
                 'status' => GiftDraftStatus::DRAFT,
                 'idempotency_key_hash' => hash('sha256', $idempotencyKey),
                 'payload_hash' => $payloadHash,
@@ -100,6 +101,11 @@ final class ChristmasTreeGiftService
             return null;
         }
         return $this->expireIfNecessary($record->gift, $record->texturePath);
+    }
+
+    public function findAuthorizedById(int $giftId): ?GiftDraft
+    {
+        return $this->gifts->findById($giftId)?->gift;
     }
 
     public function cancel(string $publicId, string $accessToken): ?GiftDraft

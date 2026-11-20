@@ -61,13 +61,13 @@ final class SecretTreeMessageServiceTest extends TestCase
         $tree = $this->trees->create('Clara')->tree;
         $service = $this->serviceAt('2026-11-01T00:00:00+00:00');
         $key = str_repeat('k', 16);
-        $first = $service->create($tree->publicId, 'present', 'Lia', $key, 'Mensagem original');
-        $retry = $service->create($tree->publicId, 'present', 'Lia', $key, 'Mensagem original');
+        $first = $service->create($tree->publicId, 'star', 'Lia', $key, 'Mensagem original');
+        $retry = $service->create($tree->publicId, 'star', 'Lia', $key, 'Mensagem original');
 
         self::assertFalse($retry->created);
         self::assertSame($first->ornament->publicId, $retry->ornament->publicId);
         $this->expectException(IdempotencyConflict::class);
-        $service->create($tree->publicId, 'present', 'Lia', $key, 'Mensagem alterada');
+        $service->create($tree->publicId, 'star', 'Lia', $key, 'Mensagem alterada');
     }
 
     public function testServerClockLocksBeforeAndRevealsAtExactInstantAndAfter(): void

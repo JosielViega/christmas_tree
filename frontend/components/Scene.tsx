@@ -13,7 +13,7 @@ import Snow from './Snow';
 import SocialOrnament from './SocialOrnament';
 import AmbientNight from './AmbientNight';
 import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
-import { PhotoData, ControlMode, ZoomLevel, InteractionMode, SocialOrnamentData } from '../types';
+import { PhotoData, ControlMode, ZoomLevel, InteractionMode, PremiumGiftData, SocialOrnamentData } from '../types';
 import {
   STORY_SCENE_HEIGHT,
   STORY_SCENE_WIDTH,
@@ -43,6 +43,8 @@ interface SceneProps {
   ornaments: SocialOrnamentData[];
   newOrnamentId: string | null;
   onOrnamentSelect: (ornament: SocialOrnamentData) => void;
+  premiumGifts: PremiumGiftData[];
+  onPremiumGiftSelect: (gift: PremiumGiftData) => void;
   onStoryCaptureReady?: (capture: StoryFrameCapture | null) => void;
   onStoryVideoCaptureReady?: (capture: StoryVideoSceneCapture | null) => void;
   progressionEffects: TreeProgressionEffects;
@@ -83,7 +85,8 @@ const CameraController: React.FC<{
   recordingType: 'FULL' | 'ALBUM' | null;
   photos: PhotoData[];
   captureActive: React.MutableRefObject<boolean>;
-}> = ({ zoomLevel, controlMode, panOffset, focusedPhoto, isRecording, recordingType, photos, captureActive }) => {
+  reducedMotion: boolean;
+}> = ({ zoomLevel, controlMode, panOffset, focusedPhoto, isRecording, recordingType, photos, captureActive, reducedMotion }) => {
   const { camera, controls } = useThree();
   const targetPos = useRef(CAMERA_CONFIG.DEFAULT_POS.clone());
   const lookAtTarget = useRef(CAMERA_CONFIG.LOOK_AT_OFFSET.clone());
@@ -257,7 +260,7 @@ const CameraController: React.FC<{
     else if (controlMode === ControlMode.MOUSE && isAnimating.current) {
       if (controls) {
         const orbitControls = controls as any;
-        const lerpSpeed = 4 * delta; // Slower for smoother, less dizzying movement
+        const lerpSpeed = reducedMotion ? 1 : Math.min(1, 4 * delta);
 
         if (zoomLevel === ZoomLevel.ZOOMED_IN && focusedPhoto) {
           // ZOOM IN TO PHOTO
@@ -581,6 +584,8 @@ const Scene: React.FC<SceneProps> = ({
   ornaments,
   newOrnamentId,
   onOrnamentSelect,
+  premiumGifts,
+  onPremiumGiftSelect,
   onStoryCaptureReady,
   onStoryVideoCaptureReady,
   progressionEffects,
@@ -627,6 +632,7 @@ const Scene: React.FC<SceneProps> = ({
         recordingType={recordingType}
         photos={photos}
         captureActive={captureActive}
+        reducedMotion={reducedMotion}
       />
       <StoryCaptureController captureActive={captureActive} onReady={onStoryCaptureReady} onVideoReady={onStoryVideoCaptureReady} />
 
@@ -664,7 +670,7 @@ const Scene: React.FC<SceneProps> = ({
         <TreeMesh isExploded={isExploded} photos={photos} />
         <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} />
         <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} />
-        {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} />}
+        {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} />}
 
         {/* Magic Flies / Sparkles around the tree */}
         <Sparkles

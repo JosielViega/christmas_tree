@@ -62,7 +62,7 @@ final class GiftPaymentApiController
             );
         }
         if ($order === null) return $this->privateError('gift_draft_not_found', 'Rascunho não encontrado ou acesso inválido.', 404);
-        return $this->privateJson(['data' => ['order' => $this->orderData($order)]], 201);
+        return $this->privateJson(['data' => ['order' => $this->orderData($order, $giftPublicId, $token)]], 201);
     }
 
     public function show(string $giftPublicId): Response
@@ -70,7 +70,7 @@ final class GiftPaymentApiController
         $order = $this->payments->findAuthorized($giftPublicId, $this->accessToken($giftPublicId));
         return $order === null
             ? $this->privateError('payment_order_not_found', 'Pedido não encontrado ou acesso inválido.', 404)
-            : $this->privateJson(['data' => ['order' => $this->orderData($order)]]);
+            : $this->privateJson(['data' => ['order' => $this->orderData($order, $giftPublicId, $this->accessToken($giftPublicId))]]);
     }
 
     public function webhook(): Response
@@ -93,10 +93,13 @@ final class GiftPaymentApiController
         return $accepted ? Response::json(['data' => ['accepted' => true]]) : $this->error('invalid_signature', 'Notificação inválida.', 401);
     }
 
-    private function orderData(\App\Domain\PaymentOrder $order): array
+    private function orderData(\App\Domain\PaymentOrder $order, string $giftPublicId, string $accessToken): array
     {
         $product = $this->catalog->find($order->productCode);
-        return $order->toPrivateArray($product?->name ?? $order->productCode);
+        return [
+            ...$order->toPrivateArray($product?->name ?? $order->productCode),
+            'publication_status' => $this->payments->publicationStatus($giftPublicId, $accessToken),
+        ];
     }
 
     private function accessToken(string $publicId): string

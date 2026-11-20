@@ -1,5 +1,12 @@
 # Roadmap
 
+## Etapa 07B.4 — concluída tecnicamente
+
+- Publicação idempotente e transacional de presentes com pagamento confirmado.
+- Posição persistente em layout versionado, galeria paginada e reutilização do `GiftBoxModel`.
+- Textura pública via autorização por estado, moderação independente de reembolso e ocultação automática após estorno.
+- Abertura animada permanece reservada para a Etapa 07B.5.
+
 ## 1. Fundação visual 3D — concluída
 
 Experiência 3D integrada ao backend PHP, com build estático, responsividade, créditos e pacote de produção.

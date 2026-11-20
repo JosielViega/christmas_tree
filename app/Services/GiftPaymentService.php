@@ -30,6 +30,7 @@ final class GiftPaymentService
         private readonly int $expirationMinutes = 1440,
         private readonly bool $expectedLiveMode = false,
         ?callable $clock = null,
+        private readonly ?GiftPublicationService $publisher = null,
     ) {
         $this->clock = $clock === null
             ? static fn (): DateTimeImmutable => new DateTimeImmutable('now', new DateTimeZone('UTC'))
@@ -82,7 +83,9 @@ final class GiftPaymentService
             throw $exception;
         }
         $this->validateCharge($order, $charge);
-        return $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()));
+        $updated = $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()));
+        $this->publishAfterConfirmation($updated);
+        return $updated;
     }
 
     public function findAuthorized(string $giftPublicId, string $accessToken): ?PaymentOrder
@@ -101,7 +104,8 @@ final class GiftPaymentService
             ?? $this->orders->findByPublicId($charge->externalReference);
         if ($order === null) return true;
         $this->validateCharge($order, $charge);
-        $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()), $notification);
+        $updated = $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()), $notification);
+        $this->publishAfterConfirmation($updated);
         return true;
     }
 
@@ -114,13 +118,30 @@ final class GiftPaymentService
             try {
                 $charge = $this->gateway->fetchCharge($order->providerOrderId);
                 $this->validateCharge($order, $charge);
-                $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()));
+                $updated = $this->orders->applyCharge($order->id, $charge, $this->format(($this->clock)()));
+                $this->publishAfterConfirmation($updated);
                 $count++;
             } catch (PaymentGatewayException) {
                 continue;
             }
         }
         return $count;
+    }
+
+    public function publicationStatus(string $giftPublicId, string $accessToken): ?string
+    {
+        return $this->gifts->findAuthorized($giftPublicId, $accessToken)?->status;
+    }
+
+    private function publishAfterConfirmation(PaymentOrder $order): void
+    {
+        if ($order->status !== PaymentOrderStatus::PAID || $this->publisher === null) return;
+        try {
+            $record = $this->gifts->findAuthorizedById($order->giftId);
+            if ($record !== null) $this->publisher->publish($record->publicId);
+        } catch (RuntimeException) {
+            // The paid record remains eligible for the idempotent cron reconciliation.
+        }
     }
 
     private function validateCharge(PaymentOrder $order, PaymentCharge $charge): void

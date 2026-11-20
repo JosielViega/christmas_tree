@@ -203,9 +203,10 @@ test('draft preparation uploads only the final texture and payment remains same-
 test('Pix checkout never accepts paid state or publishes from the browser', () => {
   const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
   const payments = readFileSync(new URL('../api/giftPayments.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(payments, /set.*paid|status.*body|publish/i);
+  assert.doesNotMatch(payments, /body\.(?:set|append)\(['"](?:status|paid|published)/i);
+  assert.doesNotMatch(payments, /method:\s*['"](?:PATCH|PUT)['"]/i);
   assert.match(modal, /confirma..o ocorre de forma segura pelo provedor/i);
-  assert.match(modal, /permanece privado/i);
+  assert.match(modal, /somente o backend pode publicar/i);
   assert.match(payments, /cache: 'no-store'/);
 });
 

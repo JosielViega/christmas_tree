@@ -14,6 +14,8 @@ interface ChristmasTreeGiftRepository
 
     public function findForAccess(string $publicId): ?GiftDraftRecord;
 
+    public function findById(int $id): ?GiftDraftRecord;
+
     public function transition(string $publicId, string $from, string $to, string $now): bool;
 
     public function clearTexturePath(string $publicId): void;

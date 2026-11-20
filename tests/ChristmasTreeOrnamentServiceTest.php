@@ -56,6 +56,13 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         }
     }
 
+    public function testLegacyPresentTypeCannotBeCreatedAnymore(): void
+    {
+        $tree = $this->trees->create('Helena')->tree;
+        $this->expectException(OrnamentValidationException::class);
+        $this->ornaments->create($tree->publicId, 'present', 'Visitante', str_repeat('p', 16), 'Boas festas');
+    }
+
     public function testKeepsTreesIndependentAndRejectsMissingTree(): void
     {
         $firstTree = $this->trees->create('Ana')->tree;
@@ -75,8 +82,8 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         $tree = $this->trees->create('Lia')->tree;
         $key = str_repeat('d', 16);
 
-        $first = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key, 'Mensagem idempotente');
-        $repeated = $this->ornaments->create($tree->publicId, 'present', 'Davi', $key, 'Mensagem idempotente');
+        $first = $this->ornaments->create($tree->publicId, 'star', 'Davi', $key, 'Mensagem idempotente');
+        $repeated = $this->ornaments->create($tree->publicId, 'star', 'Davi', $key, 'Mensagem idempotente');
 
         self::assertTrue($first->created);
         self::assertFalse($repeated->created);

@@ -63,7 +63,7 @@ final class TreePageControllerTest extends TestCase
         $creation = $service->create('Árvore privada');
         $secret = 'Mensagem que não pode entrar no HTML 🎁';
         $ornaments = new ChristmasTreeOrnamentService($treeRepository, new InMemoryChristmasTreeOrnamentRepository());
-        $ornaments->create($creation->tree->publicId, 'present', 'Visitante', str_repeat('p', 16), $secret);
+        $ornaments->create($creation->tree->publicId, 'star', 'Visitante', str_repeat('p', 16), $secret);
 
         $response = $this->controller($service, new TreeOwnerSession($session), new Csrf($session))
             ->show($creation->tree->publicId);

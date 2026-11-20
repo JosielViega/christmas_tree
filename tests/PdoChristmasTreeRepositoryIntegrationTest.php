@@ -9,12 +9,14 @@ use App\Repositories\PdoChristmasTreeRepository;
 use App\Repositories\PdoChristmasTreeOrnamentRepository;
 use App\Repositories\PdoChristmasTreeGiftRepository;
 use App\Repositories\PdoPaymentOrderRepository;
+use App\Repositories\PdoGiftPublicationRepository;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\GiftTextureStorage;
 use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
+use App\Services\GiftPublicationService;
 use App\Domain\PaymentCharge;
 use Tests\Support\FakePaymentGateway;
 use DateTimeImmutable;
@@ -99,6 +101,18 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertSame('cancelled', $gifts->cancel($gift->gift->publicId, $gift->accessToken)?->status);
 
             $paidGift = $gifts->create($created->tree->publicId, 'Pagador', 'magic', 'featured', 'Mensagem paga', str_repeat('h', 16), true, $upload);
+            $publication = new GiftPublicationService(
+                $treeRepository,
+                new PdoChristmasTreeGiftRepository($database),
+                new PdoGiftPublicationRepository($database),
+                new GiftTextureStorage($giftStorage),
+            );
+            try {
+                $publication->publish($paidGift->gift->publicId);
+                self::fail('A draft must never be published.');
+            } catch (\RuntimeException) {
+                self::addToAssertionCount(1);
+            }
             $gateway = new FakePaymentGateway();
             $payments = new GiftPaymentService(
                 $gifts,
@@ -107,6 +121,8 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
                 $gateway,
                 60,
                 false,
+                null,
+                $publication,
             );
             $order = $payments->create($paidGift->gift->publicId, $paidGift->accessToken, 'magic', 'payer@example.com', str_repeat('j', 16));
             self::assertSame(599, $order?->amountCents);
@@ -118,10 +134,26 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             );
             self::assertTrue($payments->processNotification('signed', 'request', (string) $order?->providerOrderId, '{"id":"integration"}'));
             self::assertTrue($payments->processNotification('signed', 'request', (string) $order?->providerOrderId, '{"id":"integration"}'));
-            self::assertSame('paid', $payments->findAuthorized($paidGift->gift->publicId, $paidGift->accessToken)?->status);
+            self::assertSame('published', $payments->publicationStatus($paidGift->gift->publicId, $paidGift->accessToken));
             self::assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM christmas_tree_payment_events')->fetchColumn());
-            self::assertSame('paid', $pdo->query("SELECT status FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id}")->fetchColumn());
-            self::assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id} AND published_at IS NOT NULL")->fetchColumn());
+            self::assertSame('published', $pdo->query("SELECT status FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id}")->fetchColumn());
+            self::assertSame(1, (int) $pdo->query("SELECT COUNT(*) FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id} AND published_at IS NOT NULL")->fetchColumn());
+            $publicGifts = $publication->forTree($created->tree->publicId);
+            self::assertCount(1, $publicGifts);
+            self::assertSame(0, $publicGifts[0]->positionIndex);
+            self::assertArrayNotHasKey('message', $publicGifts[0]->toPublicArray('/texture'));
+            self::assertSame($publicGifts[0]->publicId, $publication->publish($paidGift->gift->publicId)?->publicId);
+            self::assertNotNull($publication->publicTexture($paidGift->gift->publicId));
+
+            $gateway->charge = new PaymentCharge(
+                (string) $order?->providerOrderId, 'PAY_INTEGRATION', (string) $order?->publicId,
+                599, 'BRL', 'refunded', false, null, null, null,
+            );
+            self::assertTrue($payments->processNotification('signed', 'refund', (string) $order?->providerOrderId, '{"id":"refund"}'));
+            self::assertSame([], $publication->forTree($created->tree->publicId));
+            self::assertNull($publication->publicTexture($paidGift->gift->publicId));
+            self::assertSame('published', $pdo->query("SELECT status FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id}")->fetchColumn());
+            self::assertSame(0, (int) $pdo->query("SELECT is_visible FROM christmas_tree_gifts WHERE id = {$paidGift->gift->id}")->fetchColumn());
         } finally {
             if (is_int($treeId)) {
                 $pdo->exec('DELETE payment_events FROM christmas_tree_payment_events payment_events INNER JOIN christmas_tree_gift_orders gift_orders ON gift_orders.id = payment_events.order_id INNER JOIN christmas_tree_gifts gifts ON gifts.id = gift_orders.gift_id WHERE gifts.tree_id = ' . $treeId);

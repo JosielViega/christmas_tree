@@ -97,6 +97,32 @@ final class GiftTextureStorage
         return !is_file($path) || unlink($path);
     }
 
+    /** @return array{path: string, sha256: string, size: int} */
+    public function inspect(string $logicalPath): array
+    {
+        if (preg_match('#^\d{4}/\d{2}/[a-f0-9]{40}\.png$#D', $logicalPath) !== 1) {
+            throw new RuntimeException('Invalid gift texture path.');
+        }
+        $root = realpath($this->root);
+        $path = realpath($this->root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $logicalPath));
+        if ($root === false || $path === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) {
+            throw new RuntimeException('Gift texture is unavailable.');
+        }
+        $size = filesize($path);
+        if (!is_int($size) || $size < 1 || $size > $this->maxBytes) {
+            throw new RuntimeException('Gift texture has an invalid size.');
+        }
+        $signature = file_get_contents($path, false, null, 0, 8);
+        if ($signature !== "\x89PNG\r\n\x1a\n") {
+            throw new RuntimeException('Gift texture is not a valid PNG.');
+        }
+        $hash = hash_file('sha256', $path);
+        if (!is_string($hash)) {
+            throw new RuntimeException('Gift texture could not be verified.');
+        }
+        return ['path' => $path, 'sha256' => $hash, 'size' => $size];
+    }
+
     private function ensureDirectory(string $directory): void
     {
         if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) {

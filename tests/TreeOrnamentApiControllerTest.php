@@ -119,7 +119,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
     {
         $creation = $this->trees->create('Cecília');
         $otherCreation = $this->trees->create('Outra');
-        $stored = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'present', 'sender_name' => 'Leo', 'message' => 'Com carinho'], str_repeat('e', 16)))
+        $stored = $this->controller($this->mutableRequest('POST', ['ornament_type' => 'star', 'sender_name' => 'Leo', 'message' => 'Com carinho'], str_repeat('e', 16)))
             ->store($creation->tree->publicId);
         $ornamentId = json_decode($stored->body(), true, 512, JSON_THROW_ON_ERROR)['data']['ornament']['public_id'];
 
@@ -161,7 +161,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
         $first = $this->trees->create('Primeira');
         $second = $this->trees->create('Segunda');
         $this->ornaments->create($first->tree->publicId, 'heart', 'Ana', str_repeat('n', 16), 'Mensagem primeira');
-        $this->ornaments->create($second->tree->publicId, 'present', 'Bia', str_repeat('o', 16), 'Mensagem segunda');
+        $this->ornaments->create($second->tree->publicId, 'star', 'Bia', str_repeat('o', 16), 'Mensagem segunda');
         $this->ownerSession->grant($first->tree->publicId, $first->adminToken);
 
         $revealedService = $this->messageServiceAt('2026-12-25T03:00:00+00:00');

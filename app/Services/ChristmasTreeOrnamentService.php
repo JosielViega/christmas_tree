@@ -29,6 +29,8 @@ final class ChristmasTreeOrnamentService
         'present' => '#2fa866',
     ];
 
+    public const CREATABLE_TYPES = ['bauble_red', 'bauble_gold', 'bauble_blue', 'heart', 'star'];
+
     public function __construct(
         private readonly ChristmasTreeRepository $trees,
         private readonly ChristmasTreeOrnamentRepository $ornaments,
@@ -66,7 +68,7 @@ final class ChristmasTreeOrnamentService
         $senderName = $this->normalizeName($senderName);
         $secretMessage = $this->normalizeMessage($secretMessage);
         $errors = [];
-        if (!array_key_exists($type, self::TYPES)) {
+        if (!in_array($type, self::CREATABLE_TYPES, true)) {
             $errors['ornament_type'][] = 'Escolha um enfeite válido.';
         }
         $length = mb_strlen($senderName, 'UTF-8');

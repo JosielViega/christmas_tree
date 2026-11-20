@@ -1,4 +1,4 @@
-import type { ChristmasTreeAccess, ChristmasTreeData, OrnamentCollection, OrnamentType, OwnerMessageCollection, SocialOrnamentData } from '../types';
+import type { ChristmasTreeAccess, ChristmasTreeData, OrnamentCollection, OrnamentType, OwnerMessageCollection, PremiumGiftCollection, SocialOrnamentData } from '../types';
 
 interface ApiErrorBody {
   error?: {
@@ -128,6 +128,16 @@ export const fetchPublicTree = (publicId: string): Promise<{ tree: ChristmasTree
 export const fetchOrnaments = (publicId: string): Promise<OrnamentCollection> => {
   return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`);
 };
+
+export const fetchPremiumGifts = (publicId: string): Promise<PremiumGiftCollection> =>
+  request(`/api/trees/${encodeURIComponent(publicId)}/gifts`);
+
+export const hidePremiumGift = (treePublicId: string, giftPublicId: string, csrfToken: string): Promise<{ hidden: true }> =>
+  request(`/api/trees/${encodeURIComponent(treePublicId)}/gifts/${encodeURIComponent(giftPublicId)}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
 
 export const createOrnament = (
   publicId: string,

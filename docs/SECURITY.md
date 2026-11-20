@@ -1,5 +1,13 @@
 # Segurança
 
+## Presentes publicados
+
+- O navegador nunca informa os estados `paid` ou `published`; apenas notificações verificadas/reconciliação do provedor iniciam a publicação.
+- A rota de textura valida o ID público, o estado atual, a visibilidade, o estado financeiro, o caminho lógico, o limite de bytes, a assinatura PNG e o SHA-256 persistido.
+- Fotos originais, caminhos físicos, tokens, dados financeiros e mensagens não entram no JSON público, HTML, captura ou vídeo.
+- O proprietário pode ocultar uma caixa com sessão administrativa e CSRF. Isso não apaga nem reembolsa o pedido e não libera seu pagamento para outro presente.
+- Um reembolso/estorno aceito oculta a caixa dentro da mesma transação que atualiza o pedido, preservando o histórico.
+
 ## Identidade e autorização da árvore
 
 - O `public_id` identifica e compartilha a árvore, mas nunca concede edição.

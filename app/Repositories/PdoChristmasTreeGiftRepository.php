@@ -45,9 +45,9 @@ final class PdoChristmasTreeGiftRepository implements ChristmasTreeGiftRepositor
 
             $insert = $pdo->prepare(
                 'INSERT INTO christmas_tree_gifts '
-                . '(public_id, tree_id, sender_name, gift_style, composition_mode, message, texture_path, status, '
+                . '(public_id, tree_id, sender_name, gift_style, composition_mode, message, texture_path, texture_sha256, status, '
                 . 'idempotency_key_hash, payload_hash, access_token_hash, created_at, expires_at) VALUES '
-                . '(:public_id, :tree_id, :sender_name, :gift_style, :composition_mode, :message, :texture_path, :status, '
+                . '(:public_id, :tree_id, :sender_name, :gift_style, :composition_mode, :message, :texture_path, :texture_sha256, :status, '
                 . ':idempotency_key_hash, :payload_hash, :access_token_hash, :created_at, :expires_at)'
             );
             $insert->execute(['tree_id' => $treeId, ...$attributes]);
@@ -79,6 +79,14 @@ final class PdoChristmasTreeGiftRepository implements ChristmasTreeGiftRepositor
     {
         $statement = $this->database->connection()->prepare('SELECT * FROM christmas_tree_gifts WHERE public_id = :public_id LIMIT 1');
         $statement->execute(['public_id' => $publicId]);
+        $row = $statement->fetch();
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function findById(int $id): ?GiftDraftRecord
+    {
+        $statement = $this->database->connection()->prepare('SELECT * FROM christmas_tree_gifts WHERE id = :id LIMIT 1');
+        $statement->execute(['id' => $id]);
         $row = $statement->fetch();
         return is_array($row) ? $this->hydrate($row) : null;
     }

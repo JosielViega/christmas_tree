@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Check, Gift, Heart, Loader2, Sparkles, Star, X } from 'lucide-react';
+import { Check, Heart, Loader2, Sparkles, Star, X } from 'lucide-react';
 import type { OrnamentType, SocialOrnamentData } from '../types';
 
 interface OrnamentDecorationModalProps {
@@ -16,7 +16,6 @@ const choices: Array<{ type: OrnamentType; label: string; color: string; icon?: 
   { type: 'bauble_blue', label: 'Bolinha azul', color: '#2878d0' },
   { type: 'heart', label: 'Coração', color: '#e94b68', icon: <Heart size={24} fill="currentColor" /> },
   { type: 'star', label: 'Estrela', color: '#fff1a1', icon: <Star size={25} fill="currentColor" /> },
-  { type: 'present', label: 'Presente', color: '#2fa866', icon: <Gift size={25} /> },
 ];
 
 const newIdempotencyKey = (): string => {
