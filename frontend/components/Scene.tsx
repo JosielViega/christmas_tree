@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment, Lightformer, Sparkles, AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,6 +11,7 @@ import Star from './Star';
 import Presents from './Presents';
 import Snow from './Snow';
 import SocialOrnament from './SocialOrnament';
+import AmbientNight from './AmbientNight';
 import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
 import { PhotoData, ControlMode, ZoomLevel, InteractionMode, SocialOrnamentData } from '../types';
 import {
@@ -22,6 +23,8 @@ import type { StoryFrameCapture } from '../utils/socialSharing';
 import type { StoryVideoSceneCapture } from '../utils/videoRecording';
 import { STORY_VIDEO_DURATION_MS } from '../utils/videoRecording';
 import type { TreeProgressionEffects } from '../utils/treeProgression';
+import { getInitialAmbientQuality } from '../utils/ambientEffects';
+import type { AmbientQuality } from '../utils/ambientEffects';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -44,6 +47,7 @@ interface SceneProps {
   onStoryVideoCaptureReady?: (capture: StoryVideoSceneCapture | null) => void;
   progressionEffects: TreeProgressionEffects;
   isProgressionCelebrating?: boolean;
+  reducedMotion: boolean;
 }
 
 const TREE_OFFSET_Y = -2;
@@ -580,8 +584,13 @@ const Scene: React.FC<SceneProps> = ({
   onStoryVideoCaptureReady,
   progressionEffects,
   isProgressionCelebrating = false,
+  reducedMotion,
 }) => {
   const captureActive = useRef(false);
+  const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>(() => getInitialAmbientQuality({
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+  }));
 
   return (
     <Canvas
@@ -598,6 +607,14 @@ const Scene: React.FC<SceneProps> = ({
       style={{ background: COLORS.BACKGROUND, position: 'relative', zIndex: 0 }}
     >
       <color attach="background" args={[COLORS.BACKGROUND]} />
+      <fog attach="fog" args={[COLORS.BACKGROUND, 55, 115]} />
+      <PerformanceMonitor
+        flipflops={3}
+        onIncline={() => setAmbientQuality('full')}
+        onDecline={() => setAmbientQuality('reduced')}
+        onFallback={() => setAmbientQuality('off')}
+      />
+      <AdaptiveDpr pixelated />
       <CameraController
         zoomLevel={zoomLevel}
         controlMode={controlMode}
@@ -629,6 +646,12 @@ const Scene: React.FC<SceneProps> = ({
       <spotLight position={[0, 30, 0]} intensity={1} angle={0.5} penumbra={1} color="#ffffff" />
 
       <Stars radius={100} depth={50} count={3000 + Math.round(progressionEffects.atmosphereBoost * 400)} factor={4} saturation={0} fade speed={1 + progressionEffects.atmosphereBoost * 0.15} />
+      <AmbientNight
+        quality={ambientQuality}
+        reducedMotion={reducedMotion}
+        recording={isRecording}
+        captureActive={captureActive}
+      />
 
       {/* Global Snow Effect */}
       <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} />

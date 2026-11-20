@@ -75,6 +75,8 @@ Os componentes sociais não adicionam dependências. O build da Etapa 05B gera J
 
 Na Etapa 06, o JavaScript minificado passa a aproximadamente 1.232,0 kB (345,0 kB gzip), aumento de 6,2 kB antes de gzip e 1,9 kB após gzip sobre a Etapa 05B. O CSS cresce cerca de 1,0 kB. Nenhuma dependência foi adicionada.
 
+Na Etapa 07, o JavaScript minificado passa a aproximadamente 1.239,1 kB (347,1 kB gzip), aumento de cerca de 7,0 kB antes de gzip e 2,1 kB após gzip. O CSS cresce menos de 0,1 kB e nenhuma dependência é adicionada.
+
 ## Progressão visual
 
 `frontend/utils/treeProgression.ts` concentra os marcos de 0, 5, 10, 20, 35, 50 e 60 participações e seus efeitos cumulativos. O estágio é uma projeção pura de `ornaments.length`, coleção pública já persistida e devolvida pelo backend; elementos decorativos da cena, mensagens privadas, sessão e dados locais não participam do cálculo. Não há coluna, tabela, migration ou endpoint específico para níveis.
@@ -84,6 +86,16 @@ A árvore-base permanece completa no estágio zero. Os estágios seguintes acres
 `App.tsx` só anuncia um desbloqueio depois que a API confirma a criação de um enfeite novo. A carga inicial apenas restaura o estágio, solicitações idempotentes não celebram duas vezes e a exclusão reduz naturalmente o estágio. A mensagem continua acessível com movimento reduzido, mas a animação temporária é suprimida quando `prefers-reduced-motion` está ativo.
 
 Como cartão e vídeo usam o mesmo `Canvas` e a mesma cena, os efeitos de progressão aparecem nessas mídias sem pipeline adicional. O indicador HTML é ocultado durante a gravação e nunca é desenhado no conteúdo capturado.
+
+## Cenário noturno expandido
+
+`frontend/components/AmbientNight.tsx` acrescenta ao mesmo `Canvas` um trenó procedural, um rastro `Sparkles`, uma estrela cadente e luz hemisférica sutil. As formas são primitivas Three.js locais, não carregam modelos, texturas, áudio ou URLs externos e têm o raycast desativado para não participar da seleção de enfeites.
+
+`frontend/utils/ambientEffects.ts` contém o agendamento testável. A primeira passagem do trenó ocorre entre 15 e 25 segundos; as seguintes, entre 45 e 90 segundos, com duração de 9,5 segundos. A estrela cadente espera inicialmente 8–16 segundos e depois 18–36 segundos, com duração de 1,6 segundo. Existe no máximo uma instância de cada efeito. O rastro usa 18 partículas no perfil completo, oito no reduzido e zero quando os efeitos opcionais são desligados.
+
+Os relógios avançam dentro do `useFrame` existente, sem `setInterval`, outro renderer ou loop independente. A política pausa o agendamento e oculta os elementos durante captura vertical, gravação, movimento reduzido ou fallback de desempenho; ao terminar uma interrupção, o tempo restante continua do mesmo ponto. `PerformanceMonitor` reduz o cenário opcional após queda e pode desligá-lo após oscilações repetidas, enquanto `AdaptiveDpr` também reduz a resolução quando necessário. O estágio da Etapa 06 permanece derivado somente dos enfeites persistidos.
+
+A política previsível para mídia é suspender todas as aparições ocasionais. Assim, PNGs e vídeos não capturam o trenó pela metade, enquanto a árvore, a progressão e a restauração da câmera mantêm o fluxo anterior.
 
 ## Compartilhamento social
 

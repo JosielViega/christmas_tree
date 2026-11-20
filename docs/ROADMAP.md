@@ -28,12 +28,12 @@ Vídeos verticais personalizados de oito segundos, composição local, câmera c
 
 Progressão visual derivada da quantidade de enfeites persistidos, com seis marcos cumulativos, indicador acessível, celebração somente após confirmação do backend e limites explícitos para partículas e presentes. A árvore-base permanece completa em todos os estágios e as capturas sociais reutilizam a cena evoluída.
 
-## 7. Cenário natalino expandido
+## 7. Cenário natalino expandido — concluída
 
-Adicionar ambientes e elementos visuais somente após validar licenças e impacto em celulares.
+Passagem ocasional de Papai Noel e trenó, rastro dourado limitado, estrelas cadentes e iluminação noturna sutil, todos no Canvas existente. Movimento reduzido, captura, gravação e qualidade adaptativa suspendem ou simplificam os efeitos opcionais sem alterar a progressão social.
 
 ## 8. Otimização e lançamento
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
-Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B e a progressão visual na Etapa 06.
+Fotografias persistentes permanecem fora do escopo. Mensagens secretas foram concluídas na Etapa 04, o compartilhamento social nas Etapas 05A e 05B, a progressão visual na Etapa 06 e o cenário expandido na Etapa 07.

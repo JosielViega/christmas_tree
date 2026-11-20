@@ -36,6 +36,38 @@ A atribuição também aparece em `/credits`, pois o mirror de produção não i
 
 As dependências e versões exatas estão em `frontend/package-lock.json`. As principais são React, React DOM, Three.js, React Three Fiber, Drei, React Three Postprocessing, Postprocessing, Lucide React, Vite, TypeScript e Tailwind CSS. Cada pacote conserva a licença publicada pelo respectivo autor dentro de `node_modules` durante o desenvolvimento; `node_modules` não é enviado à produção.
 
+## Referências estudadas na Etapa 07
+
+### Christmas Countdown
+
+- projeto: Christmas Countdown, de ZeX/ddosnotification;
+- repositório: <https://github.com/ddosnotification/christmas-countdown>;
+- revisão estudada: `f943e2f1d4d62eb19bf44e313ac773e4f9ae9368`;
+- licença do código: MIT;
+- referência conceitual: aparição aleatória, percurso lateral e flutuação do trenó.
+
+O projeto usa GSAP e elementos HTML/CSS. Nenhum código, asset ou dependência foi copiado; o agendamento e a animação desta aplicação foram implementados originalmente com o `useFrame` e as primitivas Three.js já presentes.
+
+### Celestial Snowfall
+
+- projeto: Celestial Snowfall, de PhilWilky;
+- repositório: <https://github.com/PhilWilky/celestial-snowfall>;
+- revisão estudada: `a132ba3aa62dc5276236217d191b3218c18a010a`;
+- licença do código: MIT;
+- referência conceitual: intervalos aleatórios, trajetória curta, pausa e movimento reduzido para estrelas cadentes.
+
+Nenhum código ou asset foi copiado. A implementação final usa um único agendador TypeScript e geometria local integrada à cena React Three Fiber.
+
+### Christmas Scene
+
+- projeto: 3D Christmas Scene, de Kaaviya-S-S;
+- repositório: <https://github.com/Kaaviya-S-S/Christmas-Scene>;
+- revisão estudada: `4f58b8512f845a9c8effcaf59c117e4cbfed133a`;
+- licença: o README declara MIT, mas a revisão estudada não oferece arquivo de licença nem licença individual clara para os modelos GLTF;
+- referência conceitual: composição modular de trenó e Papai Noel em uma cena Three.js.
+
+Por essa incerteza de proveniência, nenhum modelo, textura, áudio, asset ou trecho desse projeto foi incorporado. Papai Noel, trenó e renas desta aplicação são formas procedurais originais.
+
 ## Ressalvas
 
 - fotografias carregadas pelo usuário ficam somente na sessão do navegador nesta etapa; o usuário é responsável por possuir direito de uso;

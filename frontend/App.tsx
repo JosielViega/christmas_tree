@@ -378,6 +378,7 @@ const App: React.FC = () => {
         onStoryVideoCaptureReady={registerStoryVideoCapture}
         progressionEffects={progression.stage.effects}
         isProgressionCelebrating={isProgressionCelebrating}
+        reducedMotion={reducedMotion}
       />
 
       <Overlay
