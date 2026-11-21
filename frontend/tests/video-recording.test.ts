@@ -6,6 +6,8 @@ import {
   VideoRecordingError,
   buildStoryVideoCopy,
   chooseStoryVideoProfile,
+  drawStoryVideoFrame,
+  fitStoryVideoFrame,
   isVideoRecordingSupported,
   recordCanvasVideo,
   selectVideoMimeType,
@@ -152,6 +154,36 @@ test('duration, adaptive profile and filename remain bounded', () => {
   assert.deepEqual(chooseStoryVideoProfile({ deviceMemory: 8, hardwareConcurrency: 8 }), { width: 1080, height: 1920, fps: 30, videoBitsPerSecond: 8_000_000 });
   assert.equal(storyVideoFilename('João & Família', 'video/mp4'), 'video-arvore-joao-familia.mp4');
   assert.equal(storyVideoFilename('', 'video/webm'), 'video-arvore-natal.webm');
+});
+
+test('video frame fitting preserves one uniform scale on exact and mismatched sources', () => {
+  const exact = fitStoryVideoFrame(720, 1280, 1080, 1920);
+  assert.deepEqual(exact, { x: 0, y: 0, width: 1080, height: 1920, scale: 1.5 });
+
+  const landscape = fitStoryVideoFrame(1600, 900, 720, 1280);
+  assert.equal(landscape.width / 1600, landscape.scale);
+  assert.equal(landscape.height / 900, landscape.scale);
+  assert.equal(landscape.x, 0);
+  assert.ok(landscape.y > 0, 'mismatched frames are centered instead of stretched');
+  assert.throws(() => fitStoryVideoFrame(0, 1280, 720, 1280), VideoRecordingError);
+});
+
+test('canvas composition draws the scene with the proportional placement', () => {
+  const drawCalls: unknown[][] = [];
+  const gradient = { addColorStop: () => undefined };
+  const context = {
+    clearRect: () => undefined,
+    fillRect: () => undefined,
+    drawImage: (...args: unknown[]) => drawCalls.push(args),
+    createLinearGradient: () => gradient,
+    fillText: () => undefined,
+  } as unknown as CanvasRenderingContext2D;
+  const output = { width: 720, height: 1280, getContext: () => context } as unknown as HTMLCanvasElement;
+  const source = { width: 1600, height: 900 } as HTMLCanvasElement;
+
+  drawStoryVideoFrame(output, source, 'Família', 2, 7_500);
+
+  assert.deepEqual(drawCalls[0], [source, 0, 437.5, 720, 405]);
 });
 
 test('video composition copy contains no private or recovery data', () => {

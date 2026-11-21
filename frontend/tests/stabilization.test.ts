@@ -13,6 +13,9 @@ test('capture exposure is temporary and renderer state is restored', () => {
   assert.match(scene, /prepare\(options\.width, options\.height, 1\.22\)/);
   assert.match(scene, /StoryCaptureFillLights/);
   assert.match(scene, /group\.current\.visible = captureActive\.current/);
+  assert.match(scene, /captureDimensions\.current = \{ width, height \}/);
+  assert.match(scene, /gl\.setSize\(dimensions\.width, dimensions\.height, false\)/);
+  assert.match(scene, /captureDimensions\.current = null/);
 });
 
 test('ambient diagnostics are development-only and do not alter normal schedules', () => {

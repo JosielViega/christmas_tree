@@ -63,9 +63,9 @@ export const storyCameraFrame = (
   const orbitFraction = orbitProgress - Math.sin(orbitProgress * Math.PI * 2) / (Math.PI * 2);
   const angleRadians = orbitFraction * Math.PI * 2;
 
-  // Between two and five seconds, approach the tree only as far as the full
+  // Between two and six seconds, approach the tree only as far as the full
   // scene bounds allow. Return to the wide composition while completing the
-  // orbit from five to seven seconds.
+  // orbit from six to seven seconds.
   const minimumSafeDistance = perspectiveDistanceForBounds(
     fovDegrees,
     aspect,
@@ -73,8 +73,8 @@ export const storyCameraFrame = (
     STORY_SCENE_BOUNDS.halfHeight,
     1.02,
   );
-  const zoomIn = smoothStep((progress - 0.25) / 0.375);
-  const zoomOut = smoothStep((progress - 0.625) / 0.25);
+  const zoomIn = smoothStep((progress - 0.25) / 0.5);
+  const zoomOut = smoothStep((progress - 0.75) / 0.125);
   const distance = fullDistance - (fullDistance - minimumSafeDistance) * zoomIn * (1 - zoomOut);
   const height = STORY_SCENE_BOUNDS.centerY + Math.sin(orbitProgress * Math.PI) * 0.22;
 

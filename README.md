@@ -249,6 +249,10 @@ Presentes decorativos foram reduzidos para 12 posições determinísticas. Publi
 
 O vídeo percorre uma órbita contínua e determinística, conclui a volta aos sete segundos e estabiliza na frente no segundo final. Movimento reduzido conserva a composição frontal estática. Ações primárias ocupam a primeira linha no celular; ações secundárias ficam na segunda, e recursos premium indisponíveis aparecem como **Em breve** antes de qualquer toque.
 
+### Etapa 08A.2 — proporção do vídeo e cabeçalho
+
+Durante a captura, resolução e aspecto 9:16 permanecem bloqueados mesmo se o observador de layout do Canvas tentar reaplicar a viewport visível. A composição final usa uma única escala proporcional e centraliza qualquer frame divergente, sem esticar eixos. No cabeçalho mobile, nomes longos podem ocupar duas linhas; abrir o menu recolhe temporariamente o indicador, e o menu fecha por toque externo ou Escape.
+
 ## Escopo futuro
 
 Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

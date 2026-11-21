@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 const overlay = readFileSync(new URL('../components/Overlay.tsx', import.meta.url), 'utf8');
+const indicator = readFileSync(new URL('../components/TreeProgressIndicator.tsx', import.meta.url), 'utf8');
 
 test('social overlay is mobile-first and omits demonstration controls', () => {
   assert.match(overlay, /safe-area-inset-top/);
@@ -22,7 +23,6 @@ test('owner shares while a visitor gets decoration, premium and own-tree actions
 });
 
 test('mobile controls use safe areas, a two-row grid and compact expandable indicators', () => {
-  const indicator = readFileSync(new URL('../components/TreeProgressIndicator.tsx', import.meta.url), 'utf8');
   assert.match(app, /grid-cols-2/);
   assert.match(app, /col-span-2/);
   assert.doesNotMatch(app, /overflow-x-auto/);
@@ -30,6 +30,23 @@ test('mobile controls use safe areas, a two-row grid and compact expandable indi
   assert.match(indicator, /<details/);
   assert.match(indicator, /messageOverview/);
   assert.doesNotMatch(app, /top-\[max\(14rem/);
+});
+
+test('mobile header allows long names to wrap within bounded responsive typography', () => {
+  assert.doesNotMatch(overlay, /<h1 className="truncate/);
+  assert.match(overlay, /max-h-\[2em\]/);
+  assert.match(overlay, /break-words/);
+  assert.match(overlay, /text-\[clamp\(1\.35rem,6\.5vw,3rem\)\]/);
+});
+
+test('options menu closes outside or with Escape and temporarily collapses progression', () => {
+  assert.match(overlay, /document\.addEventListener\('pointerdown', closeOutside\)/);
+  assert.match(overlay, /event\.key === 'Escape'/);
+  assert.match(overlay, /aria-controls="tree-options-menu"/);
+  assert.match(overlay, /aria-haspopup="menu"/);
+  assert.match(overlay, /role="menu"/);
+  assert.match(app, /temporarilyHidden=\{optionsOpen\}/);
+  assert.match(indicator, /if \(temporarilyHidden\) return null/);
 });
 
 test('disabled premium experience is visible before interaction and does not open a modal', () => {

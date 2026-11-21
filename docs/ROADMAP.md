@@ -79,4 +79,8 @@ Origem social consistente, autodecoração bloqueada também após restauração
 
 Órbita determinística de 360° em oito segundos, enquadramento integral por volume 3D, iluminação temporária de captura e composição frontal estável no encerramento. A barra mobile passa a duas linhas sem rolagem horizontal, mantém a ação principal em destaque e sinaliza recursos premium indisponíveis antes da interação.
 
+### 8A.2. Proporção do vídeo e cabeçalho mobile — tecnicamente concluída
+
+Dimensões da captura 9:16 são preservadas durante toda a sessão e frames são compostos com escala uniforme, eliminando deformação por cópia direta. Títulos longos usam tipografia responsiva em duas linhas; menu e indicador deixam de disputar a mesma região, com fechamento externo, Escape e ARIA preservados.
+
 Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.

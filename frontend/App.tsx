@@ -68,6 +68,7 @@ const App: React.FC = () => {
   const [messageOverview, setMessageOverview] = useState<{ count: number; revealed: boolean; revealAt: string } | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
   const [giftPreviewOpen, setGiftPreviewOpen] = useState(false);
   const [unlockedProgressionStage, setUnlockedProgressionStage] = useState<TreeProgressionStage | null>(null);
@@ -461,6 +462,8 @@ const App: React.FC = () => {
         userName={userName}
         isRecording={isRecording}
         treeOwnerName={tree?.owner_name ?? null}
+        optionsOpen={optionsOpen}
+        onOptionsOpenChange={setOptionsOpen}
       />}
 
       {initializing && (
@@ -515,6 +518,7 @@ const App: React.FC = () => {
           onDismissUnlock={dismissProgressionUnlock}
           messageOverview={messageOverview}
           messagesLoading={messagesLoading}
+          temporarilyHidden={optionsOpen}
         />
       )}
 

@@ -9,10 +9,12 @@ interface TreeProgressIndicatorProps {
   onDismissUnlock: () => void;
   messageOverview?: { count: number; revealed: boolean; revealAt: string } | null;
   messagesLoading?: boolean;
+  temporarilyHidden?: boolean;
 }
 
-const TreeProgressIndicator: React.FC<TreeProgressIndicatorProps> = ({ progression, isOwner, unlockedStage, onDismissUnlock, messageOverview, messagesLoading = false }) => {
+const TreeProgressIndicator: React.FC<TreeProgressIndicatorProps> = ({ progression, isOwner, unlockedStage, onDismissUnlock, messageOverview, messagesLoading = false, temporarilyHidden = false }) => {
   const label = isOwner ? 'Sua árvore está evoluindo' : 'Esta árvore está evoluindo';
+  if (temporarilyHidden) return null;
   return (
     <aside className="fixed left-3 top-[max(5.5rem,calc(env(safe-area-inset-top)+4.75rem))] z-[64] w-[min(18rem,calc(100vw-1.5rem))] text-white sm:left-5" aria-label="Indicadores da árvore">
       {unlockedStage && <div className="relative pointer-events-auto mb-2 rounded-2xl border border-[#fff1a1]/35 bg-[#10271c]/95 p-3 shadow-2xl backdrop-blur-xl motion-reduce:animate-none" role="status" aria-live="polite">

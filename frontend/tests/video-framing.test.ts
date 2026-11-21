@@ -18,6 +18,7 @@ test('eight-second choreography makes one continuous orbit and settles at the fr
   const twoSeconds = storyCameraFrame(0.25, ASPECT, FOV);
   const middleOrbit = storyCameraFrame(0.4375, ASPECT, FOV);
   const fiveSeconds = storyCameraFrame(0.625, ASPECT, FOV);
+  const sixSeconds = storyCameraFrame(0.75, ASPECT, FOV);
   const sevenSeconds = storyCameraFrame(0.875, ASPECT, FOV);
   const finish = storyCameraFrame(1, ASPECT, FOV);
 
@@ -28,6 +29,7 @@ test('eight-second choreography makes one continuous orbit and settles at the fr
   assert.ok(Math.abs(sevenSeconds.angleRadians - Math.PI * 2) < 1e-10);
   assert.deepEqual(sevenSeconds, finish, 'the final second must remain stable at the frontal composition');
   assert.ok(fiveSeconds.distance < start.distance, 'the middle phase applies a restrained zoom');
+  assert.ok(sixSeconds.distance <= fiveSeconds.distance, 'the restrained approach continues through six seconds');
 });
 
 test('orbit angle is monotonic and does not jump between sampled frames', () => {

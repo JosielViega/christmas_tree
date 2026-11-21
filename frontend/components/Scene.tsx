@@ -396,13 +396,31 @@ const StoryCaptureController: React.FC<{
   const setDpr = useThree((current) => current.setDpr);
   const setSize = useThree((current) => current.setSize);
   const videoAnimation = useRef<{ startedAt: number; durationMs: number; reducedMotion: boolean } | null>(null);
+  const captureDimensions = useRef<{ width: number; height: number } | null>(null);
   const activeStop = useRef<(() => void) | null>(null);
 
   useFrame(() => {
+    const dimensions = captureDimensions.current;
+    if (dimensions && camera instanceof THREE.PerspectiveCamera) {
+      const aspect = dimensions.width / dimensions.height;
+      const currentSize = getState().size;
+      if (currentSize.width !== dimensions.width || currentSize.height !== dimensions.height) {
+        setSize(dimensions.width, dimensions.height, false, 0, 0);
+      }
+      if (gl.domElement.width !== dimensions.width || gl.domElement.height !== dimensions.height) {
+        gl.setSize(dimensions.width, dimensions.height, false);
+      }
+      if (camera.aspect !== aspect) {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+    }
     const animation = videoAnimation.current;
     if (!animation || !(camera instanceof THREE.PerspectiveCamera)) return;
     const progress = Math.min(1, (performance.now() - animation.startedAt) / animation.durationMs);
-    const frame = storyCameraFrame(progress, camera.aspect, camera.fov, animation.reducedMotion);
+    const frame = storyCameraFrame(progress, captureDimensions.current
+      ? captureDimensions.current.width / captureDimensions.current.height
+      : camera.aspect, camera.fov, animation.reducedMotion);
     camera.position.set(...frame.position);
     camera.lookAt(...frame.target);
   });
@@ -433,6 +451,7 @@ const StoryCaptureController: React.FC<{
     const restore = (saved: StoryCaptureSnapshot) => {
       try {
         videoAnimation.current = null;
+        captureDimensions.current = null;
         camera.position.copy(saved.cameraPosition);
         camera.quaternion.copy(saved.cameraQuaternion);
         camera.up.copy(saved.cameraUp);
@@ -457,6 +476,7 @@ const StoryCaptureController: React.FC<{
     const prepare = (width: number, height: number, exposure: number) => {
       if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
       captureActive.current = true;
+      captureDimensions.current = { width, height };
       if (orbitControls && typeof orbitControls.enabled === 'boolean') orbitControls.enabled = false;
       const frame = storyCameraFrame(0, width / height, CAMERA_CONFIG.FOV);
       camera.position.set(...frame.position);

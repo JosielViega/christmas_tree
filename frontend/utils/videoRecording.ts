@@ -141,6 +141,35 @@ export const createStoryVideoCanvas = (profile: StoryVideoProfile): HTMLCanvasEl
   return canvas;
 };
 
+export interface StoryVideoFramePlacement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  scale: number;
+}
+
+export const fitStoryVideoFrame = (
+  sourceWidth: number,
+  sourceHeight: number,
+  outputWidth: number,
+  outputHeight: number,
+): StoryVideoFramePlacement => {
+  if (![sourceWidth, sourceHeight, outputWidth, outputHeight].every((value) => Number.isFinite(value) && value > 0)) {
+    throw new VideoRecordingError('O frame da cena possui dimensões inválidas.', 'recording');
+  }
+  const scale = Math.min(outputWidth / sourceWidth, outputHeight / sourceHeight);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  return {
+    x: (outputWidth - width) / 2,
+    y: (outputHeight - height) / 2,
+    width,
+    height,
+    scale,
+  };
+};
+
 export const drawStoryVideoFrame = (
   output: HTMLCanvasElement,
   source: HTMLCanvasElement,
@@ -158,7 +187,8 @@ export const drawStoryVideoFrame = (
   context.clearRect(0, 0, width, height);
   context.fillStyle = '#020504';
   context.fillRect(0, 0, width, height);
-  context.drawImage(source, 0, 0, width, height);
+  const frame = fitStoryVideoFrame(source.width, source.height, width, height);
+  context.drawImage(source, frame.x, frame.y, frame.width, frame.height);
 
   const topShade = context.createLinearGradient(0, 0, 0, height * 0.26);
   topShade.addColorStop(0, 'rgba(2, 5, 4, 0.9)');

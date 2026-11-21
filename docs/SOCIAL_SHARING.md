@@ -32,6 +32,12 @@ O vídeo mantém oito segundos e uma volta completa: 0–2 s inicia a órbita co
 
 Com movimento reduzido, a câmera permanece frontal e estática pelos oito segundos. A trajetória é calculada somente por progresso, ângulo, raio e altura, portanto não depende da taxa de quadros nem acumula erro entre frames.
 
+## Correção de proporção 08A.2
+
+O Canvas do Three.js é uma superfície viva e pode receber atualizações do observador responsivo durante a gravação. A cópia anterior forçava qualquer dimensão encontrada a preencher o destino 9:16, permitindo escalas horizontal e vertical diferentes. Agora a sessão reafirma resolução e aspecto de captura a cada frame quando necessário, enquanto o compositor calcula uma única escala proporcional e centraliza o resultado. Frames já em 9:16 continuam preenchendo toda a saída; uma divergência transitória produz áreas neutras, nunca achatamento.
+
+A órbita continua com oito segundos: plano geral em 0–2 s, aproximação segura e rotação em 2–6 s, retorno frontal em 6–7 s e estabilidade em 7–8 s. Cancelamento, erro e desmontagem continuam restaurando câmera, renderer, viewport, DPR, exposição e controles.
+
 ## Privacidade
 
 A composição usa somente o nome público do proprietário e a quantidade de participações. Mensagens secretas, códigos de recuperação, tokens administrativos e credenciais nunca fazem parte do canvas, do vídeo ou do compartilhamento. Blobs e URLs de objeto existem apenas na sessão local e são liberados após o uso.
