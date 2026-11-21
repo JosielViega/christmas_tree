@@ -253,6 +253,10 @@ O vídeo percorre uma órbita contínua e determinística, conclui a volta aos s
 
 Durante a captura, resolução e aspecto 9:16 permanecem bloqueados mesmo se o observador de layout do Canvas tentar reaplicar a viewport visível. A composição final usa uma única escala proporcional e centraliza qualquer frame divergente, sem esticar eixos. No cabeçalho mobile, nomes longos podem ocupar duas linhas; abrir o menu recolhe temporariamente o indicador, e o menu fecha por toque externo ou Escape.
 
+### Etapa 08A.3 — compatibilidade de fotografias
+
+Fotografias JPEG, PNG e WebP continuam validadas por assinatura antes do processamento. Se um navegador expuser `createImageBitmap()` mas rejeitar uma fotografia válida, o aplicativo tenta a decodificação nativa por `Image`, preserva a orientação aplicada pelo navegador e sempre libera o Object URL. O Canvas ainda remove metadados e produz o JPEG quadrado enviado ao armazenamento privado.
+
 ## Escopo futuro
 
 Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

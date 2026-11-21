@@ -61,18 +61,70 @@ test('dimension validation rejects implausible and excessive images', () => {
   assert.doesNotThrow(() => validateGiftPhotoDimensions(4_000, 3_000));
 });
 
-test('decode failures are controlled and do not expose browser internals', async () => {
+test('createImageBitmap failure falls back to Image decoding', async () => {
+  let bitmapAttempts = 0;
+  const revoked: string[] = [];
+  const image = { naturalWidth: 1200, naturalHeight: 800, onload: null, onerror: null } as unknown as HTMLImageElement;
+  Object.defineProperty(image, 'src', {
+    set(value: string) {
+      if (value) queueMicrotask(() => image.onload?.(new Event('load')));
+    },
+  });
   const environment: GiftPhotoDecodeEnvironment = {
-    createImageBitmap: (async () => { throw new Error('decoder internals'); }) as typeof createImageBitmap,
-    createObjectURL: () => { throw new Error('fallback should not allocate a URL'); },
+    createImageBitmap: (async () => { bitmapAttempts += 1; throw new Error('decoder internals'); }) as typeof createImageBitmap,
+    createObjectURL: () => 'blob:fallback-photo',
+    revokeObjectURL: (url) => { revoked.push(url); },
+    createImage: () => image,
+  };
+  const decoded = await decodeGiftPhoto(fakeFile(JPEG, 'image/jpeg'), DEFAULT_GIFT_PHOTO_MAX_BYTES, environment);
+  assert.equal(bitmapAttempts, 2);
+  assert.equal(decoded.source, image);
+  assert.deepEqual([decoded.width, decoded.height], [1200, 800]);
+  decoded.dispose();
+  assert.deepEqual(revoked, ['blob:fallback-photo']);
+});
+
+test('bitmap decoder retries without orientation options before using Image fallback', async () => {
+  const attempts: Array<ImageBitmapOptions | undefined> = [];
+  const bitmap = { width: 800, height: 1200, close: () => undefined } as ImageBitmap;
+  const environment: GiftPhotoDecodeEnvironment = {
+    createImageBitmap: (async (_file: ImageBitmapSource, options?: ImageBitmapOptions) => {
+      attempts.push(options);
+      if (options) throw new TypeError('unsupported imageOrientation option');
+      return bitmap;
+    }) as typeof createImageBitmap,
+    createObjectURL: () => { throw new Error('Image fallback must not run after bitmap success.'); },
     revokeObjectURL: () => undefined,
     createImage: () => ({} as HTMLImageElement),
+  };
+
+  const decoded = await decodeGiftPhoto(fakeFile(JPEG, 'image/jpeg'), DEFAULT_GIFT_PHOTO_MAX_BYTES, environment);
+  assert.equal(decoded.source, bitmap);
+  assert.deepEqual(attempts.map((options) => options?.imageOrientation), ['from-image', undefined]);
+  decoded.dispose();
+});
+
+test('corrupt image failures remain controlled and release fallback resources', async () => {
+  const revoked: string[] = [];
+  const image = { naturalWidth: 0, naturalHeight: 0, onload: null, onerror: null } as unknown as HTMLImageElement;
+  Object.defineProperty(image, 'src', {
+    set(value: string) {
+      if (value) queueMicrotask(() => image.onerror?.(new Event('error')));
+    },
+  });
+  const environment: GiftPhotoDecodeEnvironment = {
+    createImageBitmap: (async () => { throw new Error('decoder internals'); }) as typeof createImageBitmap,
+    createObjectURL: () => 'blob:corrupt-photo',
+    revokeObjectURL: (url) => { revoked.push(url); },
+    createImage: () => image,
   };
   await assert.rejects(decodeGiftPhoto(fakeFile(JPEG, 'image/jpeg'), DEFAULT_GIFT_PHOTO_MAX_BYTES, environment), (error: unknown) => {
     assert.ok(error instanceof GiftPhotoError);
     assert.doesNotMatch(error.message, /decoder internals/);
+    assert.match(error.message, /corrompida|n.o p.de ser lida/i);
     return true;
   });
+  assert.deepEqual(revoked, ['blob:corrupt-photo']);
 });
 
 test('invalid decoded dimensions close the temporary bitmap', async () => {

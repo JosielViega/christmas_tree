@@ -24,13 +24,33 @@ import {
   shouldAnimateProgressionUnlock,
 } from './utils/treeProgression';
 import type { TreeProgressionStage } from './utils/treeProgression';
-import { getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
+import { GiftPhotoError, getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
 import { getPremiumGiftTransform } from './utils/premiumGiftLayout';
 import { sameOriginTreeUrl } from './utils/sameOriginUrl';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
 const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_MAX_BYTES);
+
+const memoryFailureMessage = (caught: unknown, fallback: string): string => {
+  if (caught instanceof GiftPhotoError) return caught.message;
+  if (caught instanceof TreeApiError) {
+    if (caught.code === 'validation_failed' && caught.fields.image?.[0]) return caught.fields.image[0];
+    return caught.message;
+  }
+  return fallback;
+};
+
+const reportMemoryFailure = (caught: unknown, operation: 'create' | 'update'): void => {
+  if (!import.meta.env.DEV) return;
+  console.error('Memory image operation failed', {
+    operation,
+    stage: caught instanceof GiftPhotoError ? 'local_processing' : caught instanceof TreeApiError ? 'http' : 'unexpected',
+    code: caught instanceof TreeApiError ? caught.code : undefined,
+    status: caught instanceof TreeApiError ? caught.status : undefined,
+    type: caught instanceof Error ? caught.name : typeof caught,
+  });
+};
 
 const App: React.FC = () => {
   const [controlMode, setControlMode] = useState<ControlMode>(ControlMode.MOUSE);
@@ -395,7 +415,8 @@ const App: React.FC = () => {
       setMemories((current) => [...current, response.memory].sort((a, b) => a.slot_index - b.slot_index));
       showToast('Memória adicionada à sua árvore.', 'success');
     } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : 'Não foi possível adicionar a memória.', 'error');
+      reportMemoryFailure(caught, 'create');
+      showToast(memoryFailureMessage(caught, 'Não foi possível adicionar a memória.'), 'error');
       throw caught;
     } finally { setMemoriesBusy(false); }
   };
@@ -409,7 +430,8 @@ const App: React.FC = () => {
       setMemories((current) => current.map((item) => item.public_id === memory.public_id ? response.memory : item));
       showToast('Memória atualizada.', 'success');
     } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : 'Não foi possível atualizar a memória.', 'error');
+      reportMemoryFailure(caught, 'update');
+      showToast(memoryFailureMessage(caught, 'Não foi possível atualizar a memória.'), 'error');
       throw caught;
     } finally { setMemoriesBusy(false); }
   };

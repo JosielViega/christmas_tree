@@ -30,12 +30,50 @@ final class MemoryImageStorageTest extends TestCase
         unlink($upload['tmp_name']);
     }
 
+    public function testAcceptsRealJpegPngWebpLandscapeAndPortraitImages(): void
+    {
+        $storage = new MemoryImageStorage($this->root);
+        $formats = ['jpeg', 'png'];
+        if (function_exists('imagewebp')) $formats[] = 'webp';
+
+        foreach ($formats as $format) {
+            foreach ([[320, 180], [180, 320]] as [$width, $height]) {
+                $upload = $this->imageUpload($width, $height, $format);
+                $stored = $storage->store($upload);
+                $inspected = $storage->inspect($stored->logicalPath);
+                self::assertSame([180, 180], array_slice((array) getimagesize($inspected['path']), 0, 2));
+                self::assertTrue($storage->delete($stored->logicalPath));
+                unlink($upload['tmp_name']);
+            }
+        }
+    }
+
+    public function testAcceptsOrientedJpegAndRemovesExifMetadata(): void
+    {
+        $upload = $this->imageUpload(320, 180, 'jpeg');
+        $jpeg = (string) file_get_contents($upload['tmp_name']);
+        $exif = "Exif\0\0MM\0\x2A\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01\0\x06\0\0\0\0\0\0";
+        $withOrientation = substr($jpeg, 0, 2) . "\xFF\xE1" . pack('n', strlen($exif) + 2) . $exif . substr($jpeg, 2);
+        file_put_contents($upload['tmp_name'], $withOrientation);
+        $upload['size'] = filesize($upload['tmp_name']);
+
+        $storage = new MemoryImageStorage($this->root);
+        $stored = $storage->store($upload);
+        $inspected = $storage->inspect($stored->logicalPath);
+        self::assertStringNotContainsString('Exif', (string) file_get_contents($inspected['path']));
+        self::assertSame([180, 180], array_slice((array) getimagesize($inspected['path']), 0, 2));
+        self::assertTrue($storage->delete($stored->logicalPath));
+        unlink($upload['tmp_name']);
+    }
+
     public function testRejectsInvalidSignatureOversizeAndInvalidDimensions(): void
     {
         $invalid = tempnam(sys_get_temp_dir(), 'memory-invalid-'); file_put_contents($invalid, '<svg/>');
+        $empty = tempnam(sys_get_temp_dir(), 'memory-empty-');
         $small = $this->imageUpload(32, 32, 'png');
         foreach ([
             [new MemoryImageStorage($this->root), ['tmp_name' => $invalid, 'size' => filesize($invalid), 'error' => UPLOAD_ERR_OK]],
+            [new MemoryImageStorage($this->root), ['tmp_name' => $empty, 'size' => 0, 'error' => UPLOAD_ERR_OK]],
             [new MemoryImageStorage($this->root), $small],
             [new MemoryImageStorage($this->root, 10), $this->imageUpload(100, 100, 'jpeg')],
         ] as [$storage, $upload]) {
@@ -49,7 +87,11 @@ final class MemoryImageStorageTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'memory-source-');
         $image = imagecreatetruecolor($width, $height); imagefill($image, 0, 0, imagecolorallocate($image, 40, 100, 70));
-        $type === 'png' ? imagepng($image, $path) : imagejpeg($image, $path, 90);
+        match ($type) {
+            'png' => imagepng($image, $path),
+            'webp' => imagewebp($image, $path, 90),
+            default => imagejpeg($image, $path, 90),
+        };
         return ['tmp_name' => $path, 'size' => filesize($path), 'error' => UPLOAD_ERR_OK, 'name' => 'photo.' . $type, 'type' => 'image/' . $type];
     }
 

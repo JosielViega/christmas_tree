@@ -108,6 +108,40 @@ const browserDecodeEnvironment = (): GiftPhotoDecodeEnvironment => ({
   createImage: () => new Image(),
 });
 
+const decodeGiftPhotoWithImage = async (
+  file: File,
+  mime: SupportedGiftPhotoMime,
+  environment: GiftPhotoDecodeEnvironment,
+): Promise<DecodedGiftPhoto> => {
+  const objectUrl = environment.createObjectURL(file);
+  const image = environment.createImage();
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    image.src = '';
+    environment.revokeObjectURL(objectUrl);
+  };
+  try {
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new GiftPhotoError('A fotografia parece estar corrompida ou não pôde ser lida neste navegador.'));
+      image.src = objectUrl;
+    });
+    validateGiftPhotoDimensions(image.naturalWidth, image.naturalHeight);
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      mime,
+      dispose: release,
+    };
+  } catch (error) {
+    release();
+    throw error;
+  }
+};
+
 export const decodeGiftPhoto = async (
   file: File,
   maxBytes = DEFAULT_GIFT_PHOTO_MAX_BYTES,
@@ -116,44 +150,28 @@ export const decodeGiftPhoto = async (
   const mime = await validateGiftPhotoFile(file, maxBytes);
   try {
     if (environment.createImageBitmap) {
-      let bitmap: ImageBitmap;
+      let bitmap: ImageBitmap | null = null;
       try {
         bitmap = await environment.createImageBitmap(file, { imageOrientation: 'from-image' });
       } catch {
-        bitmap = await environment.createImageBitmap(file);
+        try {
+          bitmap = await environment.createImageBitmap(file);
+        } catch {
+          // Some mobile decoders expose createImageBitmap but reject otherwise
+          // valid camera JPEGs. The Image path keeps native EXIF orientation.
+        }
       }
-      try {
-        validateGiftPhotoDimensions(bitmap.width, bitmap.height);
-      } catch (error) {
-        bitmap.close();
-        throw error;
+      if (bitmap) {
+        try {
+          validateGiftPhotoDimensions(bitmap.width, bitmap.height);
+        } catch (error) {
+          bitmap.close();
+          throw error;
+        }
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, mime, dispose: () => bitmap.close() };
       }
-      return { source: bitmap, width: bitmap.width, height: bitmap.height, mime, dispose: () => bitmap.close() };
     }
-
-    const objectUrl = environment.createObjectURL(file);
-    const image = environment.createImage();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject(new GiftPhotoError('Não foi possível decodificar a fotografia.'));
-        image.src = objectUrl;
-      });
-      validateGiftPhotoDimensions(image.naturalWidth, image.naturalHeight);
-      return {
-        source: image,
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-        mime,
-        dispose: () => {
-          image.src = '';
-          environment.revokeObjectURL(objectUrl);
-        },
-      };
-    } catch (error) {
-      environment.revokeObjectURL(objectUrl);
-      throw error;
-    }
+    return await decodeGiftPhotoWithImage(file, mime, environment);
   } catch (error) {
     if (error instanceof GiftPhotoError) throw error;
     throw new GiftPhotoError('Não foi possível decodificar a fotografia.');

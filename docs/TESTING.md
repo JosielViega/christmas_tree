@@ -10,7 +10,7 @@
 - `composer deploy:hostgator`
 - `git diff --check`
 
-Os testes cobrem proprietário/visitante, restauração persistente, link na mesma origem, autodecoração, layout mobile em duas linhas, cabeçalho com nomes longos, menu acessível, recolhimento do indicador, ausência de rolagem horizontal, projeção 9:16, órbita monotônica de 360°, enquadramento em todos os frames, escala uniforme do compositor, restauração da exposição, iluminação temporária, layouts de presentes, gates Pix, efeitos, movimento reduzido, PNG e vídeo.
+Os testes cobrem proprietário/visitante, restauração persistente, link na mesma origem, autodecoração, layout mobile em duas linhas, cabeçalho com nomes longos, menu acessível, recolhimento do indicador, ausência de rolagem horizontal, projeção 9:16, órbita monotônica de 360°, enquadramento em todos os frames, escala uniforme do compositor, restauração da exposição, iluminação temporária, decodificação alternativa de fotografias, JPEG/EXIF/PNG/WebP reais, layouts de presentes, gates Pix, efeitos, movimento reduzido, PNG e vídeo.
 
 ## Checklist manual obrigatório
 
@@ -26,6 +26,7 @@ Os testes cobrem proprietário/visitante, restauração persistente, link na mes
 - [ ] Movimento reduzido: vídeo frontal estático com a cena completa.
 - [ ] Avisos: dispensáveis, acima das ações inferiores e ausentes enquanto um modal está aberto.
 - [ ] Premium indisponível: rótulo “Em breve” visível antes do toque, sem checkout, pedido, pagamento ou publicação.
+- [ ] Memórias no aparelho: adicionar e substituir uma foto JPEG, PNG ou WebP da câmera/galeria; confirmar orientação, recorte e visualização pública.
 - [ ] Presente premium: entrada clara, aura discreta, toque e ausência de colisões perceptíveis.
 - [ ] Pagamento indisponível: mensagem clara, sem QR, cobrança ou publicação.
 - [ ] Menu de desenvolvimento: testar trenó e estrela cadente; confirmar ausência em build de produção.

@@ -83,4 +83,8 @@ Origem social consistente, autodecoração bloqueada também após restauração
 
 Dimensões da captura 9:16 são preservadas durante toda a sessão e frames são compostos com escala uniforme, eliminando deformação por cópia direta. Títulos longos usam tipografia responsiva em duas linhas; menu e indicador deixam de disputar a mesma região, com fechamento externo, Escape e ARIA preservados.
 
+### 8A.3. Compatibilidade do upload de memórias — tecnicamente concluída
+
+Falhas de `createImageBitmap` em fotografias válidas passam ao decoder `Image`, sem relaxar assinatura, formato, dimensões ou tamanho. Testes reais cobrem JPEG, JPEG com EXIF, PNG, WebP e orientações horizontal/vertical; o backend continua reprocessando tudo como JPEG privado sem metadados.
+
 Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.
