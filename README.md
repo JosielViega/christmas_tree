@@ -241,9 +241,13 @@ O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox 
 
 ## Etapa 08A — estabilização antes do lançamento
 
-Links copiados pela interface usam a origem real do navegador, evitando trocar acidentalmente `localhost` por `127.0.0.1` e perder os cookies do proprietário. A interface mobile usa ações inferiores roláveis, indicadores compactos e áreas seguras. O vídeo 9:16 calcula a distância pelo FOV e pelos limites da estrela/base, mantém a árvore inteira nos dois primeiros segundos e restaura câmera, viewport, DPR e exposição.
+Links copiados pela interface usam a origem real do navegador, evitando trocar acidentalmente `localhost` por `127.0.0.1` e perder os cookies do proprietário. A interface mobile usa duas linhas de ações sem rolagem horizontal, indicadores compactos e áreas seguras. O vídeo 9:16 calcula a distância pelo FOV e pelos limites da estrela/base, mantém a árvore inteira durante uma órbita de 360° e restaura câmera, viewport, DPR e exposição.
 
 Presentes decorativos foram reduzidos para 12 posições determinísticas. Publicações premium novas usam layout v2 mais externo; presentes v1 mantêm as coordenadas históricas. A prévia premium pode ser exposta com `VITE_ENABLE_GIFT_PREVIEW=true`, mas cobranças continuam dependendo exclusivamente dos gates do backend. Consulte [testes e checklist](docs/TESTING.md).
+
+### Etapa 08A.1 — órbita e interface mobile
+
+O vídeo percorre uma órbita contínua e determinística, conclui a volta aos sete segundos e estabiliza na frente no segundo final. Movimento reduzido conserva a composição frontal estática. Ações primárias ocupam a primeira linha no celular; ações secundárias ficam na segunda, e recursos premium indisponíveis aparecem como **Em breve** antes de qualquer toque.
 
 ## Escopo futuro
 

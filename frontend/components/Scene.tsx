@@ -366,6 +366,23 @@ interface StoryCaptureSnapshot {
 
 const nextRenderedFrame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
+const StoryCaptureFillLights: React.FC<{
+  captureActive: React.MutableRefObject<boolean>;
+}> = ({ captureActive }) => {
+  const group = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (group.current) group.current.visible = captureActive.current;
+  });
+
+  return (
+    <group ref={group} visible={false}>
+      <pointLight position={[-14, 4, 10]} intensity={0.42} color="#fff1c7" distance={55} decay={2} />
+      <pointLight position={[12, 3, -12]} intensity={0.38} color="#d9e8ff" distance={55} decay={2} />
+    </group>
+  );
+};
+
 const StoryCaptureController: React.FC<{
   captureActive: React.MutableRefObject<boolean>;
   onReady?: (capture: StoryFrameCapture | null) => void;
@@ -635,6 +652,7 @@ const Scene: React.FC<SceneProps> = ({
         reducedMotion={reducedMotion}
       />
       <StoryCaptureController captureActive={captureActive} onReady={onStoryCaptureReady} onVideoReady={onStoryVideoCaptureReady} />
+      <StoryCaptureFillLights captureActive={captureActive} />
 
       {/* Procedural environment preserves reflective lighting without a runtime CDN asset. */}
       <Environment resolution={256} background={false}>

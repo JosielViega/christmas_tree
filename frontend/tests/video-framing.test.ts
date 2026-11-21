@@ -2,26 +2,45 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { boundsFitPerspective, perspectiveDistanceForBounds, storyCameraFrame } from '../utils/videoFraming.ts';
 
-test('vertical framing keeps the star and gift base inside the initial projection', () => {
-  const aspect = 9 / 16;
-  const frame = storyCameraFrame(0, aspect, 50);
-  assert.equal(boundsFitPerspective(frame.distance, 50, aspect), true);
-  assert.ok(frame.distance > 30, 'portrait framing must move back enough to fit the wide gift base');
+const ASPECT = 9 / 16;
+const FOV = 50;
+
+test('portrait framing keeps the star and gift base visible throughout the orbit', () => {
+  for (let step = 0; step <= 160; step += 1) {
+    const frame = storyCameraFrame(step / 160, ASPECT, FOV);
+    assert.equal(boundsFitPerspective(frame.distance, FOV, ASPECT), true, `frame ${step} must fit the scene bounds`);
+  }
+  assert.ok(storyCameraFrame(0, ASPECT, FOV).distance > 30, 'portrait framing must fit the wide gift base');
 });
 
-test('camera holds the full tree for two seconds then moves smoothly without excessive zoom', () => {
-  const aspect = 9 / 16;
-  const start = storyCameraFrame(0, aspect, 50);
-  const twoSeconds = storyCameraFrame(0.25, aspect, 50);
-  const middle = storyCameraFrame(0.5, aspect, 50);
-  const finish = storyCameraFrame(1, aspect, 50);
-  assert.deepEqual(start, twoSeconds);
-  assert.ok(middle.distance < start.distance);
-  assert.ok(finish.distance >= start.distance * 0.925);
-  assert.notEqual(middle.position[0], 0);
+test('eight-second choreography makes one continuous orbit and settles at the front', () => {
+  const start = storyCameraFrame(0, ASPECT, FOV);
+  const twoSeconds = storyCameraFrame(0.25, ASPECT, FOV);
+  const middleOrbit = storyCameraFrame(0.4375, ASPECT, FOV);
+  const fiveSeconds = storyCameraFrame(0.625, ASPECT, FOV);
+  const sevenSeconds = storyCameraFrame(0.875, ASPECT, FOV);
+  const finish = storyCameraFrame(1, ASPECT, FOV);
+
+  assert.equal(start.angleRadians, 0);
+  assert.ok(twoSeconds.angleRadians > 0 && twoSeconds.angleRadians < Math.PI);
+  assert.ok(Math.abs(middleOrbit.angleRadians - Math.PI) < 1e-10, 'the rear view is reached halfway through the orbit');
+  assert.ok(fiveSeconds.angleRadians > Math.PI && fiveSeconds.angleRadians < Math.PI * 2);
+  assert.ok(Math.abs(sevenSeconds.angleRadians - Math.PI * 2) < 1e-10);
+  assert.deepEqual(sevenSeconds, finish, 'the final second must remain stable at the frontal composition');
+  assert.ok(fiveSeconds.distance < start.distance, 'the middle phase applies a restrained zoom');
 });
 
-test('reduced motion preserves the complete static framing', () => {
-  assert.deepEqual(storyCameraFrame(0, 9 / 16, 50, true), storyCameraFrame(1, 9 / 16, 50, true));
-  assert.throws(() => perspectiveDistanceForBounds(0, 9 / 16, 8, 7));
+test('orbit angle is monotonic and does not jump between sampled frames', () => {
+  let previous = storyCameraFrame(0, ASPECT, FOV);
+  for (let step = 1; step <= 240; step += 1) {
+    const current = storyCameraFrame(step / 240, ASPECT, FOV);
+    assert.ok(current.angleRadians >= previous.angleRadians, `frame ${step} must not reverse direction`);
+    assert.ok(current.angleRadians - previous.angleRadians < 0.08, `frame ${step} must not jump`);
+    previous = current;
+  }
+});
+
+test('reduced motion preserves the complete static frontal framing', () => {
+  assert.deepEqual(storyCameraFrame(0, ASPECT, FOV, true), storyCameraFrame(1, ASPECT, FOV, true));
+  assert.throws(() => perspectiveDistanceForBounds(0, ASPECT, 8, 7));
 });

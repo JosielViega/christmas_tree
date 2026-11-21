@@ -480,23 +480,27 @@ const App: React.FC = () => {
       )}
 
       {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
-        <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-[70] flex w-[min(96vw,48rem)] -translate-x-1/2 flex-nowrap justify-start gap-2 overflow-x-auto px-2 py-1 pointer-events-auto sm:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-[70] grid w-[min(94vw,30rem)] -translate-x-1/2 grid-cols-2 gap-2 px-1 py-1 pointer-events-auto sm:flex sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:justify-center">
           {isOwner ? <>
-            <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70]"><Share2 size={17} /> Compartilhar árvore</button>
-            <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-4 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><Camera size={17} /> Minhas memórias</button>
+            <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70] sm:col-auto sm:shrink-0"><Share2 size={17} /> Compartilhar árvore</button>
+            <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-3 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4"><Camera size={17} /> Memórias</button>
           </> : <>
-            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="min-h-12 shrink-0 whitespace-nowrap rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60">
+            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="col-span-2 min-h-12 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60 sm:col-auto sm:shrink-0">
               {ornamentsLoading ? 'Carregando…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar árvore'}
             </button>
-            {ownTreePath ? <a href={ownTreePath} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Minha árvore</a>
-              : <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Criar minha árvore</button>}
           </>}
-          <button type="button" onClick={() => giftPreviewEnabled ? setGiftPreviewOpen(true) : showToast('A prévia de presentes especiais ainda não está disponível neste ambiente.')} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[#fff1a1]/25 bg-black/65 px-4 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> 🎁 Enviar presente especial</button>
+          {giftPreviewEnabled ? (
+            <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center justify-center gap-1.5 rounded-full border border-[#fff1a1]/25 bg-black/65 px-3 py-3 text-center text-xs font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-white/10 sm:shrink-0 sm:px-4 sm:text-sm"><Gift size={17} /> Presente especial</button>
+          ) : (
+            <button type="button" disabled aria-disabled="true" className="flex min-h-12 cursor-not-allowed items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/55 px-3 py-3 text-center text-xs font-semibold text-white/55 shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4 sm:text-sm"><Gift size={17} /> Presentes · Em breve</button>
+          )}
+          {!isOwner && (ownTreePath ? <a href={ownTreePath} className="flex min-h-12 items-center justify-center gap-1.5 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-3 py-3 text-center text-xs font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4 sm:text-sm"><TreePine size={17} /> Minha árvore</a>
+            : <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center justify-center gap-1.5 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-3 py-3 text-center text-xs font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4 sm:text-sm"><TreePine size={17} /> Criar minha árvore</button>)}
         </div>
       )}
 
       {premiumGifts.length > premiumGiftLimit && !selectedGift && !selectedOrnament && !selectedMemory && !giftPreviewOpen && (
-        <div className="fixed bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.5rem))] left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl">
+        <div className="fixed bottom-[max(8.5rem,calc(env(safe-area-inset-bottom)+7.5rem))] left-1/2 z-[69] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/65 px-4 py-2 text-xs text-white/70 backdrop-blur-xl sm:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.5rem))]">
           <button type="button" disabled={premiumGiftPage === 0} onClick={() => setPremiumGiftPage((page) => Math.max(0, page - 1))} className="disabled:opacity-30">←</button>
           <span>Presentes {premiumGiftPage + 1}/{Math.ceil(premiumGifts.length / premiumGiftLimit)}</span>
           <button type="button" disabled={(premiumGiftPage + 1) * premiumGiftLimit >= premiumGifts.length} onClick={() => setPremiumGiftPage((page) => page + 1)} className="disabled:opacity-30">→</button>
@@ -607,9 +611,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-[100] animate-in slide-in-from-right-8 fade-in duration-300 sm:left-auto sm:right-6">
-          <div className={`w-full sm:min-w-[300px] sm:max-w-md p-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${toast.type === 'error' ? 'bg-red-950/40 border-red-500/30 text-red-100' : 'bg-green-950/40 border-green-500/30 text-green-100'} flex items-start gap-4 relative overflow-hidden group`}>
+      {toast && !ornamentModalOpen && !shareModalOpen && !memoriesPanelOpen && !giftPreviewOpen && !receipt && !createOwnTreeOpen && (
+        <div className="pointer-events-none fixed left-1/2 top-[max(9rem,calc(env(safe-area-inset-top)+8.25rem))] z-[90] w-[min(92vw,26rem)] -translate-x-1/2 animate-in slide-in-from-top-4 fade-in duration-300 sm:left-auto sm:right-6 sm:top-[max(5.5rem,calc(env(safe-area-inset-top)+4.75rem))] sm:translate-x-0">
+          <div className={`pointer-events-auto w-full p-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${toast.type === 'error' ? 'bg-red-950/40 border-red-500/30 text-red-100' : 'bg-green-950/40 border-green-500/30 text-green-100'} flex items-start gap-4 relative overflow-hidden group`}>
             <div className="absolute bottom-0 left-0 h-1 bg-white/10 w-full" />
             <div className={`absolute bottom-0 left-0 h-1 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} animate-[shrink_5s_linear_forwards]`} />
             <div className={`p-2 rounded-xl ${toast.type === 'error' ? 'bg-red-500/20' : 'bg-green-500/20'}`}>

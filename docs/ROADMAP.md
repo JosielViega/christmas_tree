@@ -75,4 +75,8 @@ Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e obser
 
 Origem social consistente, autodecoração bloqueada também após restauração persistente, controles mobile compactos, câmera vertical calculada, exposição temporária, presentes determinísticos, layout premium v2 compatível e diagnóstico local dos efeitos natalinos. Aprovação estética e compatibilidade em aparelhos reais continuam no checklist manual.
 
+### 8A.1. Órbita social e ações mobile — tecnicamente concluída
+
+Órbita determinística de 360° em oito segundos, enquadramento integral por volume 3D, iluminação temporária de captura e composição frontal estável no encerramento. A barra mobile passa a duas linhas sem rolagem horizontal, mantém a ação principal em destaque e sinaliza recursos premium indisponíveis antes da interação.
+
 Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.

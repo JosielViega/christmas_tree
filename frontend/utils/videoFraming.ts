@@ -2,6 +2,7 @@ export interface StoryCameraFrame {
   position: [number, number, number];
   target: [number, number, number];
   distance: number;
+  angleRadians: number;
 }
 
 export const STORY_SCENE_BOUNDS = {
@@ -46,17 +47,43 @@ export const storyCameraFrame = (
     STORY_SCENE_BOUNDS.halfWidth,
     STORY_SCENE_BOUNDS.halfHeight,
   );
-  if (reducedMotion || progress <= 0.25) {
-    return { position: [0, STORY_SCENE_BOUNDS.centerY, fullDistance], target: [0, STORY_SCENE_BOUNDS.centerY, 0], distance: fullDistance };
+  if (reducedMotion) {
+    return {
+      position: [0, STORY_SCENE_BOUNDS.centerY, fullDistance],
+      target: [0, STORY_SCENE_BOUNDS.centerY, 0],
+      distance: fullDistance,
+      angleRadians: 0,
+    };
   }
 
-  const transition = smoothStep((progress - 0.25) / 0.375);
-  const finalPhase = smoothStep((progress - 0.625) / 0.375);
-  const distance = fullDistance * (1 - transition * 0.075);
-  const x = 2.4 * transition - 1.2 * finalPhase;
-  const y = STORY_SCENE_BOUNDS.centerY + 0.35 * transition;
-  const z = Math.sqrt(Math.max(1, distance * distance - x * x));
-  return { position: [x, y, z], target: [0, STORY_SCENE_BOUNDS.centerY - 0.1, 0], distance };
+  // Complete the orbit by seven seconds, then keep the frontal composition
+  // stable for the final second. The sinusoidal term eases the angular speed
+  // at both ends without changing direction or introducing a cut.
+  const orbitProgress = Math.min(1, progress / 0.875);
+  const orbitFraction = orbitProgress - Math.sin(orbitProgress * Math.PI * 2) / (Math.PI * 2);
+  const angleRadians = orbitFraction * Math.PI * 2;
+
+  // Between two and five seconds, approach the tree only as far as the full
+  // scene bounds allow. Return to the wide composition while completing the
+  // orbit from five to seven seconds.
+  const minimumSafeDistance = perspectiveDistanceForBounds(
+    fovDegrees,
+    aspect,
+    STORY_SCENE_BOUNDS.halfWidth,
+    STORY_SCENE_BOUNDS.halfHeight,
+    1.02,
+  );
+  const zoomIn = smoothStep((progress - 0.25) / 0.375);
+  const zoomOut = smoothStep((progress - 0.625) / 0.25);
+  const distance = fullDistance - (fullDistance - minimumSafeDistance) * zoomIn * (1 - zoomOut);
+  const height = STORY_SCENE_BOUNDS.centerY + Math.sin(orbitProgress * Math.PI) * 0.22;
+
+  return {
+    position: [Math.sin(angleRadians) * distance, height, Math.cos(angleRadians) * distance],
+    target: [0, STORY_SCENE_BOUNDS.centerY, 0],
+    distance,
+    angleRadians,
+  };
 };
 
 export const boundsFitPerspective = (distance: number, fovDegrees: number, aspect: number): boolean => {

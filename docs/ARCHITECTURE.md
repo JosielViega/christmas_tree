@@ -173,6 +173,12 @@ O backend fornece `public_path`; o frontend combina esse caminho com `window.loc
 
 `videoFraming.ts` calcula distância pela projeção perspectiva 9:16. `StoryCaptureController` aplica exposição temporária e restaura renderer mesmo em erro/cancelamento. O layout premium v1 permanece legível; novas publicações usam v2. `AmbientNight` mantém agendamento e qualidade adaptativa, com eventos de diagnóstico compilados somente em desenvolvimento.
 
+## Refinamento 08A.1
+
+`videoFraming.ts` também parametriza a captura por ângulo, raio e altura. A câmera completa 360° até 7 s com velocidade angular suavizada, usa um zoom limitado pela projeção do volume completo da cena entre 2–5 s, retorna ao raio inicial entre 5–7 s e mantém a frente estática entre 7–8 s. Em movimento reduzido, ângulo e câmera permanecem fixos.
+
+`StoryCaptureFillLights` adiciona dois preenchimentos discretos somente enquanto `captureActive` é verdadeiro. O mesmo ciclo que restaura câmera, controles, viewport, DPR e exposição desativa a iluminação no fim, cancelamento, erro ou desmontagem. A interface inferior usa grid de duas linhas em telas estreitas e flex no desktop, sem uma segunda implementação de interface.
+
 ## Produção
 
 O mirror HostGator inclui app, migration, views, rotas, assets compilados e dependências PHP de produção. Exclui `.env`, frontend fonte, testes, logs, cache e uploads. A migration é executada separadamente e o diretório `storage/cache` precisa ser gravável pelo PHP.

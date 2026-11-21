@@ -28,7 +28,9 @@ Compatibilidade e desempenho precisam ser confirmados em dispositivos reais. Gra
 
 O link compartilhado é montado com a origem atual do navegador e o `public_path` validado. Isso mantém os cookies quando o proprietário abre o próprio link na mesma origem. `localhost` e `127.0.0.1` são origens distintas; trocar manualmente entre elas exige recuperação.
 
-O vídeo mantém oito segundos: 0–2 s com árvore, estrela e base completas; 2–5 s com aproximação lateral suave; 5–8 s com enquadramento cinematográfico limitado e convite social. Distância deriva do FOV e do aspecto 9:16. Exposição é elevada apenas durante captura e restaurada ao finalizar, falhar ou cancelar.
+O vídeo mantém oito segundos e uma volta completa: 0–2 s inicia a órbita com árvore, estrela e base completas; 2–5 s continua ao redor da cena com aproximação limitada; 5–7 s conclui os 360° e retorna à frente; 7–8 s estabiliza a composição frontal para o convite social. Distância deriva do FOV, do aspecto 9:16 e do volume completo da cena. Exposição e luzes de preenchimento são temporárias e restauradas ao finalizar, falhar, cancelar ou desmontar.
+
+Com movimento reduzido, a câmera permanece frontal e estática pelos oito segundos. A trajetória é calculada somente por progresso, ângulo, raio e altura, portanto não depende da taxa de quadros nem acumula erro entre frames.
 
 ## Privacidade
 

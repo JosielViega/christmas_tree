@@ -11,6 +11,8 @@ test('capture exposure is temporary and renderer state is restored', () => {
   assert.match(scene, /toneMappingExposure: gl\.toneMappingExposure/);
   assert.match(scene, /gl\.toneMappingExposure = saved\.toneMappingExposure/);
   assert.match(scene, /prepare\(options\.width, options\.height, 1\.22\)/);
+  assert.match(scene, /StoryCaptureFillLights/);
+  assert.match(scene, /group\.current\.visible = captureActive\.current/);
 });
 
 test('ambient diagnostics are development-only and do not alter normal schedules', () => {
