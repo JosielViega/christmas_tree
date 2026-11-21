@@ -41,6 +41,7 @@ final class TreePageController
             'csrf_token' => $this->csrf->token(),
             'tree' => $tree->toPublicArray(),
             'is_owner' => $isOwner,
+            'public_path' => '/t/' . $tree->publicId,
             'public_url' => public_tree_url((string) $this->appConfig['url'], $tree->publicId),
             'has_own_tree' => $primaryTree !== null,
             'own_tree_path' => $primaryTree !== null ? '/t/' . $primaryTree->publicId : null,

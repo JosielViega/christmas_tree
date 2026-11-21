@@ -15,7 +15,7 @@ use RuntimeException;
 
 final class GiftPublicationService
 {
-    public const LAYOUT_VERSION = 1;
+    public const LAYOUT_VERSION = 2;
     public const VISIBLE_LIMIT = 12;
     private readonly Closure $clock;
     private readonly DateTimeImmutable $revealAt;

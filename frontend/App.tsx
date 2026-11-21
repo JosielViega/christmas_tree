@@ -26,6 +26,7 @@ import {
 import type { TreeProgressionStage } from './utils/treeProgression';
 import { getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
 import { getPremiumGiftTransform } from './utils/premiumGiftLayout';
+import { sameOriginTreeUrl } from './utils/sameOriginUrl';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
@@ -38,7 +39,10 @@ const App: React.FC = () => {
   const [memoriesPanelOpen, setMemoriesPanelOpen] = useState(false);
   const [memoriesBusy, setMemoriesBusy] = useState(false);
   const [tree, setTree] = useState<ChristmasTreeData | null>(initialBootstrap?.tree ?? null);
-  const [publicTreeUrl, setPublicTreeUrl] = useState(initialBootstrap?.public_url ?? '');
+  const [publicTreeUrl, setPublicTreeUrl] = useState(() => {
+    const path = initialBootstrap?.public_path ?? (initialBootstrap?.tree ? `/t/${initialBootstrap.tree.public_id}` : null);
+    return path ? sameOriginTreeUrl(path) : '';
+  });
   const [isOwner, setIsOwner] = useState(initialBootstrap?.is_owner ?? false);
   const [ownTreePath, setOwnTreePath] = useState(initialBootstrap?.own_tree_path ?? null);
   const [csrfToken, setCsrfToken] = useState(initialBootstrap?.csrf_token ?? '');
@@ -252,14 +256,15 @@ const App: React.FC = () => {
   });
 
   const handleAccess = (access: ChristmasTreeAccess) => {
+    const sameOriginAccess = { ...access, public_url: sameOriginTreeUrl(access.public_path) };
     setTree(access.tree);
-    setPublicTreeUrl(access.public_url);
+    setPublicTreeUrl(sameOriginAccess.public_url);
     setIsOwner(true);
     setOwnTreePath(access.public_path);
     setUserName(access.tree.owner_name);
     setIsNameSet(true);
     setInteractionMode(InteractionMode.VIEW);
-    setReceipt(access);
+    setReceipt(sameOriginAccess);
     setOrnaments([]);
     setOrnamentsReady(false);
     dismissProgressionUnlock();
@@ -475,21 +480,18 @@ const App: React.FC = () => {
       )}
 
       {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
-        <div className="fixed bottom-[max(7.5rem,calc(env(safe-area-inset-bottom)+6rem))] left-1/2 z-[70] flex w-[min(94vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 px-1 pointer-events-auto md:bottom-28">
+        <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-[70] flex w-[min(96vw,48rem)] -translate-x-1/2 flex-nowrap justify-start gap-2 overflow-x-auto px-2 py-1 pointer-events-auto sm:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {isOwner ? <>
-            <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="flex min-h-12 items-center gap-2 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70]"><Share2 size={17} /> 🎄 Convide seus amigos para decorar!</button>
-            <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><Camera size={17} /> 📸 Minhas memórias</button>
-            <p className="w-full text-center text-[11px] text-white/55">Sua árvore ganha vida com as mensagens dos seus amigos.</p>
+            <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70]"><Share2 size={17} /> Compartilhar árvore</button>
+            <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-4 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><Camera size={17} /> Minhas memórias</button>
           </> : <>
-            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="min-h-12 rounded-full bg-[#1cbd62] px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60">
+            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="min-h-12 shrink-0 whitespace-nowrap rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60">
               {ornamentsLoading ? 'Carregando…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar árvore'}
             </button>
             {ownTreePath ? <a href={ownTreePath} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Minha árvore</a>
               : <button type="button" onClick={() => setCreateOwnTreeOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-5 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl"><TreePine size={17} /> Criar minha árvore</button>}
           </>}
-          {giftPreviewEnabled && (
-            <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-5 py-3 text-sm font-semibold text-white/75 shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> Enviar presente especial</button>
-          )}
+          <button type="button" onClick={() => giftPreviewEnabled ? setGiftPreviewOpen(true) : showToast('A prévia de presentes especiais ainda não está disponível neste ambiente.')} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[#fff1a1]/25 bg-black/65 px-4 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-white/10"><Gift size={17} /> 🎁 Enviar presente especial</button>
         </div>
       )}
 
@@ -507,16 +509,9 @@ const App: React.FC = () => {
           isOwner={isOwner}
           unlockedStage={unlockedProgressionStage}
           onDismissUnlock={dismissProgressionUnlock}
+          messageOverview={messageOverview}
+          messagesLoading={messagesLoading}
         />
-      )}
-
-      {tree && isOwner && messageOverview && !receipt && !selectedOrnament && !selectedGift && !selectedMemory && (
-        <div className="fixed right-3 top-[max(14rem,calc(env(safe-area-inset-top)+13rem))] z-[65] max-w-[min(80vw,19rem)] rounded-2xl border border-[#fff1a1]/20 bg-[#07120d]/80 px-4 py-3 text-right text-white shadow-xl backdrop-blur-xl pointer-events-none sm:top-[max(6rem,calc(env(safe-area-inset-top)+5rem))]">
-          <p className="text-xs font-semibold text-[#fff1a1]">🎁 Você recebeu {messageOverview.count} {messageOverview.count === 1 ? 'mensagem especial' : 'mensagens especiais'}!</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/50">
-            {messagesLoading ? 'Consultando presentes…' : messageOverview.revealed ? 'Seus presentes de Natal estão disponíveis!' : 'Suas mensagens serão reveladas em 25 de dezembro.'}
-          </p>
-        </div>
       )}
 
       {ornamentModalOpen && tree && (

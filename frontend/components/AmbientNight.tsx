@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
@@ -32,12 +32,25 @@ const Reindeer: React.FC<{ x: number }> = ({ x }) => (
 const SantaSleigh: React.FC<AmbientNightProps> = ({ quality, reducedMotion, recording, captureActive }) => {
   const group = useRef<THREE.Group>(null);
   const schedule = useRef(createAmbientSchedule(SANTA_SCHEDULE));
+  const debugForced = useRef(false);
   const trailCount = getAmbientPolicy({ reducedMotion, captureActive: false, recording, quality }).trailParticleCount;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const preview = (event: Event) => {
+      if ((event as CustomEvent).detail !== 'santa') return;
+      schedule.current = { phase: 'active', remainingMs: SANTA_SCHEDULE.durationMs, progress: 0 };
+      debugForced.current = true;
+    };
+    window.addEventListener('christmas-tree:ambient-preview', preview);
+    return () => window.removeEventListener('christmas-tree:ambient-preview', preview);
+  }, []);
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const animate = !reducedMotion && !captureActive.current && !recording && quality !== 'off';
-    advanceAmbientSchedule(schedule.current, delta * 1_000, animate, SANTA_SCHEDULE);
+    const animate = debugForced.current || (!reducedMotion && !captureActive.current && !recording && quality !== 'off');
+    const transition = advanceAmbientSchedule(schedule.current, delta * 1_000, animate, SANTA_SCHEDULE);
+    if (debugForced.current && transition === 'finished') debugForced.current = false;
     const visible = animate && schedule.current.phase === 'active';
     group.current.visible = visible;
     if (!visible) return;
@@ -72,11 +85,24 @@ const SantaSleigh: React.FC<AmbientNightProps> = ({ quality, reducedMotion, reco
 const ShootingStar: React.FC<AmbientNightProps> = ({ quality, reducedMotion, recording, captureActive }) => {
   const group = useRef<THREE.Group>(null);
   const schedule = useRef(createAmbientSchedule(SHOOTING_STAR_SCHEDULE));
+  const debugForced = useRef(false);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const preview = (event: Event) => {
+      if ((event as CustomEvent).detail !== 'star') return;
+      schedule.current = { phase: 'active', remainingMs: SHOOTING_STAR_SCHEDULE.durationMs, progress: 0 };
+      debugForced.current = true;
+    };
+    window.addEventListener('christmas-tree:ambient-preview', preview);
+    return () => window.removeEventListener('christmas-tree:ambient-preview', preview);
+  }, []);
 
   useFrame((_, delta) => {
     if (!group.current) return;
-    const animate = !reducedMotion && !captureActive.current && !recording && quality !== 'off';
-    advanceAmbientSchedule(schedule.current, delta * 1_000, animate, SHOOTING_STAR_SCHEDULE);
+    const animate = debugForced.current || (!reducedMotion && !captureActive.current && !recording && quality !== 'off');
+    const transition = advanceAmbientSchedule(schedule.current, delta * 1_000, animate, SHOOTING_STAR_SCHEDULE);
+    if (debugForced.current && transition === 'finished') debugForced.current = false;
     const visible = animate && schedule.current.phase === 'active';
     group.current.visible = visible;
     if (!visible) return;

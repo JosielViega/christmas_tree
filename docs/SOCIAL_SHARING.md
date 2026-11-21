@@ -24,6 +24,12 @@ Sem `MediaRecorder` ou `captureStream`, a interface explica a limitação e mant
 
 Compatibilidade e desempenho precisam ser confirmados em dispositivos reais. Gravação 1080p pode consumir memória e GPU consideráveis; por isso a seleção de perfil é conservadora. Navegadores podem ainda recusar um codec anunciado ou impedir compartilhamento de determinado tipo de arquivo.
 
+## Estabilização 08A
+
+O link compartilhado é montado com a origem atual do navegador e o `public_path` validado. Isso mantém os cookies quando o proprietário abre o próprio link na mesma origem. `localhost` e `127.0.0.1` são origens distintas; trocar manualmente entre elas exige recuperação.
+
+O vídeo mantém oito segundos: 0–2 s com árvore, estrela e base completas; 2–5 s com aproximação lateral suave; 5–8 s com enquadramento cinematográfico limitado e convite social. Distância deriva do FOV e do aspecto 9:16. Exposição é elevada apenas durante captura e restaurada ao finalizar, falhar ou cancelar.
+
 ## Privacidade
 
 A composição usa somente o nome público do proprietário e a quantidade de participações. Mensagens secretas, códigos de recuperação, tokens administrativos e credenciais nunca fazem parte do canvas, do vídeo ou do compartilhamento. Blobs e URLs de objeto existem apenas na sessão local e são liberados após o uso.

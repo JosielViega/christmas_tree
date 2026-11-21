@@ -24,9 +24,10 @@ const Overlay: React.FC<OverlayProps> = ({ isMusicPlaying, toggleMusic, userName
 
   return (
     <div id="overlay-container" className="pointer-events-none absolute inset-0 z-50">
-      <header className="flex items-start justify-between gap-3 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
-        <div className="min-w-0 flex-1 text-center sm:pl-12">
-          <h1 className="truncate text-3xl leading-tight text-[#fff1a1] sm:text-5xl" style={{ fontFamily: "'Great Vibes', cursive", textShadow: '0 0 20px rgba(255, 241, 161, 0.5)' }}>
+      <header className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-start gap-2 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
+        <span aria-hidden="true" />
+        <div className="min-w-0 text-center">
+          <h1 className="truncate text-[clamp(1.65rem,8vw,3rem)] leading-tight text-[#fff1a1]" style={{ fontFamily: "'Great Vibes', cursive", textShadow: '0 0 20px rgba(255, 241, 161, 0.5)' }}>
             Feliz Natal{userName ? `, ${userName}` : ''}!
           </h1>
           {treeOwnerName && <p className="mx-auto mt-1 w-fit max-w-full truncate rounded-full border border-white/10 bg-black/45 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70 backdrop-blur-md">🎄 Árvore de {treeOwnerName}</p>}
@@ -42,6 +43,10 @@ const Overlay: React.FC<OverlayProps> = ({ isMusicPlaying, toggleMusic, userName
               {isMusicPlaying ? 'Pausar música' : 'Tocar música'}
             </button>
             {fullscreenSupported && <button type="button" onClick={() => void toggleFullscreen()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left hover:bg-white/10"><Maximize size={18} className="text-[#fff1a1]" />Tela cheia</button>}
+            {import.meta.env.DEV && <>
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('christmas-tree:ambient-preview', { detail: 'santa' }))} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left text-amber-100 hover:bg-white/10">Testar trenó</button>
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('christmas-tree:ambient-preview', { detail: 'star' }))} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left text-amber-100 hover:bg-white/10">Testar estrela</button>
+            </>}
             <a href="/credits" className="flex min-h-11 w-full items-center rounded-xl px-3 text-white/75 hover:bg-white/10 hover:text-white">Créditos</a>
           </div>}
         </div>}

@@ -12,7 +12,7 @@ test('premium gift layout is deterministic and keeps the first visible page sepa
 
 test('premium gift layout rejects invalid indices and versions', () => {
   assert.throws(() => getPremiumGiftTransform(-1));
-  assert.throws(() => getPremiumGiftTransform(0, 2 as 1));
+  assert.throws(() => getPremiumGiftTransform(0, 3));
 });
 
 test('free decoration UI excludes present while the legacy renderer remains', () => {

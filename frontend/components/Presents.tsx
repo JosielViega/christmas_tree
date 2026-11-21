@@ -7,6 +7,7 @@ import { createProceduralGiftTexture } from '../utils/giftTextures';
 import type { GiftWrappingPattern } from '../utils/giftTextures';
 import type { PremiumGiftData } from '../types';
 import { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
+import { getDecorativeGiftTransforms, horizontalGiftDistance } from '../utils/decorativeGiftLayout';
 export { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
 
 interface PresentProps {
@@ -217,6 +218,11 @@ const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: Premiu
       onClick={(event) => { event.stopPropagation(); onSelect?.(gift); }}
       onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { document.body.style.cursor = 'default'; }}>
+      <pointLight position={[0, 1.1, 0.4]} color="#fff1a1" intensity={0.45} distance={3.4} decay={2} />
+      <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
+        <ringGeometry args={[0.72, 1.18, 32]} />
+        <meshBasicMaterial color="#f2cf62" transparent opacity={0.16} depthWrite={false} />
+      </mesh>
       <GiftBoxModel texture={publishedTexture ?? fallbackTexture} ribbonColor={ribbon} />
     </group>
   );
@@ -225,70 +231,20 @@ const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: Premiu
 const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0, premiumGifts = [], onPremiumGiftSelect }) => {
   const presents = useMemo(() => {
     const items: PresentProps[] = [];
-    const count = 25;
-    const baseRadius = TREE_CONFIG.RADIUS_BOTTOM + 1.2;
-    const radiusVariance = 3.5;
     const patterns = ['solid', 'stripes', 'dots', 'checkers'] as const;
-
-    let attempts = 0;
-    const maxAttempts = 1000;
-
-    while (items.length < count && attempts < maxAttempts) {
-      attempts++;
-
-      const angle = (Math.random() * Math.PI * 2);
-      const r = baseRadius + Math.random() * radiusVariance;
-
-      const x = Math.cos(angle) * r;
-      const z = Math.sin(angle) * r;
-      const y = (-TREE_CONFIG.HEIGHT / 2) + (Math.random() * 0.4);
-
-      const s = 0.6 + Math.random() * 0.7;
-      const tempPos = new THREE.Vector3(x, y, z);
-
-      // COLLISION DETECTION
-      let collision = false;
-      const myRadius = s * 0.7;
-
-      for (const item of items) {
-        const otherRadius = item.scale.x * 0.7;
-        const dist = tempPos.distanceTo(item.position);
-        if (dist < (myRadius + otherRadius + 0.2)) {
-           collision = true;
-           break;
-        }
-      }
-
-      if (!collision) {
-        const color = COLORS.PRESENTS[Math.floor(Math.random() * COLORS.PRESENTS.length)];
-        const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-        const ribbonColor = Math.random() > 0.6 ? '#FFD700' : COLORS.RIBBON;
-
-        // More randomized explode direction (including vertical and varying distances)
-        const explodeDir = new THREE.Vector3(
-          x + (Math.random() - 0.5) * 10,
-          Math.random() * 15 - 5,
-          z + (Math.random() - 0.5) * 10
-        ).normalize().multiplyScalar(20 + Math.random() * 20);
-
-        const explodeRotation = new THREE.Vector3(
-          Math.random() * Math.PI * 4,
-          Math.random() * Math.PI * 4,
-          Math.random() * Math.PI * 4
-        );
-
-        items.push({
-          position: tempPos,
-          rotation: new THREE.Euler(0, Math.random() * Math.PI * 2, 0),
-          scale: new THREE.Vector3(s, s, s),
-          color,
-          pattern,
-          ribbonColor,
-          explodeDir,
-          explodeRotation
-        });
-      }
-    }
+    getDecorativeGiftTransforms().forEach((transform, index) => {
+      const position = new THREE.Vector3(...transform.position);
+      items.push({
+        position,
+        rotation: new THREE.Euler(0, transform.rotationY, 0),
+        scale: new THREE.Vector3(transform.scale, transform.scale, transform.scale),
+        color: COLORS.PRESENTS[index % COLORS.PRESENTS.length],
+        pattern: patterns[index % patterns.length],
+        ribbonColor: index % 3 === 0 ? '#FFD700' : COLORS.RIBBON,
+        explodeDir: position.clone().normalize().multiplyScalar(22 + index),
+        explodeRotation: new THREE.Vector3(2 + index * 0.2, 3 + index * 0.15, 1.5),
+      });
+    });
 
     return items;
   }, []);
@@ -317,7 +273,10 @@ const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCoun
 
   return (
     <group>
-      {presents.map((p, i) => (
+      {presents.filter((present) => premiumGifts.every((gift) => horizontalGiftDistance(
+        [present.position.x, present.position.y, present.position.z],
+        getPremiumGiftTransform(gift.position_index, gift.layout_version).position,
+      ) >= 1.55)).map((p, i) => (
         <PresentBox key={i} {...p} isExploded={isExploded} />
       ))}
       {specialPresents.slice(0, specialGiftCount).map((present, index) => (

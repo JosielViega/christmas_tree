@@ -167,6 +167,12 @@ Nenhum vídeo, frame, mensagem ou credencial é enviado ao PHP. Dispositivos mod
 
 `TreePageController` renderiza título, descrição, canonical, Open Graph e Twitter Card antes do JavaScript. A imagem `public/assets/images/christmas-tree-social.jpg` é genérica, estática e compartilhada entre árvores; apenas título e descrição são personalizados. Nenhuma mensagem é consultada para produzir metadados.
 
+## Estabilização 08A
+
+O backend fornece `public_path`; o frontend combina esse caminho com `window.location.origin` exclusivamente para compartilhamento. A autorização continua baseada em sessão/token administrativo ou credencial persistente validada no banco, nunca no caminho público. Cookies não atravessam hostnames diferentes.
+
+`videoFraming.ts` calcula distância pela projeção perspectiva 9:16. `StoryCaptureController` aplica exposição temporária e restaura renderer mesmo em erro/cancelamento. O layout premium v1 permanece legível; novas publicações usam v2. `AmbientNight` mantém agendamento e qualidade adaptativa, com eventos de diagnóstico compilados somente em desenvolvimento.
+
 ## Produção
 
 O mirror HostGator inclui app, migration, views, rotas, assets compilados e dependências PHP de produção. Exclui `.env`, frontend fonte, testes, logs, cache e uploads. A migration é executada separadamente e o diretório `storage/cache` precisa ser gravável pelo PHP.

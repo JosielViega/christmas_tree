@@ -52,6 +52,10 @@ Sem credenciais configuradas, `GET /api/payments/catalog` informa `available=fal
 - Se a conexão cair antes de o provedor devolver o ID da order, o pedido local permanece `pending` e protegido. A mesma solicitação deve ser repetida com o mesmo e-mail; a chave idempotente do provedor recupera a cobrança sem duplicá-la. Sem ID oficial não há consulta segura por cron, portanto o arquivo não é apagado automaticamente.
 - A ativação comercial exige revisão jurídica/fiscal, credenciais de produção, HTTPS e teste manual do webhook no painel do provedor.
 
+## Entrada premium na Etapa 08A
+
+`VITE_ENABLE_GIFT_PREVIEW=true` expõe a personalização, mas não habilita pagamentos. Para sandbox são necessários `PAYMENTS_ENABLED=true`, `PAYMENTS_ENVIRONMENT=sandbox`, `PAYMENTS_PROVIDER=mercadopago`, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET`. Produção exige adicionalmente `APP_ENV=production`, HTTPS e `PAYMENTS_ALLOW_PRODUCTION=true`; esta etapa não ativa esses valores. Catálogo indisponível não cria cobrança, não simula aprovação e não publica presente.
+
 Referências oficiais consultadas em 20/11/2026:
 
 - [Pix no Checkout Transparente via Orders API](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix)

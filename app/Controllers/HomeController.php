@@ -42,6 +42,7 @@ final class HomeController
             'csrf_token' => $this->csrf->token(),
             'tree' => null,
             'is_owner' => false,
+            'public_path' => null,
             'public_url' => null,
             'has_own_tree' => false,
             'own_tree_path' => null,

@@ -25,6 +25,7 @@ import { STORY_VIDEO_DURATION_MS } from '../utils/videoRecording';
 import type { TreeProgressionEffects } from '../utils/treeProgression';
 import { getInitialAmbientQuality } from '../utils/ambientEffects';
 import type { AmbientQuality } from '../utils/ambientEffects';
+import { storyCameraFrame } from '../utils/videoFraming';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -360,6 +361,7 @@ interface StoryCaptureSnapshot {
   top: number;
   left: number;
   dpr: number;
+  toneMappingExposure: number;
 }
 
 const nextRenderedFrame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -383,9 +385,9 @@ const StoryCaptureController: React.FC<{
     const animation = videoAnimation.current;
     if (!animation || !(camera instanceof THREE.PerspectiveCamera)) return;
     const progress = Math.min(1, (performance.now() - animation.startedAt) / animation.durationMs);
-    const angle = animation.reducedMotion ? 0 : progress * Math.PI * 2;
-    camera.position.set(Math.sin(angle) * 23.5, 0, Math.cos(angle) * 23.5);
-    camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
+    const frame = storyCameraFrame(progress, camera.aspect, camera.fov, animation.reducedMotion);
+    camera.position.set(...frame.position);
+    camera.lookAt(...frame.target);
   });
 
   useEffect(() => {
@@ -408,6 +410,7 @@ const StoryCaptureController: React.FC<{
         top: current.size.top,
         left: current.size.left,
         dpr: current.viewport.dpr,
+        toneMappingExposure: gl.toneMappingExposure,
       };
     };
     const restore = (saved: StoryCaptureSnapshot) => {
@@ -420,6 +423,7 @@ const StoryCaptureController: React.FC<{
         camera.fov = saved.cameraFov;
         camera.zoom = saved.cameraZoom;
         camera.updateProjectionMatrix();
+        gl.toneMappingExposure = saved.toneMappingExposure;
         if (orbitControls) {
           if (saved.controlsTarget && orbitControls.target) orbitControls.target.copy(saved.controlsTarget);
           if (saved.controlsEnabled !== null) orbitControls.enabled = saved.controlsEnabled;
@@ -433,17 +437,19 @@ const StoryCaptureController: React.FC<{
         invalidate();
       }
     };
-    const prepare = (width: number, height: number) => {
+    const prepare = (width: number, height: number, exposure: number) => {
       if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
       captureActive.current = true;
       if (orbitControls && typeof orbitControls.enabled === 'boolean') orbitControls.enabled = false;
-      camera.position.set(0, 0, 23.5);
+      const frame = storyCameraFrame(0, width / height, CAMERA_CONFIG.FOV);
+      camera.position.set(...frame.position);
       camera.up.set(0, 1, 0);
-      camera.lookAt(CAMERA_CONFIG.LOOK_AT_OFFSET);
+      camera.lookAt(...frame.target);
       camera.fov = CAMERA_CONFIG.FOV;
       camera.zoom = 1;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      gl.toneMappingExposure = exposure;
       setDpr(1);
       setSize(width, height, false, 0, 0);
     };
@@ -451,7 +457,7 @@ const StoryCaptureController: React.FC<{
       if (captureActive.current) throw new Error('Já existe uma captura da árvore em andamento.');
       return withTemporaryCaptureState<StoryCaptureSnapshot, HTMLCanvasElement>(
         snapshot,
-        () => prepare(STORY_SCENE_WIDTH, STORY_SCENE_HEIGHT),
+        () => prepare(STORY_SCENE_WIDTH, STORY_SCENE_HEIGHT, 1.1),
         async () => {
           await nextRenderedFrame();
           await nextRenderedFrame();
@@ -479,7 +485,7 @@ const StoryCaptureController: React.FC<{
         restore(saved);
       };
       try {
-        prepare(options.width, options.height);
+        prepare(options.width, options.height, 1.22);
         videoAnimation.current = {
           startedAt: performance.now(),
           durationMs: STORY_VIDEO_DURATION_MS,

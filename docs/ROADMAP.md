@@ -71,4 +71,8 @@ Catálogo controlado pelo servidor, pedidos imutáveis em centavos, Checkout Tra
 
 Medir dispositivos reais, acessibilidade, privacidade, segurança, cache e observabilidade antes da produção.
 
+### 8A. Estabilização visual e funcional — tecnicamente concluída
+
+Origem social consistente, autodecoração bloqueada também após restauração persistente, controles mobile compactos, câmera vertical calculada, exposição temporária, presentes determinísticos, layout premium v2 compatível e diagnóstico local dos efeitos natalinos. Aprovação estética e compatibilidade em aparelhos reais continuam no checklist manual.
+
 Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.

@@ -65,6 +65,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
   const [draft, setDraft] = useState<GiftDraftAccess | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [paymentAvailable, setPaymentAvailable] = useState(false);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [products, setProducts] = useState<GiftProduct[]>([]);
   const [productCode, setProductCode] = useState('personalized');
   const [payerEmail, setPayerEmail] = useState('');
@@ -82,18 +83,16 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
   }, [photo, style, mode, senderName, message]);
 
   useEffect(() => {
-    if (!draft || draft.gift.status !== 'draft') return;
     let active = true;
     void fetchGiftCatalog().then((result) => {
       if (!active) return;
       setPaymentAvailable(result.available);
       setProducts(result.products);
       if (!result.products.some((product) => product.code === productCode) && result.products[0]) setProductCode(result.products[0].code);
-    }).catch(() => {
-      if (active) setPaymentAvailable(false);
-    });
+      setCatalogLoaded(true);
+    }).catch(() => { if (active) { setPaymentAvailable(false); setCatalogLoaded(true); } });
     return () => { active = false; };
-  }, [draft, productCode]);
+  }, [productCode]);
 
   useEffect(() => {
     if (!draft || !accessToken || (order?.status !== 'pending' && !(order?.status === 'paid' && order.publication_status !== 'published'))) return;
@@ -223,7 +222,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
 
   return (
     <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="gift-preview-title" onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
-      <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#fff1a1]/20 bg-[#07120d] text-white shadow-2xl md:max-h-[92vh] md:rounded-3xl">
+      <div className="relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[#fff1a1]/20 bg-[#07120d] pb-[env(safe-area-inset-bottom)] text-white shadow-2xl md:max-h-[92vh] md:rounded-3xl md:pb-0">
         <button type="button" onClick={onClose} className="absolute right-3 top-3 z-20 rounded-full bg-black/35 p-2 text-white/65 hover:bg-white/10 hover:text-white" aria-label="Fechar prévia"><X size={20} /></button>
 
         <div className="grid min-h-0 flex-1 md:grid-cols-[0.92fr_1.08fr]">
@@ -231,6 +230,7 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
             <div className="flex items-center gap-2 text-[#fff1a1]"><Gift size={22} /><span className="text-xs font-bold uppercase tracking-[0.18em]">Preparação experimental</span></div>
             <h2 id="gift-preview-title" className="mt-3 text-2xl font-bold">Prévia de presente personalizado</h2>
             <p className="mt-2 text-sm leading-relaxed text-white/65">Transforme uma fotografia em uma embalagem de presente natalina!</p>
+            {catalogLoaded && !paymentAvailable && <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-xs leading-relaxed text-amber-100">Você pode conhecer e personalizar o recurso, mas os pagamentos estão indisponíveis neste ambiente. Nenhuma cobrança ou publicação será criada.</p>}
             <div className="mt-4 flex gap-2 rounded-2xl border border-emerald-300/15 bg-emerald-300/5 p-3 text-xs leading-relaxed text-emerald-100/75">
               <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-300" />
               <p>A fotografia original permanece neste navegador. Somente a textura final 512×512 será enviada para armazenamento privado.</p>

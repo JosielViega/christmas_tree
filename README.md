@@ -239,6 +239,12 @@ Rotas:
 
 O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox é configurado explicitamente. Sem credenciais, informa indisponibilidade e não cria cobranças. Pagamento confirmado muda apenas o estado para `paid`; não publica o presente. Execute `composer gifts:cleanup` por cron para reconciliar pendências antes da limpeza. Veja [armazenamento privado](docs/GIFT_STORAGE.md) e [pagamentos](docs/PAYMENTS.md).
 
+## Etapa 08A — estabilização antes do lançamento
+
+Links copiados pela interface usam a origem real do navegador, evitando trocar acidentalmente `localhost` por `127.0.0.1` e perder os cookies do proprietário. A interface mobile usa ações inferiores roláveis, indicadores compactos e áreas seguras. O vídeo 9:16 calcula a distância pelo FOV e pelos limites da estrela/base, mantém a árvore inteira nos dois primeiros segundos e restaura câmera, viewport, DPR e exposição.
+
+Presentes decorativos foram reduzidos para 12 posições determinísticas. Publicações premium novas usam layout v2 mais externo; presentes v1 mantêm as coordenadas históricas. A prévia premium pode ser exposta com `VITE_ENABLE_GIFT_PREVIEW=true`, mas cobranças continuam dependendo exclusivamente dos gates do backend. Consulte [testes e checklist](docs/TESTING.md).
+
 ## Escopo futuro
 
 Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

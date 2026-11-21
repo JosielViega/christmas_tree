@@ -82,6 +82,7 @@ export interface ChristmasTreeBootstrap {
   tree: ChristmasTreeData | null;
   is_owner: boolean;
   public_url: string | null;
+  public_path?: string | null;
   has_own_tree?: boolean;
   own_tree_path?: string | null;
 }
@@ -120,7 +121,7 @@ export interface PremiumGiftData {
   gift_style: 'classic' | 'magic' | 'romantic';
   composition_mode: 'repeated' | 'featured';
   position_index: number;
-  layout_version: 1;
+  layout_version: 1 | 2;
   has_message: boolean;
   texture_url: string;
   published_at: string;
@@ -128,7 +129,7 @@ export interface PremiumGiftData {
 
 export interface PremiumGiftCollection {
   gifts: PremiumGiftData[];
-  layout_version: 1;
+  layout_version: 2;
   visible_limit: number;
   total: number;
 }

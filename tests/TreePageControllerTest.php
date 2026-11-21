@@ -38,6 +38,7 @@ final class TreePageControllerTest extends TestCase
         self::assertSame(200, $response->status());
         self::assertStringContainsString('Maria &lt;Natal&gt;', $response->body());
         self::assertStringContainsString('"is_owner":true', $response->body());
+        self::assertStringContainsString('"public_path":"/t/' . $creation->tree->publicId . '"', $response->body());
         self::assertStringNotContainsString($creation->adminToken, $response->body());
         self::assertStringNotContainsString($creation->recoveryCode, $response->body());
         self::assertStringContainsString('property="og:title" content="🎄 Árvore de Natal de Maria &lt;Natal&gt;"', $response->body());
