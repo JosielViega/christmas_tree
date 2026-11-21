@@ -12,7 +12,7 @@ import Presents from './Presents';
 import Snow from './Snow';
 import SocialOrnament from './SocialOrnament';
 import AmbientNight from './AmbientNight';
-import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS } from '../constants';
+import { CAMERA_CONFIG, COLORS, GESTURE_THRESHOLDS, TREE_CONFIG } from '../constants';
 import { PhotoData, ControlMode, ZoomLevel, PremiumGiftData, SocialOrnamentData } from '../types';
 import {
   STORY_SCENE_HEIGHT,
@@ -26,6 +26,7 @@ import type { TreeProgressionEffects } from '../utils/treeProgression';
 import { getInitialAmbientQuality } from '../utils/ambientEffects';
 import type { AmbientQuality } from '../utils/ambientEffects';
 import { storyCameraFrame } from '../utils/videoFraming';
+import { getInitialDpr, getInitialTreeParticleCount, markStartup, measureStartup } from '../utils/startup';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -49,9 +50,40 @@ interface SceneProps {
   isProgressionCelebrating?: boolean;
   reducedMotion: boolean;
   paused?: boolean;
+  essentialReady: boolean;
+  onStartupEvent?: (event: 'webgl_ready' | 'scene_prepared' | 'first_frame' | 'ready' | 'error') => void;
 }
 
 const TREE_OFFSET_Y = -2;
+
+class SceneErrorBoundary extends React.Component<{ onError?: () => void; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) {
+    if (import.meta.env.DEV) console.error('3D scene initialization failed', { type: error.name });
+    this.props.onError?.();
+  }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
+const SceneReadiness: React.FC<{ enabled: boolean; onEvent?: SceneProps['onStartupEvent'] }> = ({ enabled, onEvent }) => {
+  const frames = useRef(0);
+  useEffect(() => {
+    frames.current = 0;
+    if (enabled) {
+      markStartup('materials_ready');
+      measureStartup('scene-materials', 'geometry_ready', 'materials_ready');
+      onEvent?.('scene_prepared');
+    }
+  }, [enabled, onEvent]);
+  useFrame(() => {
+    if (!enabled || frames.current >= 2) return;
+    frames.current++;
+    if (frames.current === 1) onEvent?.('first_frame');
+    if (frames.current === 2) onEvent?.('ready');
+  });
+  return null;
+};
 
 const SceneEffects: React.FC<{
   zoomLevel: ZoomLevel;
@@ -629,17 +661,29 @@ const Scene: React.FC<SceneProps> = ({
   isProgressionCelebrating = false,
   reducedMotion,
   paused = false,
+  essentialReady,
+  onStartupEvent,
 }) => {
   const captureActive = useRef(false);
   const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>(() => getInitialAmbientQuality({
     hardwareConcurrency: navigator.hardwareConcurrency,
     deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
   }));
+  const initialDpr = useMemo(() => getInitialDpr({
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+    devicePixelRatio: window.devicePixelRatio,
+  }), []);
+  const initialTreeParticleCount = useMemo(() => getInitialTreeParticleCount({
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+  }, TREE_CONFIG.PARTICLE_COUNT), []);
 
   return (
+    <SceneErrorBoundary onError={() => onStartupEvent?.('error')}>
     <Canvas
       frameloop={paused ? 'never' : 'always'}
-      dpr={[1, 2]}
+      dpr={initialDpr}
       camera={{ position: CAMERA_CONFIG.DEFAULT_POS, fov: CAMERA_CONFIG.FOV }}
       gl={{
         antialias: true,
@@ -650,7 +694,14 @@ const Scene: React.FC<SceneProps> = ({
         powerPreference: 'high-performance',
       }}
       style={{ background: COLORS.BACKGROUND, position: 'relative', zIndex: 0 }}
+      onCreated={({ gl }) => {
+        onStartupEvent?.('webgl_ready');
+        const canvas = gl.domElement;
+        const lost = (event: Event) => { event.preventDefault(); onStartupEvent?.('error'); };
+        canvas.addEventListener('webglcontextlost', lost, { once: true });
+      }}
     >
+      <SceneReadiness enabled={essentialReady} onEvent={onStartupEvent} />
       <color attach="background" args={[COLORS.BACKGROUND]} />
       <fog attach="fog" args={[COLORS.BACKGROUND, 55, 115]} />
       <PerformanceMonitor
@@ -705,7 +756,7 @@ const Scene: React.FC<SceneProps> = ({
 
       {/* 3D Scene Elements */}
       <group position={[0, TREE_OFFSET_Y, 0]}>
-        <TreeMesh isExploded={isExploded} photos={photos} />
+        <TreeMesh isExploded={isExploded} photos={photos} particleCount={initialTreeParticleCount} />
         <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} />
         <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} />
         {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} />}
@@ -755,6 +806,7 @@ const Scene: React.FC<SceneProps> = ({
         progressionGlow={progressionEffects.starGlowBoost}
       />
     </Canvas>
+    </SceneErrorBoundary>
   );
 };
 

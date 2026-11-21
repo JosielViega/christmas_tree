@@ -1,18 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
 import { COLORS } from '../constants';
 import { PhotoData } from '../types';
+import { acquirePolaroidTexture } from '../utils/progressiveTextures';
 
 interface PolaroidProps {
   data: PhotoData;
   onPhotoClick: (data: PhotoData) => void;
   isExploded?: boolean;
 }
-
-const tempScale = new THREE.Vector3();
-const textureUsers = new Map<string, number>();
 
 const Polaroid: React.FC<PolaroidProps> = ({
   data,
@@ -22,25 +19,26 @@ const Polaroid: React.FC<PolaroidProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const explodeProgress = useRef(0);
   const [hovered, setHovered] = useState(false);
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [textureFailed, setTextureFailed] = useState(false);
+  const vectors = useRef({
+    base: new THREE.Vector3(), forward: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3(),
+    floating: new THREE.Vector3(), scale: new THREE.Vector3(), targetQuat: new THREE.Quaternion(),
+    baseQuat: new THREE.Quaternion(), wobble: new THREE.Quaternion(), euler: new THREE.Euler(),
+  });
 
   const explodeDir = useMemo(() => {
     return new THREE.Vector3(data.position[0], data.position[1], data.position[2]).normalize().multiplyScalar(15 + Math.random() * 10);
   }, [data.position]);
 
-  const texture = useTexture(data.url);
-  texture.center.set(0.5, 0.5);
   useEffect(() => {
-    textureUsers.set(data.url, (textureUsers.get(data.url) ?? 0) + 1);
-    return () => {
-      textureUsers.set(data.url, Math.max(0, (textureUsers.get(data.url) ?? 1) - 1));
-      window.setTimeout(() => {
-        if ((textureUsers.get(data.url) ?? 0) !== 0) return;
-        textureUsers.delete(data.url);
-        texture.dispose();
-        useTexture.clear(data.url);
-      }, 0);
-    };
-  }, [data.url, texture]);
+    let active = true;
+    setTexture(null);
+    setTextureFailed(false);
+    const resource = acquirePolaroidTexture(data.url);
+    void resource.promise.then((loaded) => { if (active) setTexture(loaded); }).catch(() => { if (active) setTextureFailed(true); });
+    return () => { active = false; resource.release(); };
+  }, [data.url]);
 
   useFrame((state) => {
     const targetProgress = isExploded ? 1 : 0;
@@ -52,7 +50,8 @@ const Polaroid: React.FC<PolaroidProps> = ({
       const swayAmount = 0.05;
 
       // Base position (on the tree or exploding away)
-      const basePos = new THREE.Vector3(
+      const scratch = vectors.current;
+      const basePos = scratch.base.set(
         data.position[0] + explodeDir.x * explodeProgress.current,
         data.position[1] + explodeDir.y * explodeProgress.current,
         data.position[2] + explodeDir.z * explodeProgress.current
@@ -61,9 +60,9 @@ const Polaroid: React.FC<PolaroidProps> = ({
       if (explodeProgress.current > 0.01) {
         // Calculate a position in front of the camera for "floating" effect
         const cam = state.camera;
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+        const forward = scratch.forward.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        const right = scratch.right.set(1, 0, 0).applyQuaternion(cam.quaternion);
+        const up = scratch.up.set(0, 1, 0).applyQuaternion(cam.quaternion);
 
         // Use a deterministic scatter based on the photo's original position
         const seed = Math.sin(data.position[0] * 12.9898 + data.position[1] * 78.233) * 43758.5453;
@@ -77,7 +76,7 @@ const Polaroid: React.FC<PolaroidProps> = ({
         const driftY = Math.cos(floatTime * 0.7 + seed) * 0.5;
         const driftZ = Math.sin(floatTime * 0.5 + seed) * 0.3;
 
-        const floatingPos = cam.position.clone()
+        const floatingPos = scratch.floating.copy(cam.position)
           .add(forward.multiplyScalar(offsetZ + driftZ))
           .add(right.multiplyScalar(offsetX + driftX))
           .add(up.multiplyScalar(offsetY + driftY));
@@ -87,15 +86,15 @@ const Polaroid: React.FC<PolaroidProps> = ({
         groupRef.current.position.lerpVectors(basePos, floatingPos, floatFactor);
 
         // Rotation: Blend between original rotation and facing camera with slight wobble
-        const targetQuat = cam.quaternion.clone();
-        const wobble = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        const targetQuat = scratch.targetQuat.copy(cam.quaternion);
+        const wobble = scratch.wobble.setFromEuler(scratch.euler.set(
             Math.sin(time * 0.2 + seed) * 0.1,
             Math.cos(time * 0.3 + seed) * 0.1,
             Math.sin(time * 0.5 + seed) * 0.1
         ));
         targetQuat.multiply(wobble);
 
-        const baseQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        const baseQuat = scratch.baseQuat.setFromEuler(scratch.euler.set(
             0,
             data.rotation[1] + Math.sin(time * 0.5 + data.position[0]) * 0.02 + explodeProgress.current * 5,
             Math.sin(time + data.position[1]) * swayAmount + explodeProgress.current * 5
@@ -113,8 +112,8 @@ const Polaroid: React.FC<PolaroidProps> = ({
       // Adjusted Base scale
       const baseScale = 0.85;
       const targetScale = hovered ? baseScale * 1.15 : baseScale;
-      tempScale.set(targetScale, targetScale, targetScale);
-      groupRef.current.scale.lerp(tempScale, 0.1);
+      scratch.scale.set(targetScale, targetScale, targetScale);
+      groupRef.current.scale.lerp(scratch.scale, 0.1);
     }
   });
 
@@ -177,8 +176,10 @@ const Polaroid: React.FC<PolaroidProps> = ({
         <mesh position={[0, -0.65, 0.025]}>
           <planeGeometry args={[1.0, 1.0]} />
           <meshStandardMaterial
-            map={texture}
-            color={COLORS.POLAROID_FRAME}
+            map={texture ?? undefined}
+            color={texture ? '#ffffff' : textureFailed ? '#5f1d25' : '#253b31'}
+            emissive={texture ? '#000000' : '#10251c'}
+            emissiveIntensity={texture ? 0 : 0.25}
             roughness={0.7}
             metalness={0.1}
           />

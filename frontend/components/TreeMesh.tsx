@@ -3,6 +3,13 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, TREE_CONFIG } from '../constants';
 import { PhotoData } from '../types';
+import { getMemorySlot } from '../utils/math';
+import { markStartup, measureStartup } from '../utils/startup';
+
+const memoryCenters = Array.from({ length: 6 }, (_, index) => {
+  const slot = getMemorySlot(index);
+  return new THREE.Vector3(slot.position[0], slot.position[1] - 1.25, slot.position[2]);
+});
 
 const getLeafTexture = () => {
   const canvas = document.createElement('canvas');
@@ -57,9 +64,10 @@ const getLeafTexture = () => {
 interface TreeMeshProps {
   isExploded?: boolean;
   photos?: PhotoData[];
+  particleCount?: number;
 }
 
-const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [] }) => {
+const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], particleCount = TREE_CONFIG.PARTICLE_COUNT }) => {
   const innerMeshRef = useRef<THREE.InstancedMesh>(null);
   const outerMeshRef = useRef<THREE.InstancedMesh>(null);
   const explodeProgress = useRef(0);
@@ -112,11 +120,11 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [] }) 
 
   // Generate particles for the tree body
   const { innerParticles, outerParticles } = useMemo(() => {
+    markStartup('geometry_start');
     const inner = [];
     const outer = [];
-    const photoCenters = photos.map(p => new THREE.Vector3(p.position[0], p.position[1] - 1.25, p.position[2]));
 
-    for (let i = 0; i < TREE_CONFIG.PARTICLE_COUNT; i++) {
+    for (let i = 0; i < particleCount; i++) {
       let x = 0, y = 0, z = 0, yNorm = 0, r = 0, rMax = 0;
       let attempts = 0;
       let collides = true;
@@ -136,7 +144,7 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [] }) 
         z = r * Math.sin(theta);
 
         collides = false;
-        for (const center of photoCenters) {
+        for (const center of memoryCenters) {
           const dx = x - center.x;
           const dy = y - center.y;
           const dz = z - center.z;
@@ -216,8 +224,10 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [] }) 
         inner.push(particleData);
       }
     }
+    markStartup('geometry_ready');
+    measureStartup('tree-geometry', 'geometry_start', 'geometry_ready');
     return { innerParticles: inner, outerParticles: outer };
-  }, [photos]);
+  }, [particleCount]);
 
   useFrame((state, delta) => {
     const updateMesh = (mesh: THREE.InstancedMesh | null, particles: any[]) => {

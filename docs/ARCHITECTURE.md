@@ -182,3 +182,11 @@ O backend fornece `public_path`; o frontend combina esse caminho com `window.loc
 ## Produção
 
 O mirror HostGator inclui app, migration, views, rotas, assets compilados e dependências PHP de produção. Exclui `.env`, frontend fonte, testes, logs, cache e uploads. A migration é executada separadamente e o diretório `storage/cache` precisa ser gravável pelo PHP.
+
+## Inicialização e recursos secundários
+
+`App` controla `initializing → loading_data → preparing_scene → first_frame → ready`, com `error` recuperável e timeout de 20 s por etapa essencial. `SceneReadiness` só sinaliza prontidão após o contexto WebGL, sincronização dos enfeites e dois frames reais. Perda de contexto e exceções da árvore de componentes encerram o loading em erro.
+
+Memórias e presentes usam requisições abortáveis e não participam da prontidão essencial. `Polaroid` não usa `useTexture`/Suspense: uma fila com concorrência 2 decodifica a imagem otimizada já publicada, reduz o bitmap para no máximo 512 px em Canvas e cria a textura progressivamente. Falhas ficam isoladas no cartão. Geometrias da árvore reservam os seis slots de memória desde a primeira geração, evitando reconstruir 20.000 folhas quando a coleção chega.
+
+O perfil inicial limita DPR a 1,25 e a árvore a 12.000 folhas em dispositivos modestos; nos demais, limita DPR a 1,75 e preserva 20.000 folhas. `PerformanceMonitor` e `AdaptiveDpr` continuam ajustando efeitos depois. Instrumentação via User Timing existe apenas em desenvolvimento e usa nomes fixos, sem identificadores públicos, URLs ou conteúdo privado.

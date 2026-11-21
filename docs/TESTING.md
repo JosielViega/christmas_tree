@@ -31,5 +31,12 @@ Os testes cobrem proprietário/visitante, restauração persistente, link na mes
 - [ ] Pagamento indisponível: mensagem clara, sem QR, cobrança ou publicação.
 - [ ] Menu de desenvolvimento: testar trenó e estrela cadente; confirmar ausência em build de produção.
 - [ ] Movimento reduzido e dispositivo modesto: efeitos suspensos/reduzidos sem travamentos.
+- [ ] Abrir a mesma árvore com 0, 1, 3 e 6 memórias; registrar `performance.getEntriesByType('measure')`, tempo até interação e tempo das texturas, sem inferir FPS.
+- [ ] Confirmar que a tela mostra preparação, luzes e “Tudo pronto”, sem revelar a cena antes do segundo frame.
+- [ ] Simular offline/API lenta e perda de WebGL; confirmar timeout, mensagem segura e botão “Tentar novamente”.
+- [ ] Em 320, 360, 390, 430 e 446 px, confirmar loading sem scroll horizontal e respeito às áreas seguras.
+- [ ] Com uma foto ausente/corrompida, confirmar fallback somente nessa Polaroid e interação normal com a árvore.
 
 A automação não substitui aprovação estética nem testes físicos em aparelhos reais.
+
+Os testes de inicialização verificam transições, timeout configurado, sinal de segundo frame, cancelamento, fila de seis imagens com concorrência máxima 2, fallback e cálculo de memória RGBA. Para uma fonte quadrada de 1024 px, o bitmap de distância em 512 px reduz a estimativa base de 4 MiB para 1 MiB por textura; isso não é uma medição de FPS e não inclui mipmaps nem buffers internos do navegador.

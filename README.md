@@ -257,6 +257,12 @@ Durante a captura, resolução e aspecto 9:16 permanecem bloqueados mesmo se o o
 
 Fotografias JPEG, PNG e WebP continuam validadas por assinatura antes do processamento. Se um navegador expuser `createImageBitmap()` mas rejeitar uma fotografia válida, o aplicativo tenta a decodificação nativa por `Image`, preserva a orientação aplicada pelo navegador e sempre libera o Object URL. O Canvas ainda remove metadados e produz o JPEG quadrado enviado ao armazenamento privado.
 
+### Etapa 08A.4 — inicialização responsiva
+
+Ao abrir uma árvore, uma tela DOM leve acompanha estados reais: dados essenciais, preparação da cena, primeiro frame e interação. O aplicativo considera a cena pronta somente depois dos enfeites persistidos, do WebGL e de dois frames apresentados. Memórias e presentes são secundários e não bloqueiam a interação.
+
+Polaroids são decodificadas progressivamente, no máximo duas por vez, reduzidas em memória para até 512 px antes do upload à GPU e substituídas por fallback individual em caso de falha. As imagens persistidas não são alteradas. Em desenvolvimento, medidas `christmas-tree:*` ficam disponíveis em `performance.getEntriesByType('measure')` sem URLs, fotos ou dados pessoais.
+
 ## Escopo futuro
 
 Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

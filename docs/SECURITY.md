@@ -118,6 +118,12 @@ Configure `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true` e HTTPS
 
 O builder HostGator usa allowlist e não transmite arquivos nem executa migrations. `.env`, cache, logs e uploads permanecem específicos de cada instalação.
 
+## Diagnóstico de inicialização
+
+Marcas de desempenho existem somente no build de desenvolvimento e usam nomes fixos de etapas. Elas não incluem URL de imagem, ID público, nome, mensagem, cookie, CSRF ou credencial. Requisições secundárias são canceladas ao trocar/desmontar a árvore; uma resposta antiga não pode substituir a coleção atual. Falhas de textura exibem fallback local e logs de cena registram apenas o tipo da exceção.
+
+`hardwareConcurrency`, `deviceMemory`, preferência de movimento e DPR servem apenas para escolher qualidade local. Esses valores não são enviados, persistidos nem combinados como fingerprint.
+
 ## Escopo ainda não protegido
 
 Uploads não fazem parte da Etapa 04. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido e autorização por recurso. Também não há detecção automática de conteúdo abusivo, chat, notificações ou publicação pública das mensagens.

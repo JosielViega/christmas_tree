@@ -11,6 +11,7 @@ interface ApiErrorBody {
 }
 
 type ApiPayload<T> = ApiErrorBody & { data?: T };
+const isAbortError = (cause: unknown): boolean => cause instanceof Error && cause.name === 'AbortError';
 
 export class TreeApiError extends Error {
   constructor(
@@ -36,6 +37,7 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
       },
     });
   } catch (cause) {
+    if (isAbortError(cause)) throw cause;
     reportApiFailure(path, 'network_error', 0, cause);
     throw new TreeApiError('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.', 0, 'network_error');
   }
@@ -44,6 +46,7 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
   try {
     body = await response.text();
   } catch (cause) {
+    if (isAbortError(cause)) throw cause;
     reportApiFailure(path, 'network_error', response.status, cause);
     throw new TreeApiError('A conexão foi interrompida durante a resposta. Tente novamente.', 0, 'network_error');
   }
@@ -103,7 +106,7 @@ const formRequest = <T>(path: string, values: Record<string, string>, csrfToken:
   });
 };
 
-export const fetchApiContext = (): Promise<{ csrf_token: string }> => request('/api/context');
+export const fetchApiContext = (signal?: AbortSignal): Promise<{ csrf_token: string }> => request('/api/context', { signal });
 
 export const createTree = (ownerName: string, csrfToken: string): Promise<ChristmasTreeAccess> => {
   return formRequest('/api/trees', { owner_name: ownerName }, csrfToken);
@@ -125,15 +128,15 @@ export const fetchPublicTree = (publicId: string): Promise<{ tree: ChristmasTree
   return request(`/api/trees/${encodeURIComponent(publicId)}`);
 };
 
-export const fetchOrnaments = (publicId: string): Promise<OrnamentCollection> => {
-  return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`);
+export const fetchOrnaments = (publicId: string, signal?: AbortSignal): Promise<OrnamentCollection> => {
+  return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`, { signal });
 };
 
-export const fetchPremiumGifts = (publicId: string): Promise<PremiumGiftCollection> =>
-  request(`/api/trees/${encodeURIComponent(publicId)}/gifts`);
+export const fetchPremiumGifts = (publicId: string, signal?: AbortSignal): Promise<PremiumGiftCollection> =>
+  request(`/api/trees/${encodeURIComponent(publicId)}/gifts`, { signal });
 
-export const fetchMemories = (publicId: string): Promise<MemoryCollection> =>
-  request(`/api/trees/${encodeURIComponent(publicId)}/memories`);
+export const fetchMemories = (publicId: string, signal?: AbortSignal): Promise<MemoryCollection> =>
+  request(`/api/trees/${encodeURIComponent(publicId)}/memories`, { signal });
 
 const memoryForm = (
   path: string,

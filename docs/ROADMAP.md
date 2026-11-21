@@ -88,3 +88,7 @@ Dimensões da captura 9:16 são preservadas durante toda a sessão e frames são
 Falhas de `createImageBitmap` em fotografias válidas passam ao decoder `Image`, sem relaxar assinatura, formato, dimensões ou tamanho. Testes reais cobrem JPEG, JPEG com EXIF, PNG, WebP e orientações horizontal/vertical; o backend continua reprocessando tudo como JPEG privado sem metadados.
 
 Fotografias originais persistentes permanecem fora do escopo. A textura final continua privada; publicação pertence a uma etapa futura.
+
+### 8A.4. Loading natalino e inicialização progressiva — tecnicamente concluída
+
+Máquina de estados de carregamento, primeiro frame verificado, timeout/recuperação, cancelamento de APIs e instrumentação de desenvolvimento. Polaroids deixam de suspender a cena, passam por fila de decodificação limitada e textura de distância 512 px; geometrias pesadas deixam de ser reconstruídas quando as memórias chegam. Medições de FPS e fluidez em celulares reais permanecem no checklist manual.

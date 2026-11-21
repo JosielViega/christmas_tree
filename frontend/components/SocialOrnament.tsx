@@ -70,7 +70,8 @@ const SocialOrnament: React.FC<SocialOrnamentProps> = ({ ornament, isNew = false
     if (!group.current) return;
     const elapsed = (performance.now() - appearedAt.current) / 1000;
     const targetScale = isNew && !reducedMotion ? Math.min(1, elapsed * 2.4) : 1;
-    group.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), Math.min(1, delta * 10));
+    const currentScale = group.current.scale.x;
+    group.current.scale.setScalar(THREE.MathUtils.lerp(currentScale, targetScale, Math.min(1, delta * 10)));
     if (!reducedMotion) {
       group.current.rotation.y = slot.rotation[1] + Math.sin(state.clock.elapsedTime * 1.2 + ornament.slot_index) * 0.08;
       group.current.position.y = slot.position[1] + Math.sin(state.clock.elapsedTime * 1.5 + ornament.slot_index) * 0.035;

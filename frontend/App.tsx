@@ -27,10 +27,19 @@ import type { TreeProgressionStage } from './utils/treeProgression';
 import { GiftPhotoError, getGiftPhotoMaxBytes, isGiftPreviewEnabled } from './utils/giftTextures';
 import { getPremiumGiftTransform } from './utils/premiumGiftLayout';
 import { sameOriginTreeUrl } from './utils/sameOriginUrl';
+import ChristmasLoadingScreen from './components/ChristmasLoadingScreen';
+import { STARTUP_TIMEOUT_MS, canAdvanceStartup, markStartup, measureStartup } from './utils/startup';
+import type { StartupPhase } from './utils/startup';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
 const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_MAX_BYTES);
+markStartup('app_start');
+if (initialBootstrap?.tree) {
+  markStartup('tree_data_start');
+  markStartup('tree_data_ready');
+  measureStartup('embedded-tree-data', 'tree_data_start', 'tree_data_ready');
+}
 
 const memoryFailureMessage = (caught: unknown, fallback: string): string => {
   if (caught instanceof GiftPhotoError) return caught.message;
@@ -67,6 +76,8 @@ const App: React.FC = () => {
   const [ownTreePath, setOwnTreePath] = useState(initialBootstrap?.own_tree_path ?? null);
   const [csrfToken, setCsrfToken] = useState(initialBootstrap?.csrf_token ?? '');
   const [initializing, setInitializing] = useState(!initialBootstrap);
+  const [startupPhase, setStartupPhase] = useState<StartupPhase>(initialBootstrap?.tree ? 'loading_data' : initialBootstrap ? 'ready' : 'initializing');
+  const [loadingVisible, setLoadingVisible] = useState(Boolean(initialBootstrap?.tree) || !initialBootstrap);
   const [receipt, setReceipt] = useState<ChristmasTreeAccess | null>(null);
   const [userName, setUserName] = useState(initialBootstrap?.tree?.owner_name ?? '');
   const [isNameSet, setIsNameSet] = useState(Boolean(initialBootstrap?.tree));
@@ -99,6 +110,38 @@ const App: React.FC = () => {
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
   const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
   const progressionDismissTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    markStartup('react_initialized');
+    measureStartup('react-bootstrap', 'app_start', 'react_initialized');
+  }, []);
+
+  useEffect(() => {
+    if (startupPhase === 'ready' || startupPhase === 'error') return;
+    const timeout = window.setTimeout(() => setStartupPhase('error'), STARTUP_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [startupPhase]);
+
+  useEffect(() => {
+    if (startupPhase !== 'ready') { setLoadingVisible(true); return; }
+    const transition = window.setTimeout(() => setLoadingVisible(false), 240);
+    return () => window.clearTimeout(transition);
+  }, [startupPhase]);
+
+  const advanceStartup = useCallback((next: StartupPhase) => {
+    setStartupPhase((current) => canAdvanceStartup(current, next) ? next : current);
+  }, []);
+
+  const handleStartupEvent = useCallback((event: 'webgl_ready' | 'scene_prepared' | 'first_frame' | 'ready' | 'error') => {
+    if (event === 'error') { setStartupPhase('error'); return; }
+    markStartup(event === 'ready' ? 'interactive' : event);
+    if (event === 'scene_prepared') advanceStartup('preparing_scene');
+    if (event === 'first_frame') advanceStartup('first_frame');
+    if (event === 'ready') {
+      advanceStartup('ready');
+      measureStartup('time-to-interactive', 'app_start', 'interactive');
+    }
+  }, [advanceStartup]);
 
   const registerStoryCapture = useCallback((capture: StoryFrameCapture | null) => {
     storyCaptureRef.current = capture;
@@ -181,12 +224,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (initialBootstrap) return;
-
-    fetchApiContext()
-      .then((context) => setCsrfToken(context.csrf_token))
-      .catch(() => showToast('Não foi possível iniciar a sessão. Recarregue a página.', 'error'))
+    const controller = new AbortController();
+    markStartup('tree_data_start');
+    fetchApiContext(controller.signal)
+      .then((context) => { setCsrfToken(context.csrf_token); markStartup('tree_data_ready'); advanceStartup('ready'); })
+      .catch((caught) => { if ((caught as Error).name !== 'AbortError') setStartupPhase('error'); })
       .finally(() => setInitializing(false));
-  }, [showToast]);
+    return () => controller.abort();
+  }, [advanceStartup]);
 
   const photos = useMemo<PhotoData[]>(() => memories.map((memory) => {
     const slot = getMemorySlot(memory.slot_index, memory.layout_version);
@@ -208,42 +253,55 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!tree || loadedOrnamentsFor.current === tree.public_id) return;
+    const controller = new AbortController();
     loadedOrnamentsFor.current = tree.public_id;
     setOrnamentsLoading(true);
     setOrnamentsReady(false);
-    fetchOrnaments(tree.public_id)
+    markStartup('ornaments_start');
+    fetchOrnaments(tree.public_id, controller.signal)
       .then((collection) => {
         setOrnaments(collection.ornaments);
         setOrnamentCapacity(collection.capacity);
         setOrnamentsReady(true);
+        markStartup('ornaments_ready');
+        measureStartup('ornaments-request', 'ornaments_start', 'ornaments_ready');
+        advanceStartup('preparing_scene');
       })
-      .catch(() => {
+      .catch((caught) => {
+        if ((caught as Error).name === 'AbortError') return;
         loadedOrnamentsFor.current = null;
-        showToast('Não foi possível carregar os enfeites desta árvore.', 'error');
+        setStartupPhase('error');
       })
       .finally(() => setOrnamentsLoading(false));
-  }, [tree, showToast]);
+    return () => controller.abort();
+  }, [tree, advanceStartup]);
 
   useEffect(() => {
     if (!tree || loadedMemoriesFor.current === tree.public_id) return;
+    const controller = new AbortController();
     loadedMemoriesFor.current = tree.public_id;
-    fetchMemories(tree.public_id)
-      .then((collection) => setMemories(collection.memories))
-      .catch(() => { loadedMemoriesFor.current = null; showToast('Não foi possível carregar as memórias desta árvore.', 'error'); });
+    markStartup('memories_start');
+    fetchMemories(tree.public_id, controller.signal)
+      .then((collection) => { setMemories(collection.memories); markStartup('memories_ready'); measureStartup('memories-request', 'memories_start', 'memories_ready'); })
+      .catch((caught) => { if ((caught as Error).name !== 'AbortError') { loadedMemoriesFor.current = null; showToast('Não foi possível carregar as memórias desta árvore.', 'error'); } });
+    return () => controller.abort();
   }, [tree, showToast]);
 
   useEffect(() => {
     if (!tree) { setPremiumGifts([]); return; }
     let active = true;
-    const load = () => fetchPremiumGifts(tree.public_id).then((collection) => {
+    const controller = new AbortController();
+    const load = () => { markStartup('gifts_start'); return fetchPremiumGifts(tree.public_id, controller.signal).then((collection) => {
       if (!active) return;
       setPremiumGifts(collection.gifts);
       setPremiumGiftLimit(collection.visible_limit);
       setPremiumGiftPage((page) => Math.min(page, Math.max(0, Math.ceil(collection.total / collection.visible_limit) - 1)));
-    }).catch(() => undefined);
+      markStartup('gifts_ready');
+      measureStartup('gifts-request', 'gifts_start', 'gifts_ready');
+    }).catch(() => undefined); };
     void load();
     const timer = window.setInterval(load, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => { active = false; controller.abort(); window.clearInterval(timer); };
   }, [tree]);
 
   useEffect(() => {
@@ -288,6 +346,7 @@ const App: React.FC = () => {
     setReceipt(sameOriginAccess);
     setOrnaments([]);
     setOrnamentsReady(false);
+    setStartupPhase('loading_data');
     dismissProgressionUnlock();
     loadedOrnamentsFor.current = null;
     loadedMessagesFor.current = null;
@@ -476,9 +535,11 @@ const App: React.FC = () => {
         isProgressionCelebrating={isProgressionCelebrating}
         reducedMotion={reducedMotion}
         paused={giftPreviewOpen || memoriesPanelOpen}
+        essentialReady={Boolean(tree && ornamentsReady)}
+        onStartupEvent={handleStartupEvent}
       />
 
-      {!selectedOrnament && !selectedGift && !selectedMemory && <Overlay
+      {startupPhase === 'ready' && !selectedOrnament && !selectedGift && !selectedMemory && <Overlay
         isMusicPlaying={isMusicPlaying}
         toggleMusic={toggleMusic}
         userName={userName}
@@ -488,11 +549,7 @@ const App: React.FC = () => {
         onOptionsOpenChange={setOptionsOpen}
       />}
 
-      {initializing && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 text-[#fff1a1]">
-          <Loader2 className="animate-spin" size={30} aria-label="Carregando" />
-        </div>
-      )}
+      {loadingVisible && <ChristmasLoadingScreen phase={startupPhase} onRetry={() => window.location.reload()} />}
 
       {!initializing && (!tree || receipt || createOwnTreeOpen) && (
         <TreeOnboarding
@@ -504,7 +561,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
+      {startupPhase === 'ready' && tree && !receipt && !isRecording && !giftPreviewOpen && !selectedOrnament && !selectedGift && !selectedMemory && (
         <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-[70] grid w-[min(94vw,30rem)] -translate-x-1/2 grid-cols-2 gap-2 px-1 py-1 pointer-events-auto sm:flex sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:justify-center">
           {isOwner ? <>
             <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70] sm:col-auto sm:shrink-0"><Share2 size={17} /> Compartilhar árvore</button>

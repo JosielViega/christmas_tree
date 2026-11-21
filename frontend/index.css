@@ -39,3 +39,31 @@ input {
   from { width: 100%; }
   to { width: 0%; }
 }
+
+.christmas-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: radial-gradient(circle at 50% 28%, #173424 0, #08150f 38%, #020706 100%);
+  color: #fff8d6;
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+.christmas-loading--leaving { opacity: 0; }
+
+.christmas-loading__stars { position: absolute; top: 12%; color: #e8c968; opacity: .55; letter-spacing: .7rem; }
+.christmas-loading__card { width: min(100%, 28rem); text-align: center; }
+.christmas-loading__icon { display: grid; width: 4.5rem; height: 4.5rem; margin: 0 auto 1.25rem; place-items: center; border: 1px solid rgba(255,225,128,.35); border-radius: 50%; color: #f1d678; background: rgba(255,255,255,.035); box-shadow: 0 0 2.5rem rgba(225,190,75,.12); }
+.christmas-loading__icon svg { width: 2.25rem; height: 2.25rem; }
+.christmas-loading h1 { margin: 0; font-size: clamp(1.25rem, 5vw, 1.7rem); line-height: 1.25; }
+.christmas-loading p { margin: .8rem auto 1.5rem; max-width: 24rem; color: rgba(255,255,255,.72); font-size: clamp(.9rem, 3.6vw, 1rem); line-height: 1.55; }
+.christmas-loading__track { width: min(15rem, 70vw); height: 3px; margin: 0 auto .8rem; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.12); }
+.christmas-loading__track span { display: block; width: 42%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, transparent, #f1d678, transparent); animation: christmas-loading-slide 1.45s ease-in-out infinite; }
+.christmas-loading small { color: #dfca86; }
+.christmas-loading button { display: inline-flex; min-height: 3rem; align-items: center; gap: .5rem; border: 1px solid rgba(255,225,128,.35); border-radius: 999px; padding: .65rem 1.2rem; color: #fff1a1; background: rgba(255,255,255,.07); font-weight: 700; }
+@keyframes christmas-loading-slide { from { transform: translateX(-110%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .christmas-loading__track span { animation-duration: 3s; } }

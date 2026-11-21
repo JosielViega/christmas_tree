@@ -2,8 +2,13 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, SPIRAL_CONFIG, TREE_CONFIG } from '../constants';
-import { getSpiralPoint } from '../utils/math';
+import { getMemorySlot, getSpiralPoint } from '../utils/math';
 import { PhotoData } from '../types';
+
+const memoryCenters = Array.from({ length: 6 }, (_, index) => {
+  const slot = getMemorySlot(index);
+  return new THREE.Vector3(...slot.position);
+});
 
 // Generate a soft glow texture for the fluff particles
 const getFluffTexture = () => {
@@ -122,7 +127,6 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
   const baubles = useMemo(() => {
     const items = [];
     const count = 100; // Increased count for fuller bottom
-    const photoCenters = photos.map(p => new THREE.Vector3(p.position[0], p.position[1], p.position[2]));
 
     for (let i = 0; i < count; i++) {
       let x = 0, y = 0, z = 0;
@@ -148,7 +152,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
         collides = false;
 
         // Check collision with photos
-        for (const center of photoCenters) {
+        for (const center of memoryCenters) {
           const dx = x - center.x;
           const dy = y - center.y;
           const dz = z - center.z;
@@ -189,7 +193,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       });
     }
     return items;
-  }, [photos]);
+  }, []);
 
   useFrame((state) => {
     const time = state.clock.elapsedTime;
