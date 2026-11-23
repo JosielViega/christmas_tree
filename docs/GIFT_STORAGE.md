@@ -14,7 +14,7 @@ O PHP confere limite do corpo, erro de upload, assinatura PNG, MIME real via `fi
 
 O ID público de 128 bits identifica o rascunho, mas não autoriza consulta. A criação devolve um segredo de 256 bits; somente seu SHA-256 é persistido. Consulta e cancelamento exigem `X-Gift-Draft-Token`, nunca query string. Respostas privadas usam `Cache-Control: private, no-store` e não incluem mensagem, caminho ou textura.
 
-A mensagem permanece privada e não participa das APIs públicas da árvore. A pessoa deve confirmar que a fotografia poderá ficar visível após uma futura publicação paga. O pagamento Pix da Etapa 07B.3 pode mudar o rascunho para `paid`, mas não existe rota de publicação nem download da textura.
+A mensagem permanece privada e não participa das APIs públicas da árvore. A pessoa deve confirmar que a fotografia poderá ficar visível após uma futura publicação paga. A confirmação financeira confiável pode mudar o rascunho para `paid`; em seguida, somente o backend tenta publicá-lo. Não existe rota pública de aprovação financeira ou publicação. O download controlado da textura exige presente `published`, visível e ainda associado a pedido pago.
 
 ## Idempotência e compensação
 
@@ -34,4 +34,4 @@ O lote é configurado por `GIFT_CLEANUP_BATCH_SIZE`. O comando reconcilia primei
 
 O mirror contém somente `storage/private/.gitkeep`; texturas locais e de produção nunca entram no pacote. No servidor, `storage/private` deve ficar fora do Document Root e ser gravável apenas pelo usuário PHP. Requer PHP 8.2+, `fileinfo`, GD com PNG, PDO MySQL e cron do cPanel. Se o Document Root não puder apontar para `public/`, não habilite o recurso até isolar fisicamente o armazenamento privado.
 
-Presentes publicados futuramente terão consulta própria e serão renderizados separadamente das caixas decorativas de `Presents.tsx`. Eles não contarão como enfeites, não alterarão capacidade nem progressão e não serão ativados por esta etapa.
+Presentes publicados possuem consulta própria e são renderizados separadamente das caixas decorativas de `Presents.tsx`. Eles não contam como enfeites gratuitos, não alteram capacidade nem progressão e usam paginação de até 12 caixas por vez.

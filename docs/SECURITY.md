@@ -97,7 +97,7 @@ O proprietário pode excluir um enfeite antes ou depois da liberação, e a mens
 - valor, moeda, referência externa, ID da order e ambiente são conferidos antes da transição transacional;
 - e-mail é enviado ao provedor porque a Orders API o exige, mas não é salvo localmente;
 - QR Code e Pix Copia e Cola são privados, sem cache e nunca escritos em logs;
-- `paid` não implica `published`; o frontend não possui endpoint de confirmação ou publicação;
+- `paid` e `published` continuam estados separados; após confirmação oficial o backend tenta a publicação idempotente, enquanto o frontend não possui endpoint para confirmar ou publicar;
 - produção permanece bloqueada sem HTTPS, ambiente de produção e opt-in explícito.
 
 ## Liberação manual de mensagens

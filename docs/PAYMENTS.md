@@ -22,7 +22,7 @@ Um presente possui no máximo um pedido. O banco grava hashes das chaves de idem
 
 Estados financeiros: `pending`, `paid`, `expired`, `cancelled`, `failed` e `refunded`. `pending` pode avançar a um estado final; `paid` pode avançar somente para `refunded`. Estados finais nunca retornam a `pending`.
 
-`processed/accredited` vira `paid`; `action_required/waiting_transfer`, `created` e `processing` permanecem `pending`; cancelamento e expiração são separados; reembolso integral, parcial ou decorrente de estorno vira `refunded`. O estado financeiro é separado da publicação. Uma confirmação confiável muda o presente de `draft` para `paid`, mas não existe rota que o torne `published`.
+`processed/accredited` vira `paid`; `action_required/waiting_transfer`, `created` e `processing` permanecem `pending`; cancelamento e expiração são separados; reembolso integral, parcial ou decorrente de estorno vira `refunded`. O estado financeiro é separado da publicação. Uma confirmação confiável muda o presente de `draft` para `paid` e o backend tenta a publicação idempotente. Não existe rota pública para o navegador definir `paid` ou `published`.
 
 ## Webhook e confirmação
 
@@ -44,9 +44,13 @@ Variáveis: `PAYMENTS_ENABLED`, `PAYMENTS_PROVIDER`, `PAYMENTS_ENVIRONMENT`, `ME
 
 Sem credenciais configuradas, `GET /api/payments/catalog` informa `available=false` e nenhuma cobrança é criada. Testes automatizados usam gateway e HTTP falsos. Uma integração sandbox real somente deve ser executada quando credenciais de teste forem fornecidas conscientemente; jamais faz parte da suíte padrão.
 
+O cenário oficial de teste Pix da Orders API é isolado do catálogo comercial: usa `total_amount=50.00`, `payer.email=test_payer@example.com` e `payer.first_name=APRO`. Ele valida `POST /v1/orders`, consulta posterior por `GET /v1/orders/{id}` e a transição simulada, mas não cria um pedido comercial do Christmas Tree nem altera os preços de R$ 1,99, R$ 3,99 e R$ 5,99. A criação exige `Authorization: Bearer ...` e `X-Idempotency-Key`; o token e os dados Pix retornados nunca devem ser registrados.
+
+Para receber uma notificação real, cadastre no painel um endpoint HTTPS isolado para o evento de order. `localhost` não é alcançável pelo Mercado Pago. Receber um webhook no painel continua sendo uma validação manual separada da suíte local.
+
 ## Limitações da etapa
 
-- Nenhum presente pago é publicado ou renderizado na árvore.
+- A publicação automática depende de confirmação oficial e pode permanecer temporariamente em `paid` quando houver falha operacional; o cron retoma a tentativa.
 - Não há abertura de presentes, cartão, boleto, reembolso iniciado pelo aplicativo ou painel financeiro.
 - A Orders API brasileira não devolve um campo de moeda na consulta documentada; a integração exige `country_code=BRA` e normaliza a moeda contratada para `BRL`.
 - Se a conexão cair antes de o provedor devolver o ID da order, o pedido local permanece `pending` e protegido. A mesma solicitação deve ser repetida com o mesmo e-mail; a chave idempotente do provedor recupera a cobrança sem duplicá-la. Sem ID oficial não há consulta segura por cron, portanto o arquivo não é apagado automaticamente.
@@ -56,9 +60,10 @@ Sem credenciais configuradas, `GET /api/payments/catalog` informa `available=fal
 
 `VITE_ENABLE_GIFT_PREVIEW=true` expõe a personalização, mas não habilita pagamentos. Para sandbox são necessários `PAYMENTS_ENABLED=true`, `PAYMENTS_ENVIRONMENT=sandbox`, `PAYMENTS_PROVIDER=mercadopago`, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET`. Produção exige adicionalmente `APP_ENV=production`, HTTPS e `PAYMENTS_ALLOW_PRODUCTION=true`; esta etapa não ativa esses valores. Catálogo indisponível não cria cobrança, não simula aprovação e não publica presente.
 
-Referências oficiais consultadas em 20/11/2026:
+Referências oficiais consultadas em 23/11/2026:
 
 - [Pix no Checkout Transparente via Orders API](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix)
+- [Teste oficial Pix da Orders API](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/integration-test/pix)
 - [Notificações de orders](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications)
 - [Criar order](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/create-order/post)
 - [Consultar order](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-api/get-order/get)

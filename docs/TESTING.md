@@ -12,6 +12,15 @@
 
 Os testes cobrem proprietário/visitante, restauração persistente, link na mesma origem, autodecoração, layout mobile em duas linhas, cabeçalho com nomes longos, menu acessível, recolhimento do indicador, ausência de rolagem horizontal, projeção 9:16, órbita monotônica de 360°, enquadramento em todos os frames, escala uniforme do compositor, restauração da exposição, iluminação temporária, decodificação alternativa de fotografias, JPEG/EXIF/PNG/WebP reais, layouts de presentes, gates Pix, efeitos, movimento reduzido, PNG e vídeo.
 
+## Validação de pagamentos Sandbox
+
+Separe os resultados em quatro camadas: gateway falso automatizado, HTTP local com pagamentos desabilitados, comunicação real com o Sandbox e inspeção visual manual. A aprovação das duas primeiras não comprova comunicação com o Mercado Pago.
+
+- Gateway falso + MySQL isolado: validar `draft → pending → paid → published`, replay, árvore correta, textura privada antes da publicação e ocultação após reembolso.
+- HTTP local: validar CSRF, token privado, idempotência, cancelamento e `available=false`/HTTP 503 quando credenciais estão ausentes.
+- Sandbox oficial: somente com token de teste confirmado; usar o cenário Pix documentado de R$ 50,00 (`test_payer@example.com`, `APRO`) isolado dos produtos comerciais, consultar a order e não registrar token, QR ou Copia e Cola.
+- Webhook real: requer endpoint HTTPS temporário e isolado cadastrado no painel para o evento de order; nunca expor automaticamente o servidor local.
+
 ## Checklist manual obrigatório
 
 - [ ] 320, 360, 390, 430, 446 e 768 px: título, menu, indicadores e duas linhas de ações sem sobreposição ou rolagem horizontal.

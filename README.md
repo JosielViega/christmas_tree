@@ -211,8 +211,9 @@ Em uma conta e credenciais de teste do Mercado Pago, nunca com cobrança real:
 
 - habilitar conscientemente o sandbox e confirmar que produto, valor, QR Code, Copia e Cola e expiração aparecem em viewport móvel;
 - repetir o envio e recarregar a tela sem criar uma segunda cobrança;
-- pagar com usuário de teste, simular/repetir o webhook no painel e confirmar `pending → paid` uma única vez;
-- verificar que o presente pago continua ausente da árvore pública e que enfeites/mensagens não mudaram;
+- executar separadamente o cenário oficial Pix de R$ 50,00 com os dados documentados, sem alterar os preços comerciais;
+- pagar com usuário de teste, simular/repetir o webhook no painel e confirmar `pending → paid → published` uma única vez;
+- verificar que o presente publicado aparece somente na árvore correta e que enfeites/mensagens não mudaram;
 - testar assinatura inválida, valor divergente, provedor indisponível e expiração sem expor payload, e-mail ou credenciais;
 - executar o cron e confirmar que pedidos pendentes/pagos conservam a textura e que rascunhos comuns expirados são removidos.
 
@@ -240,7 +241,7 @@ Rotas:
 - `GET /api/gift-drafts/{gift_id}` — consulta com `X-Gift-Draft-Token`;
 - `DELETE /api/gift-drafts/{gift_id}` — cancela com token e CSRF.
 
-O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox é configurado explicitamente. Sem credenciais, informa indisponibilidade e não cria cobranças. Pagamento confirmado muda apenas o estado para `paid`; não publica o presente. Execute `composer gifts:cleanup` por cron para reconciliar pendências antes da limpeza. Veja [armazenamento privado](docs/GIFT_STORAGE.md) e [pagamentos](docs/PAYMENTS.md).
+O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox é configurado explicitamente. Sem credenciais, informa indisponibilidade e não cria cobranças. Pagamento confirmado muda o estado para `paid` e dispara a publicação idempotente no backend; se essa etapa falhar, o cron tenta novamente sem perder o pagamento. Execute `composer gifts:cleanup` para reconciliar pendências, retomar publicações e limpar somente rascunhos elegíveis. Veja [armazenamento privado](docs/GIFT_STORAGE.md) e [pagamentos](docs/PAYMENTS.md).
 
 ## Etapa 08A — estabilização antes do lançamento
 

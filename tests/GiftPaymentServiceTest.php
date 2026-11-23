@@ -90,7 +90,7 @@ final class GiftPaymentServiceTest extends TestCase
         $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('b', 16));
     }
 
-    public function testSignedWebhookConfirmsOnceAndNeverPublishes(): void
+    public function testSignedWebhookConfirmsOnceWithoutPublisherDependency(): void
     {
         $service = $this->service();
         $order = $service->create($this->giftId, $this->token, 'magic', 'buyer@example.com', str_repeat('c', 16));
@@ -100,7 +100,49 @@ final class GiftPaymentServiceTest extends TestCase
         self::assertTrue($service->processNotification('signature', 'request', (string) $order?->providerOrderId, '{"event":1}'));
         self::assertTrue($service->processNotification('signature', 'request', (string) $order?->providerOrderId, '{"event":1}'));
         self::assertSame('paid', $service->findAuthorized($this->giftId, $this->token)?->status);
-        self::assertStringNotContainsString('publish', (string) file_get_contents(dirname(__DIR__) . '/routes/web.php'));
+        self::assertSame(1, $this->gateway->createCalls);
+    }
+
+    public function testReconciliationConfirmsPaymentWhenWebhookIsLost(): void
+    {
+        $service = $this->service();
+        $order = $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('r', 16));
+        $this->gateway->charge = new PaymentCharge(
+            (string) $order?->providerOrderId, 'PAY_RECONCILED_123', (string) $order?->publicId, 199, 'BRL', 'paid', false, null, null, null,
+        );
+
+        self::assertSame(1, $service->reconcilePending());
+        self::assertSame('paid', $service->findAuthorized($this->giftId, $this->token)?->status);
+        self::assertSame(0, $service->reconcilePending());
+    }
+
+    public function testRejectsProviderAmountAndEnvironmentMismatches(): void
+    {
+        $service = $this->service();
+        $this->gateway->createFailure = new PaymentGatewayException('Timeout.', true);
+        try {
+            $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('m', 16));
+            self::fail('The setup timeout must preserve an unbound pending order.');
+        } catch (PaymentGatewayException) {
+        }
+
+        $this->gateway->createFailure = null;
+        $localOrder = array_values($this->orders->orders)[0];
+        $this->gateway->charge = new PaymentCharge('ORD_AMOUNT_123', null, $localOrder->publicId, 200, 'BRL', 'pending', false, null, null, null);
+        try {
+            $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('m', 16));
+            self::fail('A mismatched provider amount must be rejected.');
+        } catch (PaymentGatewayException $exception) {
+            self::assertFalse($exception->retryable);
+        }
+
+        $this->gateway->charge = new PaymentCharge('ORD_LIVE_123', null, $localOrder->publicId, 199, 'BRL', 'pending', true, null, null, null);
+        try {
+            $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('m', 16));
+            self::fail('A production charge must not be accepted by a sandbox service.');
+        } catch (PaymentGatewayException $exception) {
+            self::assertFalse($exception->retryable);
+        }
     }
 
     public function testDefinitiveProviderFailureReleasesDraftWhileTimeoutRemainsProtected(): void
