@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { COLORS } from '../constants';
 import { PhotoData } from '../types';
-import { acquirePolaroidTexture } from '../utils/progressiveTextures';
+import { acquirePolaroidTexture, reportPolaroidTextureApplied } from '../utils/progressiveTextures';
 
 interface PolaroidProps {
   data: PhotoData;
@@ -19,8 +19,8 @@ const Polaroid: React.FC<PolaroidProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const explodeProgress = useRef(0);
   const [hovered, setHovered] = useState(false);
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const [textureFailed, setTextureFailed] = useState(false);
+  const [loadedTexture, setLoadedTexture] = useState<{ url: string; texture: THREE.Texture; resourceId: number } | null>(null);
+  const [failedTextureUrl, setFailedTextureUrl] = useState<string | null>(null);
   const vectors = useRef({
     base: new THREE.Vector3(), forward: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3(),
     floating: new THREE.Vector3(), scale: new THREE.Vector3(), targetQuat: new THREE.Quaternion(),
@@ -33,12 +33,21 @@ const Polaroid: React.FC<PolaroidProps> = ({
 
   useEffect(() => {
     let active = true;
-    setTexture(null);
-    setTextureFailed(false);
+    setLoadedTexture(null);
+    setFailedTextureUrl(null);
     const resource = acquirePolaroidTexture(data.url);
-    void resource.promise.then((loaded) => { if (active) setTexture(loaded); }).catch(() => { if (active) setTextureFailed(true); });
+    void resource.promise.then((loaded) => {
+      if (!active) return;
+      setLoadedTexture({ url: data.url, texture: loaded, resourceId: resource.id });
+    }).catch(() => { if (active) setFailedTextureUrl(data.url); });
     return () => { active = false; resource.release(); };
   }, [data.url]);
+
+  const texture = loadedTexture?.url === data.url ? loadedTexture.texture : null;
+  const textureFailed = failedTextureUrl === data.url;
+  useEffect(() => {
+    if (texture && loadedTexture) reportPolaroidTextureApplied(loadedTexture.resourceId);
+  }, [texture, loadedTexture]);
 
   useFrame((state) => {
     const targetProgress = isExploded ? 1 : 0;
@@ -186,9 +195,9 @@ const Polaroid: React.FC<PolaroidProps> = ({
         </mesh>
 
         {/* Backing */}
-        <mesh position={[0, -0.75, -0.01]}>
+        <mesh position={[0, -0.75, -0.021]}>
            <planeGeometry args={[1.2, 1.5]} />
-           <meshBasicMaterial color={COLORS.POLAROID_BACK} />
+           <meshBasicMaterial color={COLORS.POLAROID_BACK} side={THREE.BackSide} />
         </mesh>
       </group>
     </group>

@@ -31,19 +31,122 @@ export class TaskQueue {
   }
 }
 
+export type TextureDiagnosticEvent =
+  | 'queued'
+  | 'loading'
+  | 'decoded'
+  | 'created'
+  | 'applied'
+  | 'unavailable'
+  | 'disposed';
+
+type TextureDiagnostic = (event: TextureDiagnosticEvent, resourceId: number, reason?: string) => void;
+type TextureProgress = (event: 'loading' | 'decoded', reason?: string) => void;
+type DisposableTexture = { dispose: () => void };
+
+const developmentDiagnostic: TextureDiagnostic = (event, resourceId, reason) => {
+  if (!import.meta.env.DEV) return;
+  console.debug('[memory-texture]', { event, resourceId, ...(reason ? { reason } : {}) });
+};
+
+interface CachedTexture<T> {
+  id: number;
+  promise: Promise<T>;
+  texture?: T;
+  users: number;
+}
+
+export class ProgressiveTextureCache<T extends DisposableTexture> {
+  private readonly cache = new Map<string, CachedTexture<T>>();
+  private nextId = 1;
+  private readonly loader: (key: string, progress: TextureProgress) => Promise<T>;
+  private readonly diagnostic: TextureDiagnostic;
+
+  constructor(
+    loader: (key: string, progress: TextureProgress) => Promise<T>,
+    diagnostic: TextureDiagnostic = () => undefined,
+  ) {
+    this.loader = loader;
+    this.diagnostic = diagnostic;
+  }
+
+  acquire(key: string) {
+    let entry = this.cache.get(key);
+    if (!entry) {
+      const id = this.nextId++;
+      this.diagnostic('queued', id);
+      const promise = this.loader(key, (event, reason) => this.diagnostic(event, id, reason));
+      entry = { id, users: 0, promise };
+      const createdEntry = entry;
+      promise.then(
+        (texture) => {
+          createdEntry.texture = texture;
+          this.diagnostic('created', createdEntry.id);
+          if (createdEntry.users === 0) this.disposeEntry(key, createdEntry);
+        },
+        (error: unknown) => {
+          this.diagnostic('unavailable', createdEntry.id, textureFailureReason(error));
+          this.deleteIfCurrent(key, createdEntry);
+        },
+      );
+      this.cache.set(key, entry);
+    }
+
+    entry.users++;
+    const acquiredEntry = entry;
+    let released = false;
+    return {
+      id: acquiredEntry.id,
+      promise: acquiredEntry.promise,
+      release: () => {
+        if (released) return;
+        released = true;
+        acquiredEntry.users = Math.max(0, acquiredEntry.users - 1);
+        if (acquiredEntry.users === 0 && acquiredEntry.texture) this.disposeEntry(key, acquiredEntry);
+      },
+    };
+  }
+
+  reportApplied(resourceId: number): void {
+    this.diagnostic('applied', resourceId);
+  }
+
+  private disposeEntry(key: string, entry: CachedTexture<T>): void {
+    if (!entry.texture || entry.users !== 0) return;
+    entry.texture.dispose();
+    entry.texture = undefined;
+    this.diagnostic('disposed', entry.id);
+    this.deleteIfCurrent(key, entry);
+  }
+
+  private deleteIfCurrent(key: string, entry: CachedTexture<T>): void {
+    if (this.cache.get(key) === entry) this.cache.delete(key);
+  }
+}
+
 const queue = new TaskQueue();
 
-const decodeTexture = (url: string): Promise<THREE.Texture> => queue.run(() => new Promise((resolve, reject) => {
+class TextureLoadError extends Error {
+  readonly reason: string;
+  constructor(reason: string) { super(reason); this.reason = reason; }
+}
+
+const textureFailureReason = (error: unknown): string =>
+  error instanceof TextureLoadError ? error.reason : 'texture_creation_failed';
+
+const decodeTexture = (url: string, progress: TextureProgress): Promise<THREE.Texture> => queue.run(() => new Promise((resolve, reject) => {
+  progress('loading');
   const image = new Image();
   image.decoding = 'async';
   image.onload = () => {
+    progress('decoded');
     try {
       const size = fittedTextureSize(image.naturalWidth, image.naturalHeight);
       const canvas = document.createElement('canvas');
       canvas.width = size.width;
       canvas.height = size.height;
       const context = canvas.getContext('2d', { alpha: false });
-      if (!context) throw new Error('canvas_unavailable');
+      if (!context) throw new TextureLoadError('canvas_unavailable');
       context.drawImage(image, 0, 0, size.width, size.height);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -54,41 +157,26 @@ const decodeTexture = (url: string): Promise<THREE.Texture> => queue.run(() => n
       resolve(texture);
     } catch (error) { reject(error); }
   };
-  image.onerror = () => reject(new Error('image_decode_failed'));
+  image.onerror = () => reject(new TextureLoadError('image_load_or_decode_failed'));
   image.src = url;
 }));
 
-interface CachedTexture { promise: Promise<THREE.Texture>; texture?: THREE.Texture; users: number }
-const cache = new Map<string, CachedTexture>();
 let pendingTextures = 0;
-
-export const acquirePolaroidTexture = (url: string) => {
-  let entry = cache.get(url);
-  if (!entry) {
-    if (pendingTextures === 0) markStartup('memory_textures_start');
-    pendingTextures++;
-    const promise = decodeTexture(url).finally(() => {
-      pendingTextures--;
-      if (pendingTextures === 0) {
-        markStartup('memory_textures_ready');
-        measureStartup('memory-textures-progressive', 'memory_textures_start', 'memory_textures_ready');
-      }
-    });
-    entry = { users: 0, promise };
-    entry.promise.then((texture) => { if (entry) entry.texture = texture; }).catch(() => cache.delete(url));
-    cache.set(url, entry);
+const trackedDecodeTexture = async (url: string, progress: TextureProgress): Promise<THREE.Texture> => {
+  if (pendingTextures === 0) markStartup('memory_textures_start');
+  pendingTextures++;
+  try {
+    return await decodeTexture(url, progress);
+  } finally {
+    pendingTextures--;
+    if (pendingTextures === 0) {
+      markStartup('memory_textures_ready');
+      measureStartup('memory-textures-progressive', 'memory_textures_start', 'memory_textures_ready');
+    }
   }
-  entry.users++;
-  let released = false;
-  return {
-    promise: entry.promise,
-    release: () => {
-      if (released) return;
-      released = true;
-      entry!.users--;
-      if (entry!.users <= 0) entry!.promise.then(() => {
-        if (entry!.users <= 0) { entry!.texture?.dispose(); cache.delete(url); }
-      }, () => cache.delete(url));
-    },
-  };
 };
+
+const textureCache = new ProgressiveTextureCache(trackedDecodeTexture, developmentDiagnostic);
+
+export const acquirePolaroidTexture = (url: string) => textureCache.acquire(url);
+export const reportPolaroidTextureApplied = (resourceId: number) => textureCache.reportApplied(resourceId);

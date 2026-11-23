@@ -189,6 +189,8 @@ O mirror HostGator inclui app, migration, views, rotas, assets compilados e depe
 
 Memórias e presentes usam requisições abortáveis e não participam da prontidão essencial. `Polaroid` não usa `useTexture`/Suspense: uma fila com concorrência 2 decodifica a imagem otimizada já publicada, reduz o bitmap para no máximo 512 px em Canvas e cria a textura progressivamente. Falhas ficam isoladas no cartão. Geometrias da árvore reservam os seis slots de memória desde a primeira geração, evitando reconstruir 20.000 folhas quando a coleção chega.
 
+O cache progressivo mantém uma entrada identificável por URL e contagem de referências. A resolução, rejeição e liberação só removem o registro quando ele ainda é a entrada corrente daquela URL; uma limpeza antiga nunca remove um remount mais novo. A textura é descartada uma única vez após a última referência e o `Polaroid` só aplica uma textura vinculada à URL atual. Diagnósticos de desenvolvimento usam apenas um identificador sequencial anônimo e o estágio do recurso, sem registrar URLs.
+
 O perfil inicial limita DPR a 1,25 e a árvore a 12.000 folhas em dispositivos modestos; nos demais, limita DPR a 1,75 e preserva 20.000 folhas. `PerformanceMonitor` e `AdaptiveDpr` continuam ajustando efeitos depois. Instrumentação via User Timing existe apenas em desenvolvimento e usa nomes fixos, sem identificadores públicos, URLs ou conteúdo privado.
 
 ## Identidade anônima e participação gratuita

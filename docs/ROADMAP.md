@@ -96,3 +96,7 @@ Máquina de estados de carregamento, primeiro frame verificado, timeout/recupera
 ### 8A.5. Uma participação gratuita por visitante — tecnicamente concluída
 
 Identidade anônima persistente e separada do proprietário, unicidade transacional por árvore, resposta HTTP 409 específica, reconhecimento no retorno e retenção mínima do marcador após exclusão. Registros históricos não são associados retroativamente e presentes premium permanecem sem limite por identidade.
+
+### 8A.4.1. Fotografias progressivas visíveis — tecnicamente concluída
+
+O cache de texturas passa a validar a identidade da entrada antes de removê-la, centraliza descarte e contagem de referências e vincula o material à URL atual. Remounts, substituições e falhas fora de ordem deixam de remover ou reutilizar texturas incorretas; frente e verso do cartão permanecem separados durante a rotação.
