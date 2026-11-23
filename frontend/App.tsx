@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, ChevronLeft, ChevronRight, Gift, Loader2, LockKeyhole, MailOpen, Share2, Trash2, TreePine, X } from 'lucide-react';
 import Scene from './components/Scene';
 import Overlay from './components/Overlay';
 import TreeOnboarding from './components/TreeOnboarding';
@@ -30,10 +30,20 @@ import { sameOriginTreeUrl } from './utils/sameOriginUrl';
 import ChristmasLoadingScreen from './components/ChristmasLoadingScreen';
 import { STARTUP_TIMEOUT_MS, canAdvanceStartup, markStartup, measureStartup } from './utils/startup';
 import type { StartupPhase } from './utils/startup';
+import { getOrnamentNavigation, isEditableNavigationTarget, orderExistingOrnaments } from './utils/ornamentNavigation';
+import type { OrnamentNavigationDirection } from './utils/ornamentNavigation';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
 const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_MAX_BYTES);
+const ornamentTypeLabels: Record<OrnamentType, string> = {
+  bauble_red: 'Bolinha vermelha',
+  bauble_gold: 'Bolinha dourada',
+  bauble_blue: 'Bolinha azul',
+  heart: 'Coração',
+  star: 'Estrela',
+  present: 'Presente',
+};
 const alreadyDecoratedMessage = 'Você já deixou seu enfeite nesta árvore! ❤️ Agora é só esperar o Natal para que sua mensagem seja revelada.';
 markStartup('app_start');
 if (initialBootstrap?.tree) {
@@ -368,7 +378,14 @@ const App: React.FC = () => {
     interactionMode,
     isInstaModalOpen: false,
     isRecording,
+    keyboardNavigationEnabled: !selectedOrnament && !selectedGift,
   });
+
+  const orderedOrnaments = useMemo(() => orderExistingOrnaments(ornaments), [ornaments]);
+  const ornamentNavigation = useMemo(
+    () => getOrnamentNavigation(orderedOrnaments, selectedOrnament?.public_id ?? null),
+    [orderedOrnaments, selectedOrnament?.public_id],
+  );
 
   const handleAccess = (access: ChristmasTreeAccess) => {
     const sameOriginAccess = { ...access, public_url: sameOriginTreeUrl(access.public_path) };
@@ -402,7 +419,7 @@ const App: React.FC = () => {
     void fetchApiContext().then((context) => setCsrfToken(context.csrf_token)).catch(() => undefined);
   };
 
-  const focusOrnament = (ornament: SocialOrnamentData) => {
+  const focusOrnament = useCallback((ornament: SocialOrnamentData) => {
     const slot = getOrnamentSlot(ornament.slot_index, ornament.layout_version);
     setSelectedOrnament(ornament);
     setSelectedGift(null);
@@ -416,7 +433,7 @@ const App: React.FC = () => {
       rotation: slot.rotation,
     });
     setZoomLevel(ZoomLevel.ZOOMED_IN);
-  };
+  }, [setFocusedPhoto, setZoomLevel]);
 
   const focusPremiumGift = (gift: PremiumGiftData) => {
     const transform = getPremiumGiftTransform(gift.position_index, gift.layout_version);
@@ -429,7 +446,7 @@ const App: React.FC = () => {
     setZoomLevel(ZoomLevel.ZOOMED_IN);
   };
 
-  const closeFocusedItem = () => {
+  const closeFocusedItem = useCallback(() => {
     setSelectedGift(null);
     giftMessageRequestSequence.current += 1;
     setSelectedGiftMessage(null);
@@ -437,7 +454,41 @@ const App: React.FC = () => {
     setSelectedOrnament(null);
     setFocusedPhoto(null);
     scrollToTop();
-  };
+  }, [scrollToTop, setFocusedPhoto]);
+
+  const navigateOrnament = useCallback((direction: OrnamentNavigationDirection) => {
+    if (!ornamentNavigation || ornamentNavigation.total < 2) return;
+    focusOrnament(direction === 'next' ? ornamentNavigation.next : ornamentNavigation.previous);
+  }, [focusOrnament, ornamentNavigation]);
+
+  useEffect(() => {
+    if (!selectedOrnament || !ornamentsReady) return;
+    const current = orderedOrnaments.find((ornament) => ornament.public_id === selectedOrnament.public_id);
+    if (!current) {
+      closeFocusedItem();
+      return;
+    }
+    if (current !== selectedOrnament) setSelectedOrnament(current);
+  }, [closeFocusedItem, orderedOrnaments, ornamentsReady, selectedOrnament]);
+
+  useEffect(() => {
+    if (!selectedOrnament || ornamentModalOpen || isRecording) return;
+    const handleOrnamentKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableNavigationTarget(event.target)) return;
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        navigateOrnament('next');
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        navigateOrnament('previous');
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeFocusedItem();
+      }
+    };
+    window.addEventListener('keydown', handleOrnamentKeyDown);
+    return () => window.removeEventListener('keydown', handleOrnamentKeyDown);
+  }, [closeFocusedItem, isRecording, navigateOrnament, ornamentModalOpen, selectedOrnament]);
 
   const selectedMemory = focusedPhoto?.memoryPublicId
     ? memories.find((memory) => memory.public_id === focusedPhoto.memoryPublicId) ?? null
@@ -708,11 +759,13 @@ const App: React.FC = () => {
       )}
 
       {selectedOrnament && !ornamentModalOpen && (
-        <div className="fixed left-1/2 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[75] max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] w-[min(92vw,22rem)] -translate-x-1/2 overflow-y-auto animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
+        <div className="fixed left-1/2 top-[max(6rem,calc(env(safe-area-inset-top)+5rem))] z-[75] flex max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] w-[min(92vw,22rem)] -translate-x-1/2 flex-col overflow-hidden animate-in fade-in zoom-in-95 rounded-2xl border border-white/15 bg-black/75 p-4 text-center text-white shadow-2xl backdrop-blur-xl pointer-events-auto motion-reduce:animate-none" onPointerDown={(event) => event.stopPropagation()}>
+          <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 z-10 min-h-11 min-w-11 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X className="mx-auto" size={17} /></button>
+          <div className="min-h-0 overflow-y-auto px-1">
           {ownerMessages[selectedOrnament.public_id] ? <MailOpen className="mx-auto text-[#fff1a1]" size={25} /> : <Gift className="mx-auto text-[#fff1a1]" size={24} />}
           <p className="mt-2 font-semibold">🎁 Presente de {selectedOrnament.sender_name}</p>
           <p className="mt-1 text-xs text-white/45">Posição {selectedOrnament.slot_index + 1} de {ORNAMENT_SLOT_COUNT}</p>
+          <p className="mt-1 text-xs text-white/55">{ornamentTypeLabels[selectedOrnament.ornament_type]}</p>
           {!selectedOrnament.has_message ? (
             <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/55">Este enfeite foi criado antes das mensagens secretas.</p>
           ) : ownerMessages[selectedOrnament.public_id] ? (
@@ -728,6 +781,18 @@ const App: React.FC = () => {
             <button type="button" onClick={handleDeleteOrnament} disabled={deletingOrnament} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/25 bg-red-400/10 px-4 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/20 disabled:opacity-50">
               {deletingOrnament ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Remover enfeite
             </button>
+          )}
+          </div>
+          {ornamentNavigation && ornamentNavigation.total > 1 && (
+            <nav aria-label="Navegação entre enfeites" className="mt-3 grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 border-t border-white/10 pt-3">
+              <button type="button" onClick={() => navigateOrnament('previous')} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#fff1a1] hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fff1a1]" aria-label="Enfeite anterior">
+                <ChevronLeft aria-hidden="true" size={17} /> <span>Anterior</span>
+              </button>
+              <span aria-live="polite" className="whitespace-nowrap px-1 text-xs font-semibold tabular-nums text-white/65">{ornamentNavigation.index + 1} de {ornamentNavigation.total}</span>
+              <button type="button" onClick={() => navigateOrnament('next')} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#fff1a1] hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fff1a1]" aria-label="Próximo enfeite">
+                <span>Próximo</span> <ChevronRight aria-hidden="true" size={17} />
+              </button>
+            </nav>
           )}
         </div>
       )}

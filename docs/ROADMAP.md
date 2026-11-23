@@ -108,3 +108,7 @@ Texturas que chegam depois do primeiro frame são aplicadas por layout effect e 
 ### 8A.7. Liberação operacional de mensagens — tecnicamente concluída
 
 Uma política compartilhada mantém a abertura automática de Natal e permite override temporário por `LIBERAR_MENSAGEM=true`. A autorização privada, o bloqueio reversível, a separação por árvore e os estados financeiros permanecem preservados.
+
+### 8A.8. Navegação entre enfeites — tecnicamente concluída
+
+O cartão de foco percorre circularmente somente os enfeites persistidos, ordenados por `slot_index` e identificados por `public_id`. Botões mobile e setas do teclado reutilizam a transição existente da câmera sem interferir em Polaroids, presentes premium ou privacidade das mensagens.

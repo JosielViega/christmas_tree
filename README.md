@@ -34,6 +34,7 @@ Aplicativo natalino com árvores 3D individuais, compartilháveis e colaborativa
 - visitantes podem escolher entre seis enfeites e associar seu nome;
 - até 60 posições determinísticas (`layout_version=1`) são controladas pelo backend;
 - enfeites reaparecem no mesmo galho e podem ser tocados para identificar quem os deixou;
+- ao selecionar um enfeite, os controles Anterior/Próximo percorrem circularmente apenas os enfeites existentes, ordenados por posição; as setas do teclado fazem o mesmo e Escape retorna à árvore;
 - o proprietário pode remover participações após confirmação;
 - transações, índice único de slot, idempotência e rate limiting protegem envios concorrentes;
 - cada nova participação inclui uma mensagem de 2 a 500 caracteres Unicode, persistida atomicamente com o enfeite;

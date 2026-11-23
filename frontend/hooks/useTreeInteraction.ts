@@ -1,15 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ControlMode, ZoomLevel, PhotoData, InteractionMode } from '../types';
 import { CAMERA_CONFIG } from '../constants';
+import { isEditableNavigationTarget } from '../utils/ornamentNavigation';
 
 interface UseTreeInteractionProps {
     photos: PhotoData[];
     interactionMode: InteractionMode;
     isInstaModalOpen: boolean;
     isRecording: boolean;
+    keyboardNavigationEnabled: boolean;
 }
 
-export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, isRecording }: UseTreeInteractionProps) => {
+export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, isRecording, keyboardNavigationEnabled }: UseTreeInteractionProps) => {
     const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(ZoomLevel.FULL_TREE);
     const [focusedPhoto, setFocusedPhoto] = useState<PhotoData | null>(null);
     const [isExploded, setIsExploded] = useState(false);
@@ -30,6 +32,7 @@ export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, 
     const handleNextPhoto = useCallback(() => {
         if (!focusedPhoto || photos.length === 0) return;
         const currentIndex = photos.findIndex(p => p.id === focusedPhoto.id);
+        if (currentIndex < 0) return;
         // Next = Go forward in array (+1)
         const nextIndex = (currentIndex + 1) % photos.length;
         handlePhotoClick(photos[nextIndex]);
@@ -38,6 +41,7 @@ export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, 
     const handlePrevPhoto = useCallback(() => {
         if (!focusedPhoto || photos.length === 0) return;
         const currentIndex = photos.findIndex(p => p.id === focusedPhoto.id);
+        if (currentIndex < 0) return;
         // Prev = Go backward in array (-1)
         const prevIndex = (currentIndex - 1 + photos.length) % photos.length;
         handlePhotoClick(photos[prevIndex]);
@@ -70,11 +74,13 @@ export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, 
     // Keyboard Navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (zoomLevel !== ZoomLevel.ZOOMED_IN || isInstaModalOpen || isRecording) return;
+            if (!keyboardNavigationEnabled || zoomLevel !== ZoomLevel.ZOOMED_IN || isInstaModalOpen || isRecording || isEditableNavigationTarget(e.target)) return;
 
             if (e.key === 'ArrowRight') {
+                e.preventDefault();
                 handleNextPhoto();
             } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
                 handlePrevPhoto();
             } else if (e.key === 'Escape') {
                 setZoomLevel(ZoomLevel.FULL_TREE);
@@ -83,16 +89,16 @@ export const useTreeInteraction = ({ photos, interactionMode, isInstaModalOpen, 
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [zoomLevel, isInstaModalOpen, isRecording, handleNextPhoto, handlePrevPhoto]);
+    }, [keyboardNavigationEnabled, zoomLevel, isInstaModalOpen, isRecording, handleNextPhoto, handlePrevPhoto]);
 
-    const scrollToTop = () => {
+    const scrollToTop = useCallback(() => {
         // Prevent zooming out when interacting with UI logic is in App.tsx handleDoubleClick,
         // but here we just manage state.
         // This logic was mainly for double click zoom reset
         if (zoomLevel === ZoomLevel.ZOOMED_IN) {
             setZoomLevel(ZoomLevel.FULL_TREE);
         }
-    };
+    }, [zoomLevel]);
 
     return {
         zoomLevel,

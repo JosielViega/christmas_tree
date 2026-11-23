@@ -44,6 +44,9 @@ Os testes cobrem proprietário/visitante, restauração persistente, link na mes
 - [ ] Com `LIBERAR_MENSAGEM=false`, confirmar HTTP 423 antes do Natal e ausência de texto secreto no navegador.
 - [ ] Alternar temporariamente para `LIBERAR_MENSAGEM=true`, recarregar e confirmar mensagens de enfeites e presentes somente como proprietário.
 - [ ] Voltar para `LIBERAR_MENSAGEM=false`, retornar à página e confirmar novo bloqueio; conteúdo já visto não é revogável.
+- [ ] Abrir uma árvore com enfeites em posições não consecutivas e confirmar Anterior/Próximo, contador baseado apenas nos existentes e retorno circular nas duas direções.
+- [ ] Repetir com setas esquerda/direita e Escape; confirmar que campos editáveis, Polaroids e presentes premium não respondem à navegação de enfeites.
+- [ ] Em 320–446 px, confirmar alvos de toque, mensagem longa rolável, rodapé estável e ausência de rolagem horizontal.
 
 A automação não substitui aprovação estética nem testes físicos em aparelhos reais.
 
@@ -56,3 +59,5 @@ Os testes da 08A.4.1 exercitam 1, 3 e 6 fotografias, limite de duas decodificaç
 Os testes da 08A.4.2 verificam a versão real de `MeshStandardMaterial` na transição tardia de `map`, placeholder→fotografia, substituição, remoção, falha/retry, troca de árvore e conjuntos de 1, 3 e 6 materiais. A integração MySQL isolada persiste três JPEGs, reinicializa serviços como em um reload, consulta novamente a API e valida status, MIME e assinatura de cada imagem.
 
 Os testes da 08A.7 cobrem parsing ausente/falso/verdadeiro/inválido, fronteiras do relógio, override manual, reversibilidade, HTTP 423/200, contagem sem conteúdo, escopo por árvore, cookie persistente, mensagens gratuitas e premium, ausência de mutações financeiras e revalidação frontend ao retornar à página.
+
+Os testes da 08A.8 cobrem listas com 0, 1, 2, 10 e 60 enfeites, ordenação estável, navegação anterior/próximo e circular, contador real, remoções e mudanças dinâmicas, isolamento do teclado, elementos editáveis, reutilização do foco/câmera, movimento reduzido, mensagens por ID e estrutura mobile. A validação visual da trajetória em lados opostos da árvore permanece manual em aparelhos reais.
