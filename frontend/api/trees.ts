@@ -1,4 +1,4 @@
-import type { ChristmasTreeAccess, ChristmasTreeData, MemoryCollection, OrnamentCollection, OrnamentType, OwnerMessageCollection, PremiumGiftCollection, SocialOrnamentData, TreeMemoryData } from '../types';
+import type { ChristmasTreeAccess, ChristmasTreeData, MemoryCollection, OrnamentCollection, OrnamentType, OwnerMessageCollection, PremiumGiftCollection, PremiumGiftOwnerMessage, SocialOrnamentData, TreeMemoryData } from '../types';
 
 interface ApiErrorBody {
   error?: {
@@ -134,6 +134,9 @@ export const fetchOrnaments = (publicId: string, signal?: AbortSignal): Promise<
 
 export const fetchPremiumGifts = (publicId: string, signal?: AbortSignal): Promise<PremiumGiftCollection> =>
   request(`/api/trees/${encodeURIComponent(publicId)}/gifts`, { signal });
+
+export const fetchPremiumGiftMessage = (treePublicId: string, giftPublicId: string): Promise<PremiumGiftOwnerMessage> =>
+  request(`/api/trees/${encodeURIComponent(treePublicId)}/gifts/${encodeURIComponent(giftPublicId)}/message`, { cache: 'no-store' });
 
 export const fetchMemories = (publicId: string, signal?: AbortSignal): Promise<MemoryCollection> =>
   request(`/api/trees/${encodeURIComponent(publicId)}/memories`, { signal });

@@ -134,3 +134,8 @@ export interface PremiumGiftCollection {
   visible_limit: number;
   total: number;
 }
+
+export interface PremiumGiftOwnerMessage {
+  message: string;
+  reveal_at: string;
+}

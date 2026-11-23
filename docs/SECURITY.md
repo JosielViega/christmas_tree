@@ -100,6 +100,12 @@ O proprietário pode excluir um enfeite antes ou depois da liberação, e a mens
 - `paid` não implica `published`; o frontend não possui endpoint de confirmação ou publicação;
 - produção permanece bloqueada sem HTTPS, ambiente de produção e opt-in explícito.
 
+## Liberação manual de mensagens
+
+`LIBERAR_MENSAGEM` é interpretada estritamente no backend. Somente `true` habilita a liberação; ausência, `false` e valores inválidos permanecem bloqueados até `MESSAGE_REVEAL_AT`. A variável não é incluída no bootstrap, nas APIs públicas ou em logs.
+
+A liberação altera apenas a política de leitura privada. Sessão administrativa ou credencial persistente válida continuam obrigatórias e o ID público não concede acesso. Pagamentos, publicação, visibilidade, moderação e estados financeiros não são alterados. Ao voltar para `false`, novas consultas anteriores ao Natal retornam a ser bloqueadas; conteúdo já visualizado ou copiado não pode ser revogado retroativamente.
+
 ## Regras gerais
 
 1. Nunca versionar `.env`, credenciais, certificados, logs ou dados reais.

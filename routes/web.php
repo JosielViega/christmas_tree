@@ -37,6 +37,7 @@ use App\Services\PersistentTreeAccessService;
 use App\Services\ChristmasTreeMemoryService;
 use App\Services\MemoryImageStorage;
 use App\Services\VisitorIdentityService;
+use App\Services\MessageReleasePolicy;
 
 $health = new HealthController();
 $treeRepository = new PdoChristmasTreeRepository($app['database']);
@@ -83,12 +84,19 @@ $treePage = new TreePageController(
     $app['config'],
     $persistentAccess,
 );
+$messageRelease = new MessageReleasePolicy(
+    $app['config']['messages']['reveal_at'],
+    $app['config']['messages']['reveal_timezone'],
+    $app['config']['messages']['manual_release'],
+);
 $ornamentService = new ChristmasTreeOrnamentService(
     $treeRepository,
     new PdoChristmasTreeOrnamentRepository($app['database']),
     $app['config']['ornaments']['capacity'],
     $app['config']['messages']['reveal_at'],
     $app['config']['messages']['reveal_timezone'],
+    null,
+    $messageRelease,
 );
 $visitorIdentity = new VisitorIdentityService(
     new PdoVisitorIdentityRepository($app['database']),
@@ -143,6 +151,8 @@ $giftPublication = new GiftPublicationService(
     $giftStorage,
     $app['config']['messages']['reveal_at'],
     $app['config']['messages']['reveal_timezone'],
+    null,
+    $messageRelease,
 );
 $giftAccessSession = new GiftDraftAccessSession($app['session']);
 $giftApi = new GiftDraftApiController(

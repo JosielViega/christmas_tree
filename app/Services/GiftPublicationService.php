@@ -18,7 +18,7 @@ final class GiftPublicationService
     public const LAYOUT_VERSION = 2;
     public const VISIBLE_LIMIT = 12;
     private readonly Closure $clock;
-    private readonly DateTimeImmutable $revealAt;
+    private readonly MessageReleasePolicy $messageRelease;
 
     public function __construct(
         private readonly ChristmasTreeRepository $trees,
@@ -28,11 +28,12 @@ final class GiftPublicationService
         string $revealAt = '2026-12-25 00:00:00',
         string $revealTimezone = 'America/Sao_Paulo',
         ?callable $clock = null,
+        ?MessageReleasePolicy $messageRelease = null,
     ) {
-        $this->revealAt = new DateTimeImmutable($revealAt, new DateTimeZone($revealTimezone));
         $this->clock = $clock === null
             ? static fn (): DateTimeImmutable => new DateTimeImmutable('now', new DateTimeZone('UTC'))
             : Closure::fromCallable($clock);
+        $this->messageRelease = $messageRelease ?? new MessageReleasePolicy($revealAt, $revealTimezone, false, $clock);
     }
 
     public function publish(string $giftPublicId): ?PublishedGift
@@ -97,13 +98,13 @@ final class GiftPublicationService
     public function ownerMessage(string $treePublicId, string $giftPublicId): ?array
     {
         $tree = $this->trees->findPublic($treePublicId);
-        if ($tree === null || ($this->clock)() < $this->revealAt) {
+        if ($tree === null || !$this->messageRelease->messagesReleased()) {
             return null;
         }
         $message = $this->publications->revealedMessage($tree->id, $giftPublicId);
         return $message === null ? null : [
             'message' => $message,
-            'reveal_at' => $this->revealAt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+            'reveal_at' => $this->messageRelease->revealAtUtc(),
         ];
     }
 

@@ -227,6 +227,8 @@ O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `c
 
 No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `APP_URL` deve ser a origem HTTPS pública, sem usuário, senha, query ou fragmento, pois define links canônicos e Open Graph. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 
+`LIBERAR_MENSAGEM=false` mantém a abertura automática. Para uma liberação operacional temporária, use `LIBERAR_MENSAGEM=true`; enfeites e presentes premium ficam legíveis somente para o proprietário autorizado. Voltar para `false` restaura a programação automática em novas consultas. Valores ausentes ou inválidos equivalem a `false`, e a configuração nunca deve permanecer ativada por padrão em produção.
+
 ## Etapas 07B.2 e 07B.3 — presentes privados e Pix
 
 Em desenvolvimento, a prévia pode preparar um rascunho associado à árvore. A fotografia original permanece no navegador; somente um PNG final 512×512 é enviado, validado e reprocessado pelo GD. O arquivo fica em `storage/private/gift-textures`, fora de `public/`, e expira em 24 horas.

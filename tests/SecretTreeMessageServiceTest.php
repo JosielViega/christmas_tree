@@ -8,6 +8,7 @@ use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentValidationException;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
+use App\Services\MessageReleasePolicy;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
@@ -90,6 +91,23 @@ final class SecretTreeMessageServiceTest extends TestCase
         self::assertTrue($after->revealed);
     }
 
+    public function testManualReleaseIsImmediateAndReversibleWithoutChangingStoredMessages(): void
+    {
+        $tree = $this->trees->create('Clara')->tree;
+        $locked = $this->serviceAt('2026-11-01T00:00:00+00:00');
+        $locked->create($tree->publicId, 'heart', 'Lia', str_repeat('m', 16), 'Mensagem manual');
+        self::assertFalse($locked->messageOverview($tree->publicId)->revealed);
+
+        $manual = $this->serviceAt('2026-11-01T00:00:00+00:00', true)->messageOverview($tree->publicId);
+        self::assertTrue($manual->revealed);
+        self::assertSame('Mensagem manual', $manual->messages[0]->message);
+
+        $disabledAgain = $this->serviceAt('2026-11-01T00:00:00+00:00', false)->messageOverview($tree->publicId);
+        self::assertFalse($disabledAgain->revealed);
+        self::assertSame(1, $disabledAgain->messageCount);
+        self::assertSame([], $disabledAgain->messages);
+    }
+
     public function testMessagesStayScopedAndLegacyOrnamentsRemainWithoutContent(): void
     {
         $firstTree = $this->trees->create('Primeira')->tree;
@@ -108,7 +126,7 @@ final class SecretTreeMessageServiceTest extends TestCase
         self::assertSame(0, $service->messageOverview($secondTree->publicId)->messageCount);
     }
 
-    private function serviceAt(string $instant): ChristmasTreeOrnamentService
+    private function serviceAt(string $instant, bool $manualRelease = false): ChristmasTreeOrnamentService
     {
         return new ChristmasTreeOrnamentService(
             $this->treeRepository,
@@ -117,6 +135,12 @@ final class SecretTreeMessageServiceTest extends TestCase
             '2026-12-25 00:00:00',
             'America/Sao_Paulo',
             static fn (): DateTimeImmutable => new DateTimeImmutable($instant),
+            new MessageReleasePolicy(
+                '2026-12-25 00:00:00',
+                'America/Sao_Paulo',
+                $manualRelease,
+                static fn (): DateTimeImmutable => new DateTimeImmutable($instant),
+            ),
         );
     }
 }

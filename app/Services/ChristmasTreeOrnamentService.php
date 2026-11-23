@@ -11,14 +11,10 @@ use App\Domain\OrnamentValidationException;
 use App\Domain\TreeMessageOverview;
 use App\Repositories\ChristmasTreeOrnamentRepository;
 use App\Repositories\ChristmasTreeRepository;
-use Closure;
-use DateTimeImmutable;
-use DateTimeZone;
 
 final class ChristmasTreeOrnamentService
 {
-    private readonly Closure $clock;
-    private readonly DateTimeImmutable $revealAt;
+    private readonly MessageReleasePolicy $messageRelease;
 
     public const TYPES = [
         'bauble_red' => '#d9342b',
@@ -38,11 +34,9 @@ final class ChristmasTreeOrnamentService
         string $revealAt = '2026-12-25 00:00:00',
         string $revealTimezone = 'America/Sao_Paulo',
         ?callable $clock = null,
+        ?MessageReleasePolicy $messageRelease = null,
     ) {
-        $this->revealAt = new DateTimeImmutable($revealAt, new DateTimeZone($revealTimezone));
-        $this->clock = $clock === null
-            ? static fn (): DateTimeImmutable => new DateTimeImmutable('now', new DateTimeZone('UTC'))
-            : Closure::fromCallable($clock);
+        $this->messageRelease = $messageRelease ?? new MessageReleasePolicy($revealAt, $revealTimezone, false, $clock);
     }
 
     public function capacity(): int
@@ -130,12 +124,12 @@ final class ChristmasTreeOrnamentService
     public function messageOverviewForTree(ChristmasTree $tree): TreeMessageOverview
     {
 
-        $revealed = ($this->clock)() >= $this->revealAt;
+        $revealed = $this->messageRelease->messagesReleased();
 
         return new TreeMessageOverview(
             $this->ornaments->messageCountForTree($tree->id),
             $revealed,
-            $this->revealAt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+            $this->messageRelease->revealAtUtc(),
             $revealed ? $this->ornaments->privateMessagesForTree($tree->id) : [],
         );
     }

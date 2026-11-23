@@ -74,7 +74,7 @@ A criação do enfeite e da mensagem ocorre na mesma transação. A chave de ide
 
 As consultas públicas fazem apenas um `LEFT JOIN` para calcular `has_message`; elas nunca selecionam o texto. A consulta que seleciona `message` é separada, exige a árvore já autorizada e só é executada após o instante de liberação. O endpoint administrativo responde com `Cache-Control: private, no-store`.
 
-O instante padrão é configurado por `MESSAGE_REVEAL_AT=2026-12-25 00:00:00` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`, equivalente a `2026-12-25T03:00:00Z`. `ChristmasTreeOrnamentService` usa o relógio do servidor; o relógio injetável existe somente para testes determinísticos de fronteira.
+O instante padrão é configurado por `MESSAGE_REVEAL_AT=2026-12-25 00:00:00` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`, equivalente a `2026-12-25T03:00:00Z`. `MessageReleasePolicy` compartilha a decisão entre enfeites e presentes premium: `LIBERAR_MENSAGEM=true` libera consultas privadas imediatamente; qualquer outro valor mantém a comparação com o relógio do servidor. A política não publica presentes nem persiste estado de revelação.
 
 ## Acesso sem conta
 

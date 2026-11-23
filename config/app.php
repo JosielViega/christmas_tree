@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Services\MessageReleasePolicy;
+
 $appEnvironment = (string) env('APP_ENV', 'production');
 $treeCreationRateLimit = $appEnvironment === 'local' ? 30 : 5;
+$manualMessageRelease = $_ENV['LIBERAR_MENSAGEM'] ?? $_SERVER['LIBERAR_MENSAGEM'] ?? getenv('LIBERAR_MENSAGEM');
+$manualMessageRelease = $manualMessageRelease === false ? null : $manualMessageRelease;
 
 $giftStoragePath = trim((string) env('GIFT_PRIVATE_STORAGE_PATH', ''));
 if ($giftStoragePath === '') {
@@ -58,6 +62,7 @@ return [
     'messages' => [
         'reveal_at' => (string) env('MESSAGE_REVEAL_AT', '2026-12-25 00:00:00'),
         'reveal_timezone' => (string) env('MESSAGE_REVEAL_TIMEZONE', 'America/Sao_Paulo'),
+        'manual_release' => MessageReleasePolicy::parseManualRelease($manualMessageRelease),
     ],
     'gifts' => [
         'private_storage_path' => $giftStoragePath,

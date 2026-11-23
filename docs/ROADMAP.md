@@ -104,3 +104,7 @@ O cache de texturas passa a validar a identidade da entrada antes de removê-la,
 ### 8A.4.2. Materiais atualizados após recarregamento — tecnicamente concluída
 
 Texturas que chegam depois do primeiro frame são aplicadas por layout effect e invalidam explicitamente o `MeshStandardMaterial`, garantindo a recompilação do shader com suporte ao mapa. Persistência e endpoints JPEG foram validados separadamente com três fotografias em MySQL isolado.
+
+### 8A.7. Liberação operacional de mensagens — tecnicamente concluída
+
+Uma política compartilhada mantém a abertura automática de Natal e permite override temporário por `LIBERAR_MENSAGEM=true`. A autorização privada, o bloqueio reversível, a separação por árvore e os estados financeiros permanecem preservados.

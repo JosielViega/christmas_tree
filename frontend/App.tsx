@@ -8,9 +8,9 @@ import ShareTreeModal from './components/ShareTreeModal';
 import TreeProgressIndicator from './components/TreeProgressIndicator';
 import GiftPreviewModal from './components/GiftPreviewModal';
 import MemoriesPanel from './components/MemoriesPanel';
-import { createMemory, createOrnament, deleteMemory, deleteOrnament, fetchApiContext, fetchMemories, fetchOrnaments, fetchOwnerMessages, fetchPremiumGifts, hidePremiumGift, TreeApiError, updateMemory } from './api/trees';
+import { createMemory, createOrnament, deleteMemory, deleteOrnament, fetchApiContext, fetchMemories, fetchOrnaments, fetchOwnerMessages, fetchPremiumGiftMessage, fetchPremiumGifts, hidePremiumGift, TreeApiError, updateMemory } from './api/trees';
 import { getMemorySlot, getOrnamentSlot } from './utils/math';
-import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, PremiumGiftData, SecretTreeMessage, SocialOrnamentData, TreeMemoryData, ZoomLevel } from './types';
+import { ChristmasTreeAccess, ChristmasTreeData, ControlMode, InteractionMode, OrnamentType, PhotoData, PremiumGiftData, PremiumGiftOwnerMessage, SecretTreeMessage, SocialOrnamentData, TreeMemoryData, ZoomLevel } from './types';
 import { ORNAMENT_SLOT_COUNT } from './constants';
 import { useAudio } from './hooks/useAudio';
 import { useRecording } from './hooks/useRecording';
@@ -94,6 +94,8 @@ const App: React.FC = () => {
   const [premiumGiftPage, setPremiumGiftPage] = useState(0);
   const [premiumGiftLimit, setPremiumGiftLimit] = useState(12);
   const [selectedGift, setSelectedGift] = useState<PremiumGiftData | null>(null);
+  const [selectedGiftMessage, setSelectedGiftMessage] = useState<{ giftId: string; value: PremiumGiftOwnerMessage } | null>(null);
+  const [giftMessageLoadingFor, setGiftMessageLoadingFor] = useState<string | null>(null);
   const [hidingGift, setHidingGift] = useState(false);
   const [newOrnamentId, setNewOrnamentId] = useState<string | null>(null);
   const [deletingOrnament, setDeletingOrnament] = useState(false);
@@ -109,6 +111,7 @@ const App: React.FC = () => {
   const loadedOrnamentsFor = useRef<string | null>(null);
   const loadedMessagesFor = useRef<string | null>(null);
   const loadedMemoriesFor = useRef<string | null>(null);
+  const giftMessageRequestSequence = useRef(0);
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
   const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
   const progressionDismissTimer = useRef<number | null>(null);
@@ -224,6 +227,26 @@ const App: React.FC = () => {
     }
   }, [showToast]);
 
+  const loadPremiumGiftMessage = useCallback(async (treePublicId: string, giftPublicId: string) => {
+    const requestSequence = ++giftMessageRequestSequence.current;
+    setGiftMessageLoadingFor(giftPublicId);
+    try {
+      const value = await fetchPremiumGiftMessage(treePublicId, giftPublicId);
+      if (requestSequence !== giftMessageRequestSequence.current) return;
+      setSelectedGiftMessage({ giftId: giftPublicId, value });
+    } catch (caught) {
+      if (requestSequence !== giftMessageRequestSequence.current) return;
+      setSelectedGiftMessage((current) => current?.giftId === giftPublicId ? null : current);
+      if (!(caught instanceof TreeApiError && caught.code === 'gift_message_locked')) {
+        showToast('Não foi possível consultar a mensagem deste presente.', 'error');
+      }
+    } finally {
+      if (requestSequence === giftMessageRequestSequence.current) {
+        setGiftMessageLoadingFor((current) => current === giftPublicId ? null : current);
+      }
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (initialBootstrap) return;
     const controller = new AbortController();
@@ -317,6 +340,16 @@ const App: React.FC = () => {
     void loadOwnerMessages(tree.public_id);
   }, [tree, isOwner, loadOwnerMessages]);
 
+  useEffect(() => {
+    const revalidateMessages = () => {
+      if (document.visibilityState !== 'visible' || !tree || !isOwner) return;
+      void loadOwnerMessages(tree.public_id, true);
+      if (selectedGift?.has_message) void loadPremiumGiftMessage(tree.public_id, selectedGift.public_id);
+    };
+    document.addEventListener('visibilitychange', revalidateMessages);
+    return () => document.removeEventListener('visibilitychange', revalidateMessages);
+  }, [tree, isOwner, selectedGift, loadOwnerMessages, loadPremiumGiftMessage]);
+
   const { isMusicPlaying, toggleMusic, audioRef } = useAudio();
   const { isRecording, recordingType, handleRecordVideo } = useRecording(photos, (message) => showToast(message, 'error'));
   const {
@@ -358,6 +391,9 @@ const App: React.FC = () => {
     setMemories([]);
     setOwnerMessages({});
     setMessageOverview(null);
+    giftMessageRequestSequence.current += 1;
+    setSelectedGiftMessage(null);
+    setGiftMessageLoadingFor(null);
     setCreateOwnTreeOpen(false);
     setShareModalOpen(false);
     setGiftPreviewOpen(false);
@@ -370,6 +406,9 @@ const App: React.FC = () => {
     const slot = getOrnamentSlot(ornament.slot_index, ornament.layout_version);
     setSelectedOrnament(ornament);
     setSelectedGift(null);
+    giftMessageRequestSequence.current += 1;
+    setSelectedGiftMessage(null);
+    setGiftMessageLoadingFor(null);
     setFocusedPhoto({
       id: `ornament-${ornament.public_id}`,
       url: '',
@@ -382,6 +421,9 @@ const App: React.FC = () => {
   const focusPremiumGift = (gift: PremiumGiftData) => {
     const transform = getPremiumGiftTransform(gift.position_index, gift.layout_version);
     setSelectedGift(gift);
+    giftMessageRequestSequence.current += 1;
+    setSelectedGiftMessage(null);
+    if (tree && isOwner && gift.has_message) void loadPremiumGiftMessage(tree.public_id, gift.public_id);
     setSelectedOrnament(null);
     setFocusedPhoto({ id: `premium-gift-${gift.public_id}`, url: '', position: transform.position, rotation: transform.rotation });
     setZoomLevel(ZoomLevel.ZOOMED_IN);
@@ -389,6 +431,9 @@ const App: React.FC = () => {
 
   const closeFocusedItem = () => {
     setSelectedGift(null);
+    giftMessageRequestSequence.current += 1;
+    setSelectedGiftMessage(null);
+    setGiftMessageLoadingFor(null);
     setSelectedOrnament(null);
     setFocusedPhoto(null);
     scrollToTop();
@@ -692,11 +737,22 @@ const App: React.FC = () => {
           <button type="button" onClick={closeFocusedItem} className="absolute right-2 top-2 rounded-full p-2 text-white/50 hover:bg-white/10" aria-label="Voltar à árvore"><X size={17} /></button>
           <Gift className="mx-auto text-[#fff1a1]" size={26} />
           <p className="mt-2 font-semibold">🎁 Presente especial de {selectedGift.sender_name}</p>
-          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/65">
-            <LockKeyhole className="mx-auto mb-2 text-[#fff1a1]/75" size={20} />
-            <p className="font-semibold text-white/80">Uma mensagem secreta espera por você!</p>
-            <p className="mt-1 text-xs">Disponível em 25 de dezembro.</p>
-          </div>
+          {!selectedGift.has_message ? (
+            <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/55">Este presente não possui mensagem secreta.</p>
+          ) : selectedGiftMessage?.giftId === selectedGift.public_id ? (
+            <div className="mt-3 rounded-xl border border-[#fff1a1]/20 bg-[#fff1a1]/10 p-4 text-left text-sm leading-relaxed text-white/85">
+              <MailOpen className="mx-auto mb-2 text-[#fff1a1]" size={22} />
+              <p className="whitespace-pre-wrap">{selectedGiftMessage.value.message}</p>
+            </div>
+          ) : giftMessageLoadingFor === selectedGift.public_id ? (
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/60"><Loader2 className="mx-auto animate-spin" size={20} /><p className="mt-2">Consultando mensagem…</p></div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/65">
+              <LockKeyhole className="mx-auto mb-2 text-[#fff1a1]/75" size={20} />
+              <p className="font-semibold text-white/80">Uma mensagem secreta espera por você!</p>
+              <p className="mt-1 text-xs">Disponível em 25 de dezembro.</p>
+            </div>
+          )}
           {isOwner && <button type="button" onClick={handleHideGift} disabled={hidingGift} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/25 bg-red-400/10 px-4 py-2 text-xs font-semibold text-red-200 hover:bg-red-400/20 disabled:opacity-50">
             {hidingGift ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Ocultar presente
           </button>}

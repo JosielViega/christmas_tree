@@ -13,6 +13,7 @@ use App\Services\ChristmasTreeOrnamentService;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
 use App\Services\VisitorIdentityService;
+use App\Services\MessageReleasePolicy;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
@@ -224,6 +225,23 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertStringNotContainsString('Mensagem segunda', $otherTree->body());
     }
 
+    public function testManualReleaseReturnsHttp200AndDisablingReturnsToHttp423(): void
+    {
+        $creation = $this->trees->create('Cecília');
+        $this->ornaments->create($creation->tree->publicId, 'heart', 'Ana', str_repeat('q', 16), 'Mensagem temporariamente liberada');
+        $this->ownerSession->grant($creation->tree->publicId, $creation->adminToken);
+
+        $released = $this->controller(new Request(), 50, $this->messageServiceAt('2026-11-01T00:00:00+00:00', true))
+            ->messages($creation->tree->publicId);
+        self::assertSame(200, $released->status());
+        self::assertStringContainsString('Mensagem temporariamente liberada', $released->body());
+
+        $lockedAgain = $this->controller(new Request(), 50, $this->messageServiceAt('2026-11-01T00:00:00+00:00', false))
+            ->messages($creation->tree->publicId);
+        self::assertSame(423, $lockedAgain->status());
+        self::assertStringNotContainsString('Mensagem temporariamente liberada', $lockedAgain->body());
+    }
+
     public function testLimitsOneFreeOrnamentPerVisitorAndTreeEvenAfterOwnerDeletion(): void
     {
         $firstTree = $this->trees->create('Maria');
@@ -299,7 +317,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
         return rawurldecode($matches[1]);
     }
 
-    private function messageServiceAt(string $instant): ChristmasTreeOrnamentService
+    private function messageServiceAt(string $instant, bool $manualRelease = false): ChristmasTreeOrnamentService
     {
         return new ChristmasTreeOrnamentService(
             $this->treeRepository,
@@ -308,6 +326,12 @@ final class TreeOrnamentApiControllerTest extends TestCase
             '2026-12-25 00:00:00',
             'America/Sao_Paulo',
             static fn (): DateTimeImmutable => new DateTimeImmutable($instant),
+            new MessageReleasePolicy(
+                '2026-12-25 00:00:00',
+                'America/Sao_Paulo',
+                $manualRelease,
+                static fn (): DateTimeImmutable => new DateTimeImmutable($instant),
+            ),
         );
     }
 }

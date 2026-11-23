@@ -41,6 +41,9 @@ Os testes cobrem proprietário/visitante, restauração persistente, link na mes
 - [ ] Excluir o enfeite como proprietário e repetir com o navegador visitante: a API deve manter HTTP 409.
 - [ ] Confirmar em HTTPS os atributos `HttpOnly`, `SameSite=Lax`, `Secure` e ausência do token no JSON.
 - [ ] Confirmar que duas pessoas com o mesmo nome e cookies diferentes conseguem participar.
+- [ ] Com `LIBERAR_MENSAGEM=false`, confirmar HTTP 423 antes do Natal e ausência de texto secreto no navegador.
+- [ ] Alternar temporariamente para `LIBERAR_MENSAGEM=true`, recarregar e confirmar mensagens de enfeites e presentes somente como proprietário.
+- [ ] Voltar para `LIBERAR_MENSAGEM=false`, retornar à página e confirmar novo bloqueio; conteúdo já visto não é revogável.
 
 A automação não substitui aprovação estética nem testes físicos em aparelhos reais.
 
@@ -51,3 +54,5 @@ Os testes da 08A.5 cobrem emissão/restauração/expiração do cookie, idempot�
 Os testes da 08A.4.1 exercitam 1, 3 e 6 fotografias, limite de duas decodificações, conclusão fora de ordem, falhas isoladas, atraso, unmount/remount, troca e reutilização de URL, referências compartilhadas, descarte após a última referência e separação das faces do Polaroid. A validação HTTP local deve confirmar `200`, `image/jpeg`, assinatura JPEG e ausência de redirecionamento sem registrar URLs completas.
 
 Os testes da 08A.4.2 verificam a versão real de `MeshStandardMaterial` na transição tardia de `map`, placeholder→fotografia, substituição, remoção, falha/retry, troca de árvore e conjuntos de 1, 3 e 6 materiais. A integração MySQL isolada persiste três JPEGs, reinicializa serviços como em um reload, consulta novamente a API e valida status, MIME e assinatura de cada imagem.
+
+Os testes da 08A.7 cobrem parsing ausente/falso/verdadeiro/inválido, fronteiras do relógio, override manual, reversibilidade, HTTP 423/200, contagem sem conteúdo, escopo por árvore, cookie persistente, mensagens gratuitas e premium, ausência de mutações financeiras e revalidação frontend ao retornar à página.
