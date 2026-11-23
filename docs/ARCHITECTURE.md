@@ -191,6 +191,8 @@ Memórias e presentes usam requisições abortáveis e não participam da pronti
 
 O cache progressivo mantém uma entrada identificável por URL e contagem de referências. A resolução, rejeição e liberação só removem o registro quando ele ainda é a entrada corrente daquela URL; uma limpeza antiga nunca remove um remount mais novo. A textura é descartada uma única vez após a última referência e o `Polaroid` só aplica uma textura vinculada à URL atual. Diagnósticos de desenvolvimento usam apenas um identificador sequencial anônimo e o estágio do recurso, sem registrar URLs.
 
+Como o material pode ser compilado no primeiro frame antes da chegada da fotografia, `Polaroid` não depende de uma atribuição declarativa tardia de `map`. Um layout effect aplica ou remove a textura e marca `MeshStandardMaterial.needsUpdate`, recompilando os defines do shader ao transitar entre placeholder e fotografia. Substituições também invalidam o material uma única vez; nenhuma atualização ocorre por frame.
+
 O perfil inicial limita DPR a 1,25 e a árvore a 12.000 folhas em dispositivos modestos; nos demais, limita DPR a 1,75 e preserva 20.000 folhas. `PerformanceMonitor` e `AdaptiveDpr` continuam ajustando efeitos depois. Instrumentação via User Timing existe apenas em desenvolvimento e usa nomes fixos, sem identificadores públicos, URLs ou conteúdo privado.
 
 ## Identidade anônima e participação gratuita

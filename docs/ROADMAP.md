@@ -100,3 +100,7 @@ Identidade anônima persistente e separada do proprietário, unicidade transacio
 ### 8A.4.1. Fotografias progressivas visíveis — tecnicamente concluída
 
 O cache de texturas passa a validar a identidade da entrada antes de removê-la, centraliza descarte e contagem de referências e vincula o material à URL atual. Remounts, substituições e falhas fora de ordem deixam de remover ou reutilizar texturas incorretas; frente e verso do cartão permanecem separados durante a rotação.
+
+### 8A.4.2. Materiais atualizados após recarregamento — tecnicamente concluída
+
+Texturas que chegam depois do primeiro frame são aplicadas por layout effect e invalidam explicitamente o `MeshStandardMaterial`, garantindo a recompilação do shader com suporte ao mapa. Persistência e endpoints JPEG foram validados separadamente com três fotografias em MySQL isolado.

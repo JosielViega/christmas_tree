@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { COLORS } from '../constants';
 import { PhotoData } from '../types';
 import { acquirePolaroidTexture, reportPolaroidTextureApplied } from '../utils/progressiveTextures';
+import { applyPolaroidPhotoTexture } from '../utils/polaroidMaterial';
 
 interface PolaroidProps {
   data: PhotoData;
@@ -17,6 +18,7 @@ const Polaroid: React.FC<PolaroidProps> = ({
   isExploded = false
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const photoMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const explodeProgress = useRef(0);
   const [hovered, setHovered] = useState(false);
   const [loadedTexture, setLoadedTexture] = useState<{ url: string; texture: THREE.Texture; resourceId: number } | null>(null);
@@ -45,8 +47,13 @@ const Polaroid: React.FC<PolaroidProps> = ({
 
   const texture = loadedTexture?.url === data.url ? loadedTexture.texture : null;
   const textureFailed = failedTextureUrl === data.url;
-  useEffect(() => {
-    if (texture && loadedTexture) reportPolaroidTextureApplied(loadedTexture.resourceId);
+  useLayoutEffect(() => {
+    const material = photoMaterialRef.current;
+    if (!material) return;
+    applyPolaroidPhotoTexture(material, texture);
+    if (texture && loadedTexture && material.map === texture) {
+      reportPolaroidTextureApplied(loadedTexture.resourceId);
+    }
   }, [texture, loadedTexture]);
 
   useFrame((state) => {
@@ -185,7 +192,7 @@ const Polaroid: React.FC<PolaroidProps> = ({
         <mesh position={[0, -0.65, 0.025]}>
           <planeGeometry args={[1.0, 1.0]} />
           <meshStandardMaterial
-            map={texture ?? undefined}
+            ref={photoMaterialRef}
             color={texture ? '#ffffff' : textureFailed ? '#5f1d25' : '#253b31'}
             emissive={texture ? '#000000' : '#10251c'}
             emissiveIntensity={texture ? 0 : 0.25}
