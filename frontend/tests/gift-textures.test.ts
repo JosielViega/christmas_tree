@@ -262,6 +262,20 @@ test('Pix checkout never accepts paid state or publishes from the browser', () =
   assert.match(payments, /cache: 'no-store'/);
 });
 
+test('checkout presents distinct localized financial and publication states', () => {
+  const modal = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
+  assert.match(modal, /Pagamento aguardando Pix/);
+  assert.match(modal, /Pagamento aprovado/);
+  assert.match(modal, /Pagamento expirado/);
+  assert.match(modal, /Pagamento cancelado/);
+  assert.match(modal, /Pagamento recusado/);
+  assert.match(modal, /Pagamento reembolsado/);
+  assert.match(modal, /Pagamento confirmado\. Estamos preparando seu presente/);
+  assert.match(modal, /Seu presente foi enviado/);
+  assert.match(modal, /reembolsado e o presente não está mais visível/);
+  assert.match(modal, /aria-live="polite"/);
+});
+
 test('persistence selects one final 512 texture and encodes PNG only', async () => {
   const paper = { width: 512, height: 512 } as HTMLCanvasElement;
   const front = { width: 512, height: 512 } as HTMLCanvasElement;

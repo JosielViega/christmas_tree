@@ -21,6 +21,15 @@ import type { GiftDraftAccess } from '../api/giftDrafts';
 import { createGiftPaymentOrder, fetchGiftCatalog, fetchGiftPaymentOrder } from '../api/giftPayments';
 import type { GiftPaymentOrder, GiftProduct } from '../api/giftPayments';
 
+const paymentStatusLabel: Record<GiftPaymentOrder['status'], string> = {
+  pending: 'Pagamento aguardando Pix',
+  paid: 'Pagamento aprovado',
+  expired: 'Pagamento expirado',
+  cancelled: 'Pagamento cancelado',
+  refunded: 'Pagamento reembolsado',
+  failed: 'Pagamento recusado',
+};
+
 interface GiftPreviewModalProps {
   maxPhotoBytes: number;
   treePublicId: string;
@@ -308,8 +317,8 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
               )}
             </section>}
 
-            {order && <section className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.06] p-4 text-center">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">Pagamento {order.status === 'pending' ? 'aguardando Pix' : order.status}</p>
+            {order && <section className="mt-5 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.06] p-4 text-center" aria-live="polite">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">{paymentStatusLabel[order.status]}</p>
               <p className="mt-2 text-lg font-bold">{order.product_name} · {formatPrice(order.amount_cents, order.currency)}</p>
               {order.status === 'pending' && <>
                 {order.pix_qr_code_base64 && <img src={`data:image/png;base64,${order.pix_qr_code_base64}`} alt="QR Code Pix" className="mx-auto mt-4 h-48 w-48 rounded-xl bg-white p-2" />}
@@ -322,7 +331,8 @@ const GiftPreviewModal: React.FC<GiftPreviewModalProps> = ({ maxPhotoBytes, tree
               </>}
               {order.status === 'paid' && order.publication_status === 'published' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />🎁 Seu presente foi enviado! O presente especial está esperando embaixo da árvore.</div>}
               {order.status === 'paid' && order.publication_status !== 'published' && <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100"><CheckCircle2 className="mx-auto mb-2" />Pagamento confirmado. Estamos preparando seu presente.</div>}
-              {['expired', 'cancelled', 'failed', 'refunded'].includes(order.status) && <p className="mt-3 text-xs text-amber-100">Este pagamento não está ativo. Nenhuma publicação foi realizada.</p>}
+              {['expired', 'cancelled', 'failed'].includes(order.status) && <p className="mt-3 text-xs text-amber-100">Este pagamento não está ativo. Nenhuma publicação foi realizada.</p>}
+              {order.status === 'refunded' && <p className="mt-3 text-xs text-amber-100">O pagamento foi reembolsado e o presente não está mais visível na árvore.</p>}
             </section>}
 
             <fieldset className="mt-6" disabled={!photo || loading}>
