@@ -20,6 +20,7 @@ use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
 use App\Repositories\PdoPersistentTreeCredentialRepository;
 use App\Repositories\PdoChristmasTreeMemoryRepository;
+use App\Repositories\PdoVisitorIdentityRepository;
 use App\Payments\CurlPaymentHttpClient;
 use App\Payments\MercadoPagoPaymentGateway;
 use App\Services\ChristmasTreeGiftService;
@@ -35,6 +36,7 @@ use App\Services\TreeOwnerSession;
 use App\Services\PersistentTreeAccessService;
 use App\Services\ChristmasTreeMemoryService;
 use App\Services\MemoryImageStorage;
+use App\Services\VisitorIdentityService;
 
 $health = new HealthController();
 $treeRepository = new PdoChristmasTreeRepository($app['database']);
@@ -88,12 +90,19 @@ $ornamentService = new ChristmasTreeOrnamentService(
     $app['config']['messages']['reveal_at'],
     $app['config']['messages']['reveal_timezone'],
 );
+$visitorIdentity = new VisitorIdentityService(
+    new PdoVisitorIdentityRepository($app['database']),
+    $app['config']['visitor_identity']['cookie_name'],
+    $app['config']['visitor_identity']['lifetime_days'],
+    $app['config']['session']['secure'] || $app['request']->isSecure() || str_starts_with(strtolower($app['config']['url']), 'https://'),
+);
 $ornamentApi = new TreeOrnamentApiController(
     $app['request'],
     $app['csrf'],
     $treeIdentity,
     $ornamentService,
     $treeOwnerSession,
+    $visitorIdentity,
     new RateLimiter(
         $rateLimitPath . '/ornaments',
         $app['config']['rate_limits']['ornament_creation']['max_attempts'],

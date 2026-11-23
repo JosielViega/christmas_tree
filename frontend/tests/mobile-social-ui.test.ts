@@ -16,10 +16,17 @@ test('social overlay is mobile-first and omits demonstration controls', () => {
 
 test('owner shares while a visitor gets decoration, premium and own-tree actions', () => {
   assert.match(app, /Compartilhar árvore/);
-  assert.match(app, /Decorar árvore/);
+  assert.match(app, /Decorar esta árvore/);
   assert.match(app, /Presente especial/);
   assert.match(app, /Minha árvore/);
   assert.match(app, /Criar minha árvore/);
+});
+
+test('free decoration follows the backend visitor participation state', () => {
+  assert.match(app, /collection\.current_visitor_has_decorated/);
+  assert.match(app, /visitor_already_decorated/);
+  assert.match(app, /Você já decorou esta árvore!/);
+  assert.match(app, /Agora é só esperar o Natal/);
 });
 
 test('mobile controls use safe areas, a two-row grid and compact expandable indicators', () => {

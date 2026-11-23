@@ -190,3 +190,9 @@ O mirror HostGator inclui app, migration, views, rotas, assets compilados e depe
 Memórias e presentes usam requisições abortáveis e não participam da prontidão essencial. `Polaroid` não usa `useTexture`/Suspense: uma fila com concorrência 2 decodifica a imagem otimizada já publicada, reduz o bitmap para no máximo 512 px em Canvas e cria a textura progressivamente. Falhas ficam isoladas no cartão. Geometrias da árvore reservam os seis slots de memória desde a primeira geração, evitando reconstruir 20.000 folhas quando a coleção chega.
 
 O perfil inicial limita DPR a 1,25 e a árvore a 12.000 folhas em dispositivos modestos; nos demais, limita DPR a 1,75 e preserva 20.000 folhas. `PerformanceMonitor` e `AdaptiveDpr` continuam ajustando efeitos depois. Instrumentação via User Timing existe apenas em desenvolvimento e usa nomes fixos, sem identificadores públicos, URLs ou conteúdo privado.
+
+## Identidade anônima e participação gratuita
+
+`VisitorIdentityService` emite seletor e verificador aleatórios. O cookie contém ambos; o banco guarda somente o seletor e o hash SHA-256 do verificador. A identidade é independente da sessão PHP e da credencial administrativa da árvore.
+
+`christmas_tree_visitor_participations` impõe unicidade em `(tree_id, visitor_identity_id)`. O repositório verifica primeiro a idempotência, bloqueia a árvore em transação e depois registra enfeite, mensagem e participação. `ornament_id` usa `ON DELETE SET NULL`, preservando o marcador após moderação sem reter a mensagem excluída. A coleção pública expõe somente `current_visitor_has_decorated` e não revela identidades ou participações de terceiros.

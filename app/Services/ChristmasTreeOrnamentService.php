@@ -58,7 +58,7 @@ final class ChristmasTreeOrnamentService
         return $tree === null ? null : $this->ornaments->forTree($tree->id);
     }
 
-    public function create(string $treePublicId, string $type, string $senderName, string $idempotencyKey, string $secretMessage): ?OrnamentCreation
+    public function create(string $treePublicId, string $type, string $senderName, string $idempotencyKey, string $secretMessage, ?int $visitorIdentityId = null): ?OrnamentCreation
     {
         $tree = $this->trees->findPublic($treePublicId);
         if ($tree === null) {
@@ -107,7 +107,14 @@ final class ChristmasTreeOrnamentService
             'layout_version' => OrnamentLayout::VERSION,
             'idempotency_key_hash' => hash('sha256', $idempotencyKey),
             'created_at' => gmdate('Y-m-d H:i:s') . '.000000',
+            'visitor_identity_id' => $visitorIdentityId,
         ], $this->capacity());
+    }
+
+    public function hasVisitorParticipated(string $treePublicId, int $visitorIdentityId): ?bool
+    {
+        $tree = $this->trees->findPublic($treePublicId);
+        return $tree === null ? null : $this->ornaments->hasVisitorParticipated($tree->id, $visitorIdentityId);
     }
 
     public function messageOverview(string $treePublicId): ?TreeMessageOverview

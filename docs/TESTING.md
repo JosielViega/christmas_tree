@@ -36,7 +36,14 @@ Os testes cobrem proprietário/visitante, restauração persistente, link na mes
 - [ ] Simular offline/API lenta e perda de WebGL; confirmar timeout, mensagem segura e botão “Tentar novamente”.
 - [ ] Em 320, 360, 390, 430 e 446 px, confirmar loading sem scroll horizontal e respeito às áreas seguras.
 - [ ] Com uma foto ausente/corrompida, confirmar fallback somente nessa Polaroid e interação normal com a árvore.
+- [ ] Decorar uma árvore, fechar o navegador e retornar: o botão deve informar que a participação já ocorreu.
+- [ ] Tocar em “Você já decorou”: conferir mensagem amigável; em outra árvore, conferir que a decoração continua disponível.
+- [ ] Excluir o enfeite como proprietário e repetir com o navegador visitante: a API deve manter HTTP 409.
+- [ ] Confirmar em HTTPS os atributos `HttpOnly`, `SameSite=Lax`, `Secure` e ausência do token no JSON.
+- [ ] Confirmar que duas pessoas com o mesmo nome e cookies diferentes conseguem participar.
 
 A automação não substitui aprovação estética nem testes físicos em aparelhos reais.
 
 Os testes de inicialização verificam transições, timeout configurado, sinal de segundo frame, cancelamento, fila de seis imagens com concorrência máxima 2, fallback e cálculo de memória RGBA. Para uma fonte quadrada de 1024 px, o bitmap de distância em 512 px reduz a estimativa base de 4 MiB para 1 MiB por textura; isso não é uma medição de FPS e não inclui mipmaps nem buffers internos do navegador.
+
+Os testes da 08A.5 cobrem emissão/restauração/expiração do cookie, idempotência, visitantes diferentes com o mesmo nome, árvores distintas, exclusão com retenção, migration e integração em MySQL isolado. A suíte de presentes permanece separada para garantir que a identidade anônima não limite compras premium.

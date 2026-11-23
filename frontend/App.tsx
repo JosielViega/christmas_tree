@@ -34,6 +34,7 @@ import type { StartupPhase } from './utils/startup';
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
 const giftPhotoMaxBytes = getGiftPhotoMaxBytes(import.meta.env.VITE_GIFT_PHOTO_MAX_BYTES);
+const alreadyDecoratedMessage = 'Você já deixou seu enfeite nesta árvore! ❤️ Agora é só esperar o Natal para que sua mensagem seja revelada.';
 markStartup('app_start');
 if (initialBootstrap?.tree) {
   markStartup('tree_data_start');
@@ -86,6 +87,7 @@ const App: React.FC = () => {
   const [ornamentCapacity, setOrnamentCapacity] = useState(ORNAMENT_SLOT_COUNT);
   const [ornamentsLoading, setOrnamentsLoading] = useState(false);
   const [ornamentsReady, setOrnamentsReady] = useState(false);
+  const [visitorHasDecorated, setVisitorHasDecorated] = useState(false);
   const [ornamentModalOpen, setOrnamentModalOpen] = useState(false);
   const [selectedOrnament, setSelectedOrnament] = useState<SocialOrnamentData | null>(null);
   const [premiumGifts, setPremiumGifts] = useState<PremiumGiftData[]>([]);
@@ -262,6 +264,7 @@ const App: React.FC = () => {
       .then((collection) => {
         setOrnaments(collection.ornaments);
         setOrnamentCapacity(collection.capacity);
+        setVisitorHasDecorated(collection.current_visitor_has_decorated);
         setOrnamentsReady(true);
         markStartup('ornaments_ready');
         measureStartup('ornaments-request', 'ornaments_start', 'ornaments_ready');
@@ -346,6 +349,7 @@ const App: React.FC = () => {
     setReceipt(sameOriginAccess);
     setOrnaments([]);
     setOrnamentsReady(false);
+    setVisitorHasDecorated(false);
     setStartupPhase('loading_data');
     dismissProgressionUnlock();
     loadedOrnamentsFor.current = null;
@@ -413,6 +417,7 @@ const App: React.FC = () => {
     try {
       const response = await createOrnament(tree.public_id, type, senderName, message, csrfToken, idempotencyKey);
       setOrnamentCapacity(response.capacity);
+      setVisitorHasDecorated(response.current_visitor_has_decorated);
       const alreadyPersisted = ornaments.some((item) => item.public_id === response.ornament.public_id);
       const unlockedStage = alreadyPersisted
         ? null
@@ -427,6 +432,11 @@ const App: React.FC = () => {
       return response.ornament;
     } catch (caught) {
       if (caught instanceof TreeApiError) {
+        if (caught.code === 'visitor_already_decorated') {
+          setVisitorHasDecorated(true);
+          setOrnamentModalOpen(false);
+          showToast(alreadyDecoratedMessage, 'success');
+        }
         throw new Error(caught.fields.message?.[0] ?? caught.fields.sender_name?.[0] ?? caught.fields.ornament_type?.[0] ?? caught.message);
       }
       throw caught;
@@ -567,8 +577,8 @@ const App: React.FC = () => {
             <button type="button" onClick={() => { scrollToTop(); setShareModalOpen(true); }} className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-[#24cf70] sm:col-auto sm:shrink-0"><Share2 size={17} /> Compartilhar árvore</button>
             <button type="button" onClick={() => setMemoriesPanelOpen(true)} className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#fff1a1]/25 bg-[#07120d]/90 px-3 py-3 text-sm font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4"><Camera size={17} /> Memórias</button>
           </> : <>
-            <button type="button" onClick={() => setOrnamentModalOpen(true)} disabled={ornamentsLoading || ornaments.length >= ornamentCapacity} className="col-span-2 min-h-12 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60 sm:col-auto sm:shrink-0">
-              {ornamentsLoading ? 'Carregando…' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar árvore'}
+            <button type="button" onClick={() => visitorHasDecorated ? showToast(alreadyDecoratedMessage, 'success') : setOrnamentModalOpen(true)} disabled={ornamentsLoading || (!visitorHasDecorated && ornaments.length >= ornamentCapacity)} className="col-span-2 min-h-12 rounded-full bg-[#1cbd62] px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-[#24cf70] disabled:opacity-60 sm:col-auto sm:shrink-0">
+              {ornamentsLoading ? 'Carregando…' : visitorHasDecorated ? '✅ Você já decorou esta árvore!' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar esta árvore'}
             </button>
           </>}
           {giftPreviewEnabled ? (

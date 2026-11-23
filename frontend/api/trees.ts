@@ -175,7 +175,7 @@ export const createOrnament = (
   message: string,
   csrfToken: string,
   idempotencyKey: string,
-): Promise<{ ornament: SocialOrnamentData; created: boolean; capacity: number }> => {
+): Promise<{ ornament: SocialOrnamentData; created: boolean; capacity: number; current_visitor_has_decorated: boolean }> => {
   return request(`/api/trees/${encodeURIComponent(publicId)}/ornaments`, {
     method: 'POST',
     credentials: 'same-origin',

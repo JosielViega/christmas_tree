@@ -9,12 +9,15 @@ use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentCapacityReached;
 use App\Domain\OrnamentCreation;
 use App\Domain\PrivateTreeMessage;
+use App\Domain\VisitorAlreadyDecorated;
 use App\Repositories\ChristmasTreeOrnamentRepository;
 
 final class InMemoryChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentRepository
 {
     /** @var array<int, list<array{ornament: ChristmasTreeOrnament, idempotency_key_hash: string, message_payload_hash: string, secret_message: string}>> */
     private array $records = [];
+    /** @var array<int, array<int, ?string>> */
+    private array $participations = [];
     private int $nextId = 1;
 
     public function addLegacyOrnament(int $treeId, string $publicId = 'LegacyOrn001'): ChristmasTreeOrnament
@@ -56,8 +59,16 @@ final class InMemoryChristmasTreeOrnamentRepository implements ChristmasTreeOrna
                 if (!hash_equals($record['message_payload_hash'], $attributes['message_payload_hash'])) {
                     throw new IdempotencyConflict();
                 }
+                if (is_int($attributes['visitor_identity_id'])
+                    && ($this->participations[$treeId][$attributes['visitor_identity_id']] ?? null) !== $record['ornament']->publicId) {
+                    throw new IdempotencyConflict();
+                }
                 return new OrnamentCreation($record['ornament'], false);
             }
+        }
+
+        if (is_int($attributes['visitor_identity_id']) && array_key_exists($attributes['visitor_identity_id'], $this->participations[$treeId] ?? [])) {
+            throw new VisitorAlreadyDecorated();
         }
 
         $used = array_fill_keys(array_map(
@@ -91,6 +102,9 @@ final class InMemoryChristmasTreeOrnamentRepository implements ChristmasTreeOrna
             'message_payload_hash' => $attributes['message_payload_hash'],
             'secret_message' => $attributes['secret_message'],
         ];
+        if (is_int($attributes['visitor_identity_id'])) {
+            $this->participations[$treeId][$attributes['visitor_identity_id']] = $ornament->publicId;
+        }
 
         return new OrnamentCreation($ornament, true);
     }
@@ -99,12 +113,20 @@ final class InMemoryChristmasTreeOrnamentRepository implements ChristmasTreeOrna
     {
         foreach ($this->records[$treeId] ?? [] as $index => $record) {
             if ($record['ornament']->publicId === $ornamentPublicId) {
+                foreach ($this->participations[$treeId] ?? [] as $visitorId => $participantOrnamentId) {
+                    if ($participantOrnamentId === $ornamentPublicId) $this->participations[$treeId][$visitorId] = null;
+                }
                 array_splice($this->records[$treeId], $index, 1);
                 return true;
             }
         }
 
         return false;
+    }
+
+    public function hasVisitorParticipated(int $treeId, int $visitorIdentityId): bool
+    {
+        return array_key_exists($visitorIdentityId, $this->participations[$treeId] ?? []);
     }
 
     public function messageCountForTree(int $treeId): int

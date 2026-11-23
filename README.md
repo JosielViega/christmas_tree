@@ -263,6 +263,12 @@ Ao abrir uma árvore, uma tela DOM leve acompanha estados reais: dados essenciai
 
 Polaroids são decodificadas progressivamente, no máximo duas por vez, reduzidas em memória para até 512 px antes do upload à GPU e substituídas por fallback individual em caso de falha. As imagens persistidas não são alteradas. Em desenvolvimento, medidas `christmas-tree:*` ficam disponíveis em `performance.getEntriesByType('measure')` sem URLs, fotos ou dados pessoais.
 
+### Etapa 08A.5 — uma participação gratuita por visitante
+
+Cada navegador recebe uma identidade anônima persistente de 90 dias em cookie `HttpOnly`, `SameSite=Lax` e `Secure` sob HTTPS. O backend permite um enfeite gratuito por identidade e árvore; o mesmo navegador continua livre para decorar outras árvores. A restrição é transacional e possui índice único no MySQL.
+
+A exclusão administrativa apaga enfeite e mensagem, mas preserva o marcador mínimo de participação. Enfeites anteriores à migration permanecem intactos e não são associados retroativamente por nome. Presentes premium, Pix, pagamentos, reembolsos e publicação não usam essa identidade nem recebem limite individual.
+
 ## Escopo futuro
 
 Publicação visual, abertura de presentes, fotografias originais persistentes e otimizações finais de lançamento pertencem às próximas etapas.

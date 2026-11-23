@@ -10,11 +10,14 @@ use App\Core\Response;
 use App\Domain\OrnamentCapacityReached;
 use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentValidationException;
+use App\Domain\VisitorAlreadyDecorated;
+use App\Domain\VisitorIdentityAccess;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\OrnamentLayout;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
+use App\Services\VisitorIdentityService;
 
 final class TreeOrnamentApiController
 {
@@ -26,6 +29,7 @@ final class TreeOrnamentApiController
         private readonly ChristmasTreeIdentityService $trees,
         private readonly ChristmasTreeOrnamentService $ornaments,
         private readonly TreeOwnerSession $ownerSession,
+        private readonly VisitorIdentityService $visitorIdentity,
         private readonly RateLimiter $creationLimiter,
     ) {
     }
@@ -37,12 +41,16 @@ final class TreeOrnamentApiController
             return $this->error('tree_not_found', 'Árvore não encontrada.', 404);
         }
 
-        return $this->success([
+        $visitor = $this->resolveVisitor();
+        $hasDecorated = $this->ornaments->hasVisitorParticipated($treePublicId, $visitor->identityId) === true;
+
+        return $this->withVisitorCookie($this->success([
             'ornaments' => array_map(static fn ($ornament): array => $ornament->toPublicArray(), $ornaments),
             'layout_version' => OrnamentLayout::VERSION,
             'capacity' => $this->ornaments->capacity(),
             'remaining' => max(0, $this->ornaments->capacity() - count($ornaments)),
-        ]);
+            'current_visitor_has_decorated' => $hasDecorated,
+        ]), $visitor);
     }
 
     public function store(string $treePublicId): Response
@@ -56,6 +64,7 @@ final class TreeOrnamentApiController
         if (!$this->creationLimiter->consume('ornament:' . $this->request->ipAddress())) {
             return $this->error('rate_limit_exceeded', 'Muitos enfeites foram enviados recentemente. Tente novamente mais tarde.', 429);
         }
+        $visitor = $this->resolveVisitor();
 
         try {
             $creation = $this->ornaments->create(
@@ -64,24 +73,32 @@ final class TreeOrnamentApiController
                 is_string($this->request->input('sender_name')) ? $this->request->input('sender_name') : '',
                 is_string($this->request->header('Idempotency-Key')) ? $this->request->header('Idempotency-Key') : '',
                 is_string($this->request->input('message')) ? $this->request->input('message') : '',
+                $visitor->identityId,
             );
         } catch (OrnamentValidationException $exception) {
-            return $this->error('validation_failed', 'Revise os dados do enfeite.', 422, $exception->errors);
+            return $this->withVisitorCookie($this->error('validation_failed', 'Revise os dados do enfeite.', 422, $exception->errors), $visitor);
         } catch (OrnamentCapacityReached) {
-            return $this->error('tree_full', 'Esta árvore já recebeu o máximo de enfeites permitido.', 409);
+            return $this->withVisitorCookie($this->error('tree_full', 'Esta árvore já recebeu o máximo de enfeites permitido.', 409), $visitor);
+        } catch (VisitorAlreadyDecorated) {
+            return $this->withVisitorCookie($this->error(
+                'visitor_already_decorated',
+                'Você já deixou seu enfeite nesta árvore! Agora é só esperar o Natal.',
+                409,
+            ), $visitor);
         } catch (IdempotencyConflict) {
-            return $this->error('idempotency_conflict', 'Esta chave de envio já foi utilizada com dados diferentes.', 409);
+            return $this->withVisitorCookie($this->error('idempotency_conflict', 'Esta chave de envio já foi utilizada com dados diferentes.', 409), $visitor);
         }
 
         if ($creation === null) {
-            return $this->error('tree_not_found', 'Árvore não encontrada.', 404);
+            return $this->withVisitorCookie($this->error('tree_not_found', 'Árvore não encontrada.', 404), $visitor);
         }
 
-        return $this->success([
+        return $this->withVisitorCookie($this->success([
             'ornament' => $creation->ornament->toPublicArray(),
             'created' => $creation->created,
             'capacity' => $this->ornaments->capacity(),
-        ], $creation->created ? 201 : 200);
+            'current_visitor_has_decorated' => true,
+        ], $creation->created ? 201 : 200), $visitor);
     }
 
     public function messages(string $treePublicId): Response
@@ -175,5 +192,21 @@ final class TreeOrnamentApiController
             ->withHeader('Cache-Control', 'private, no-store, max-age=0')
             ->withHeader('Pragma', 'no-cache')
             ->withHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    private function resolveVisitor(): VisitorIdentityAccess
+    {
+        $cookie = $this->request->cookie($this->visitorIdentity->cookieName);
+        return $this->visitorIdentity->resolve(is_string($cookie) ? $cookie : null);
+    }
+
+    private function withVisitorCookie(Response $response, VisitorIdentityAccess $visitor): Response
+    {
+        $response = $response
+            ->withHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->withHeader('Vary', 'Cookie');
+        return $visitor->cookieValue === null
+            ? $response
+            : $response->withHeader('Set-Cookie', $this->visitorIdentity->cookieHeader($visitor->cookieValue));
     }
 }

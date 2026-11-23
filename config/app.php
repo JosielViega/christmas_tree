@@ -42,6 +42,10 @@ return [
         'cookie_name' => (string) env('TREE_ACCESS_COOKIE_NAME', 'christmas_tree_access'),
         'lifetime_days' => (int) env('TREE_ACCESS_LIFETIME_DAYS', 90),
     ],
+    'visitor_identity' => [
+        'cookie_name' => (string) env('VISITOR_IDENTITY_COOKIE_NAME', 'christmas_tree_visitor'),
+        'lifetime_days' => max(1, (int) env('VISITOR_IDENTITY_LIFETIME_DAYS', 90)),
+    ],
     'ornaments' => [
         'capacity' => (int) env('ORNAMENT_MAX_PER_TREE', 60),
     ],

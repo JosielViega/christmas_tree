@@ -124,6 +124,12 @@ Marcas de desempenho existem somente no build de desenvolvimento e usam nomes fi
 
 `hardwareConcurrency`, `deviceMemory`, preferência de movimento e DPR servem apenas para escolher qualidade local. Esses valores não são enviados, persistidos nem combinados como fingerprint.
 
+## Identidade anônima de visitante
+
+O cookie `christmas_tree_visitor` é `HttpOnly`, `SameSite=Lax`, `Path=/`, expira em 90 dias e recebe `Secure` em HTTPS. Não usa IP, fingerprint, `localStorage`, nome informado nem credencial em URL. O servidor armazena hash do verificador e nunca devolve o token em JSON.
+
+A proteção limita participação acidental e repetida no mesmo navegador, não representa uma conta global por pessoa. Limpar cookies ou usar outro navegador cria outra identidade; fechar apenas a sessão PHP não. Rate limiting, CSRF e bloqueio de autodecoração continuam independentes.
+
 ## Escopo ainda não protegido
 
 Uploads não fazem parte da Etapa 04. Antes de implementá-los, serão necessários limites de tamanho, MIME real via `finfo`, nomes aleatórios, armazenamento protegido e autorização por recurso. Também não há detecção automática de conteúdo abusivo, chat, notificações ou publicação pública das mensagens.

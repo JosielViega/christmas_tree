@@ -103,6 +103,23 @@ final class ChristmasTreeGiftServiceTest extends TestCase
         unlink($secondUpload['tmp_name']);
     }
 
+    public function testAnonymousVisitorLimitDoesNotRestrictMultiplePremiumDrafts(): void
+    {
+        $tree = $this->trees->create('Árvore')->tree;
+        $service = $this->service();
+        $firstUpload = $this->upload();
+        $secondUpload = $this->upload();
+        $first = $service->create($tree->publicId, 'Mesmo visitante', 'classic', 'repeated', 'Primeiro presente', str_repeat('u', 16), true, $firstUpload);
+        $second = $service->create($tree->publicId, 'Mesmo visitante', 'magic', 'featured', 'Segundo presente', str_repeat('v', 16), true, $secondUpload);
+
+        self::assertTrue($first->created);
+        self::assertTrue($second->created);
+        self::assertNotSame($first->gift->publicId, $second->gift->publicId);
+        self::assertCount(2, $this->gifts->records);
+        unlink($firstUpload['tmp_name']);
+        unlink($secondUpload['tmp_name']);
+    }
+
     private function service(int $hours = 24): ChristmasTreeGiftService
     {
         return new ChristmasTreeGiftService(

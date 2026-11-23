@@ -12,10 +12,12 @@ use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\RateLimiter;
 use App\Services\TreeOwnerSession;
+use App\Services\VisitorIdentityService;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeOrnamentRepository;
 use Tests\Support\InMemoryChristmasTreeRepository;
+use Tests\Support\InMemoryVisitorIdentityRepository;
 
 final class TreeOrnamentApiControllerTest extends TestCase
 {
@@ -27,6 +29,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
     private TreeOwnerSession $ownerSession;
     private InMemoryChristmasTreeRepository $treeRepository;
     private InMemoryChristmasTreeOrnamentRepository $ornamentRepository;
+    private VisitorIdentityService $visitorIdentity;
 
     protected function setUp(): void
     {
@@ -39,6 +42,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
         $this->trees = new ChristmasTreeIdentityService($this->treeRepository);
         $this->ornaments = new ChristmasTreeOrnamentService($this->treeRepository, $this->ornamentRepository);
         $this->ownerSession = new TreeOwnerSession($this->session);
+        $this->visitorIdentity = new VisitorIdentityService(new InMemoryVisitorIdentityRepository());
     }
 
     protected function tearDown(): void
@@ -69,21 +73,33 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertArrayNotHasKey('tree_id', $payload['data']['ornament']);
         self::assertStringNotContainsString('Feliz Natal!', $created->body());
 
-        $repeated = $this->controller($request)->store($tree->publicId);
+        $cookie = $this->visitorCookie($created);
+        self::assertStringNotContainsString($cookie, $created->body());
+        self::assertStringContainsString('HttpOnly', $created->headers()['Set-Cookie']);
+        self::assertStringContainsString('SameSite=Lax', $created->headers()['Set-Cookie']);
+        $repeatedRequest = $this->mutableRequest(
+            'POST',
+            ['ornament_type' => 'heart', 'sender_name' => 'João', 'message' => 'Feliz Natal!'],
+            str_repeat('a', 16),
+            ['christmas_tree_visitor' => $cookie],
+        );
+        $repeated = $this->controller($repeatedRequest)->store($tree->publicId);
         self::assertSame(200, $repeated->status());
         self::assertStringContainsString('"created":false', $repeated->body());
 
         $conflict = $this->controller($this->mutableRequest('POST', [
             'ornament_type' => 'heart', 'sender_name' => 'João', 'message' => 'Mensagem alterada',
-        ], str_repeat('a', 16)))->store($tree->publicId);
+        ], str_repeat('a', 16), ['christmas_tree_visitor' => $cookie]))->store($tree->publicId);
         self::assertSame(409, $conflict->status());
         self::assertStringContainsString('idempotency_conflict', $conflict->body());
         self::assertStringNotContainsString('Feliz Natal!', $conflict->body());
 
-        $listed = $this->controller(new Request())->index($tree->publicId);
+        $listed = $this->controller(new Request(cookies: ['christmas_tree_visitor' => $cookie]))->index($tree->publicId);
         self::assertSame(200, $listed->status());
         self::assertStringContainsString($payload['data']['ornament']['public_id'], $listed->body());
         self::assertStringNotContainsString('Feliz Natal!', $listed->body());
+        self::assertStringContainsString('"current_visitor_has_decorated":true', $listed->body());
+        self::assertSame('private, no-store, max-age=0', $listed->headers()['Cache-Control']);
     }
 
     public function testRejectsInvalidCsrfTypeNameAndOversizedPayload(): void
@@ -208,7 +224,46 @@ final class TreeOrnamentApiControllerTest extends TestCase
         self::assertStringNotContainsString('Mensagem segunda', $otherTree->body());
     }
 
-    private function mutableRequest(string $method, array $body = [], string $idempotencyKey = ''): Request
+    public function testLimitsOneFreeOrnamentPerVisitorAndTreeEvenAfterOwnerDeletion(): void
+    {
+        $firstTree = $this->trees->create('Maria');
+        $secondTree = $this->trees->create('Ana');
+        $first = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'heart', 'sender_name' => 'Mesmo nome', 'message' => 'Primeira mensagem',
+        ], str_repeat('v', 16)))->store($firstTree->tree->publicId);
+        $cookie = $this->visitorCookie($first);
+
+        $duplicate = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'star', 'sender_name' => 'Outro nome', 'message' => 'Segunda mensagem',
+        ], str_repeat('w', 16), ['christmas_tree_visitor' => $cookie]))->store($firstTree->tree->publicId);
+        self::assertSame(409, $duplicate->status());
+        self::assertStringContainsString('visitor_already_decorated', $duplicate->body());
+
+        $otherTree = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'star', 'sender_name' => 'Mesmo nome', 'message' => 'Outra árvore',
+        ], str_repeat('x', 16), ['christmas_tree_visitor' => $cookie]))->store($secondTree->tree->publicId);
+        self::assertSame(201, $otherTree->status());
+
+        $ornamentId = json_decode($first->body(), true, 512, JSON_THROW_ON_ERROR)['data']['ornament']['public_id'];
+        self::assertTrue($this->ornaments->delete($firstTree->tree->publicId, $ornamentId));
+        $afterDeletion = $this->controller($this->mutableRequest('POST', [
+            'ornament_type' => 'star', 'sender_name' => 'Mesmo nome', 'message' => 'Após exclusão',
+        ], str_repeat('y', 16), ['christmas_tree_visitor' => $cookie]))->store($firstTree->tree->publicId);
+        self::assertSame(409, $afterDeletion->status());
+    }
+
+    public function testDifferentVisitorsMayUseTheSameDisplayName(): void
+    {
+        $tree = $this->trees->create('Clara')->tree;
+        foreach (['1', '2'] as $suffix) {
+            $response = $this->controller($this->mutableRequest('POST', [
+                'ornament_type' => 'heart', 'sender_name' => 'Nome igual', 'message' => 'Mensagem ' . $suffix,
+            ], str_repeat($suffix, 16)))->store($tree->publicId);
+            self::assertSame(201, $response->status());
+        }
+    }
+
+    private function mutableRequest(string $method, array $body = [], string $idempotencyKey = '', array $cookies = []): Request
     {
         $server = [
             'REQUEST_METHOD' => $method,
@@ -220,7 +275,7 @@ final class TreeOrnamentApiControllerTest extends TestCase
             $server['HTTP_IDEMPOTENCY_KEY'] = $idempotencyKey;
         }
 
-        return new Request(parsedBody: $body, server: $server);
+        return new Request(parsedBody: $body, server: $server, cookies: $cookies);
     }
 
     private function controller(Request $request, int $rateLimit = 50, ?ChristmasTreeOrnamentService $ornaments = null): TreeOrnamentApiController
@@ -231,8 +286,17 @@ final class TreeOrnamentApiControllerTest extends TestCase
             $this->trees,
             $ornaments ?? $this->ornaments,
             $this->ownerSession,
+            $this->visitorIdentity,
             new RateLimiter($this->rateLimitDirectory, $rateLimit, 900),
         );
+    }
+
+    private function visitorCookie(\App\Core\Response $response): string
+    {
+        $header = $response->headers()['Set-Cookie'] ?? '';
+        self::assertMatchesRegularExpression('/christmas_tree_visitor=([^;]+)/', $header);
+        preg_match('/christmas_tree_visitor=([^;]+)/', $header, $matches);
+        return rawurldecode($matches[1]);
     }
 
     private function messageServiceAt(string $instant): ChristmasTreeOrnamentService

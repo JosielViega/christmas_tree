@@ -10,7 +10,9 @@ use App\Domain\IdempotencyConflict;
 use App\Domain\OrnamentCapacityReached;
 use App\Domain\OrnamentCreation;
 use App\Domain\PrivateTreeMessage;
+use App\Domain\VisitorAlreadyDecorated;
 use PDO;
+use PDOException;
 use Throwable;
 
 final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentRepository
@@ -46,8 +48,9 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
 
             $existing = $pdo->prepare(
                 'SELECT o.id, o.tree_id, o.public_id, o.ornament_type, o.ornament_color, o.sender_name, o.slot_index, o.layout_version, o.created_at, '
-                . '(m.id IS NOT NULL) AS has_message, m.payload_hash AS message_payload_hash '
+                . '(m.id IS NOT NULL) AS has_message, m.payload_hash AS message_payload_hash, p.visitor_identity_id '
                 . 'FROM christmas_tree_ornaments o LEFT JOIN christmas_tree_messages m ON m.ornament_id = o.id '
+                . 'LEFT JOIN christmas_tree_visitor_participations p ON p.ornament_id = o.id '
                 . 'WHERE o.tree_id = :tree_id AND o.idempotency_key_hash = :key_hash LIMIT 1'
             );
             $existing->execute(['tree_id' => $treeId, 'key_hash' => $attributes['idempotency_key_hash']]);
@@ -57,8 +60,16 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
                     || !hash_equals($row['message_payload_hash'], $attributes['message_payload_hash'])) {
                     throw new IdempotencyConflict('The idempotency key was already used with different data.');
                 }
+                if (is_int($attributes['visitor_identity_id'])
+                    && (int) ($row['visitor_identity_id'] ?? 0) !== $attributes['visitor_identity_id']) {
+                    throw new IdempotencyConflict('The idempotency key belongs to another visitor.');
+                }
                 $pdo->commit();
                 return new OrnamentCreation($this->hydrate($row), false);
+            }
+
+            if (is_int($attributes['visitor_identity_id']) && $this->hasVisitorParticipated($treeId, $attributes['visitor_identity_id'])) {
+                throw new VisitorAlreadyDecorated('The visitor already decorated this tree.');
             }
 
             $occupied = $pdo->prepare('SELECT slot_index FROM christmas_tree_ornaments WHERE tree_id = :tree_id ORDER BY slot_index');
@@ -117,6 +128,26 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
                 'payload_hash' => $attributes['message_payload_hash'],
                 'created_at' => $attributes['created_at'],
             ]);
+            if (is_int($attributes['visitor_identity_id'])) {
+                try {
+                    $participationInsert = $pdo->prepare(
+                        'INSERT INTO christmas_tree_visitor_participations '
+                        . '(tree_id, visitor_identity_id, ornament_id, participated_at) '
+                        . 'VALUES (:tree_id, :visitor_identity_id, :ornament_id, :participated_at)'
+                    );
+                    $participationInsert->execute([
+                        'tree_id' => $treeId,
+                        'visitor_identity_id' => $attributes['visitor_identity_id'],
+                        'ornament_id' => $ornament->id,
+                        'participated_at' => $attributes['created_at'],
+                    ]);
+                } catch (PDOException $exception) {
+                    if ($exception->getCode() === '23000') {
+                        throw new VisitorAlreadyDecorated('The visitor already decorated this tree.', previous: $exception);
+                    }
+                    throw $exception;
+                }
+            }
             $pdo->commit();
 
             return new OrnamentCreation($ornament, true);
@@ -126,6 +157,16 @@ final class PdoChristmasTreeOrnamentRepository implements ChristmasTreeOrnamentR
             }
             throw $exception;
         }
+    }
+
+    public function hasVisitorParticipated(int $treeId, int $visitorIdentityId): bool
+    {
+        $statement = $this->database->connection()->prepare(
+            'SELECT 1 FROM christmas_tree_visitor_participations '
+            . 'WHERE tree_id = :tree_id AND visitor_identity_id = :visitor_identity_id LIMIT 1'
+        );
+        $statement->execute(['tree_id' => $treeId, 'visitor_identity_id' => $visitorIdentityId]);
+        return $statement->fetchColumn() !== false;
     }
 
     public function deleteFromTree(int $treeId, string $ornamentPublicId): bool

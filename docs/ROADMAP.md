@@ -92,3 +92,7 @@ Fotografias originais persistentes permanecem fora do escopo. A textura final co
 ### 8A.4. Loading natalino e inicialização progressiva — tecnicamente concluída
 
 Máquina de estados de carregamento, primeiro frame verificado, timeout/recuperação, cancelamento de APIs e instrumentação de desenvolvimento. Polaroids deixam de suspender a cena, passam por fila de decodificação limitada e textura de distância 512 px; geometrias pesadas deixam de ser reconstruídas quando as memórias chegam. Medições de FPS e fluidez em celulares reais permanecem no checklist manual.
+
+### 8A.5. Uma participação gratuita por visitante — tecnicamente concluída
+
+Identidade anônima persistente e separada do proprietário, unicidade transacional por árvore, resposta HTTP 409 específica, reconhecimento no retorno e retenção mínima do marcador após exclusão. Registros históricos não são associados retroativamente e presentes premium permanecem sem limite por identidade.

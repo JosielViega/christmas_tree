@@ -12,6 +12,7 @@ use App\Repositories\PdoPaymentOrderRepository;
 use App\Repositories\PdoGiftPublicationRepository;
 use App\Repositories\PdoPersistentTreeCredentialRepository;
 use App\Repositories\PdoChristmasTreeMemoryRepository;
+use App\Repositories\PdoVisitorIdentityRepository;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
@@ -23,8 +24,10 @@ use App\Services\PersistentTreeAccessService;
 use App\Services\TreeOwnerSession;
 use App\Services\ChristmasTreeMemoryService;
 use App\Services\MemoryImageStorage;
+use App\Services\VisitorIdentityService;
 use App\Core\Session;
 use App\Domain\PaymentCharge;
+use App\Domain\VisitorAlreadyDecorated;
 use Tests\Support\FakePaymentGateway;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -82,12 +85,13 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertSame($created->tree->publicId, $restored?->publicId);
 
             $ornaments = new ChristmasTreeOrnamentService($treeRepository, new PdoChristmasTreeOrnamentRepository($database));
-            $ornament = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16), "Feliz Natal 🎄\nCom carinho");
+            $visitor = (new VisitorIdentityService(new PdoVisitorIdentityRepository($database)))->resolve(null);
+            $ornament = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16), "Feliz Natal 🎄\nCom carinho", $visitor->identityId);
             self::assertNotNull($ornament);
             self::assertTrue($ornament->created);
             self::assertCount(1, $ornaments->list($created->tree->publicId));
 
-            $repeated = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16), "Feliz Natal 🎄\nCom carinho");
+            $repeated = $ornaments->create($created->tree->publicId, 'bauble_blue', 'Visitante', str_repeat('i', 16), "Feliz Natal 🎄\nCom carinho", $visitor->identityId);
             self::assertFalse($repeated->created);
             self::assertSame($ornament->ornament->publicId, $repeated->ornament->publicId);
             $revealedOrnaments = new ChristmasTreeOrnamentService(
@@ -102,6 +106,13 @@ final class PdoChristmasTreeRepositoryIntegrationTest extends TestCase
             self::assertSame("Feliz Natal 🎄\nCom carinho", $messageOverview->messages[0]->message);
             self::assertTrue($ornaments->delete($created->tree->publicId, $ornament->ornament->publicId));
             self::assertSame([], $ornaments->list($created->tree->publicId));
+            self::assertTrue($ornaments->hasVisitorParticipated($created->tree->publicId, $visitor->identityId));
+            try {
+                $ornaments->create($created->tree->publicId, 'star', 'Visitante', str_repeat('k', 16), 'Nova tentativa', $visitor->identityId);
+                self::fail('Deleted ornaments must not release the visitor participation marker.');
+            } catch (VisitorAlreadyDecorated) {
+                self::addToAssertionCount(1);
+            }
             self::assertSame(0, $revealedOrnaments->messageOverview($created->tree->publicId)->messageCount);
 
             $giftStorage = sys_get_temp_dir() . '/gift-mysql-' . bin2hex(random_bytes(5));

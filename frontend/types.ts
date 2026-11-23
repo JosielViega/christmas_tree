@@ -113,6 +113,7 @@ export interface OrnamentCollection {
   layout_version: 1;
   capacity: number;
   remaining: number;
+  current_visitor_has_decorated: boolean;
 }
 
 export interface PremiumGiftData {

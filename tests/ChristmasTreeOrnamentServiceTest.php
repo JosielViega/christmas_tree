@@ -6,6 +6,7 @@ namespace Tests;
 
 use App\Domain\OrnamentCapacityReached;
 use App\Domain\OrnamentValidationException;
+use App\Domain\VisitorAlreadyDecorated;
 use App\Services\ChristmasTreeIdentityService;
 use App\Services\ChristmasTreeOrnamentService;
 use App\Services\OrnamentLayout;
@@ -17,12 +18,14 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
 {
     private ChristmasTreeIdentityService $trees;
     private ChristmasTreeOrnamentService $ornaments;
+    private InMemoryChristmasTreeOrnamentRepository $repository;
 
     protected function setUp(): void
     {
         $treeRepository = new InMemoryChristmasTreeRepository();
+        $this->repository = new InMemoryChristmasTreeOrnamentRepository();
         $this->trees = new ChristmasTreeIdentityService($treeRepository);
-        $this->ornaments = new ChristmasTreeOrnamentService($treeRepository, new InMemoryChristmasTreeOrnamentRepository());
+        $this->ornaments = new ChristmasTreeOrnamentService($treeRepository, $this->repository);
     }
 
     public function testAddsValidOrnamentsWithDistinctStableSlotsAndPersistsThem(): void
@@ -113,5 +116,50 @@ final class ChristmasTreeOrnamentServiceTest extends TestCase
         self::assertFalse($this->ornaments->delete($secondTree->publicId, $ornament->publicId));
         self::assertTrue($this->ornaments->delete($firstTree->publicId, $ornament->publicId));
         self::assertSame([], $this->ornaments->list($firstTree->publicId));
+    }
+
+    public function testVisitorParticipationIsPerTreeAndSurvivesOrnamentDeletion(): void
+    {
+        $firstTree = $this->trees->create('Ana')->tree;
+        $secondTree = $this->trees->create('Bia')->tree;
+        $first = $this->ornaments->create($firstTree->publicId, 'heart', 'Nome igual', str_repeat('f', 16), 'Mensagem', 101);
+
+        self::assertTrue($this->ornaments->hasVisitorParticipated($firstTree->publicId, 101));
+        self::assertFalse($this->ornaments->hasVisitorParticipated($secondTree->publicId, 101));
+        self::assertNotNull($this->ornaments->create($secondTree->publicId, 'star', 'Nome igual', str_repeat('g', 16), 'Outra árvore', 101));
+        self::assertNotNull($this->ornaments->create($firstTree->publicId, 'star', 'Nome igual', str_repeat('h', 16), 'Outra pessoa', 202));
+
+        self::assertTrue($this->ornaments->delete($firstTree->publicId, $first->ornament->publicId));
+        $this->expectException(VisitorAlreadyDecorated::class);
+        $this->ornaments->create($firstTree->publicId, 'star', 'Nome novo', str_repeat('i', 16), 'Após exclusão', 101);
+    }
+
+    public function testIdempotentReplayWinsBeforeVisitorLimit(): void
+    {
+        $tree = $this->trees->create('Lia')->tree;
+        $key = str_repeat('j', 16);
+        $first = $this->ornaments->create($tree->publicId, 'star', 'Visitante', $key, 'Mensagem', 303);
+        $replay = $this->ornaments->create($tree->publicId, 'star', 'Visitante', $key, 'Mensagem', 303);
+        self::assertTrue($first->created);
+        self::assertFalse($replay->created);
+    }
+
+    public function testLegacyOrnamentsDoNotRetroactivelyConsumeVisitorParticipation(): void
+    {
+        $tree = $this->trees->create('Lia')->tree;
+        $this->repository->addLegacyOrnament($tree->id);
+
+        $created = $this->ornaments->create(
+            $tree->publicId,
+            'heart',
+            'Visitante antigo',
+            str_repeat('k', 16),
+            'Nova participação identificada',
+            404,
+        );
+
+        self::assertTrue($created->created);
+        self::assertTrue($this->ornaments->hasVisitorParticipated($tree->publicId, 404));
+        self::assertCount(2, $this->ornaments->list($tree->publicId));
     }
 }

@@ -31,5 +31,7 @@ final class ChristmasTreeOrnamentMigrationTest extends TestCase
         self::assertStringContainsString('SELECT status FROM christmas_trees WHERE id = :id FOR UPDATE', $source);
         self::assertStringContainsString('idempotency_key_hash = :key_hash', $source);
         self::assertStringContainsString('$pdo->rollBack()', $source);
+        self::assertStringContainsString('hasVisitorParticipated', $source);
+        self::assertStringContainsString('christmas_tree_visitor_participations', $source);
     }
 }
