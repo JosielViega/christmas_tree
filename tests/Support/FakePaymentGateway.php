@@ -14,9 +14,12 @@ final class FakePaymentGateway implements PaymentGateway
 {
     public bool $available = true;
     public int $createCalls = 0;
+    public int $fetchCalls = 0;
     public ?PaymentCharge $charge = null;
     public bool $signatureValid = true;
+    public bool $notificationLiveMode = false;
     public ?PaymentGatewayException $createFailure = null;
+    public ?PaymentGatewayException $fetchFailure = null;
 
     public function provider(): string { return 'mercadopago'; }
     public function isAvailable(): bool { return $this->available; }
@@ -28,12 +31,14 @@ final class FakePaymentGateway implements PaymentGateway
     }
     public function fetchCharge(string $providerOrderId): PaymentCharge
     {
+        $this->fetchCalls++;
+        if ($this->fetchFailure !== null) throw $this->fetchFailure;
         if ($this->charge === null) throw new \RuntimeException('Fake charge not configured.');
         return $this->charge;
     }
     public function verifyNotification(string $signature, string $requestId, string $resourceId): bool { return $this->signatureValid; }
     public function interpretNotification(string $rawBody, string $resourceId): ?PaymentNotification
     {
-        return new PaymentNotification($resourceId, hash('sha256', $rawBody), 'order.updated', false);
+        return new PaymentNotification($resourceId, hash('sha256', $rawBody), 'order.updated', $this->notificationLiveMode);
     }
 }

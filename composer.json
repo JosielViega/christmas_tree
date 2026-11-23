@@ -38,6 +38,7 @@
         "port:release": "@php bin/port-release.php",
         "migrate": "@php bin/migrate.php",
         "gifts:cleanup": "@php bin/cleanup-gift-drafts.php",
+        "payments:status": "@php bin/payment-sandbox-status.php",
         "lint": "@php bin/lint.php",
         "test": "@php vendor/bin/phpunit",
         "frontend:install": "npm --prefix frontend ci",

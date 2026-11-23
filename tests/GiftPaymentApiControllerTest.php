@@ -8,6 +8,8 @@ use App\Controllers\GiftPaymentApiController;
 use App\Core\Csrf;
 use App\Core\Request;
 use App\Core\Session;
+use App\Domain\PaymentCharge;
+use App\Domain\PaymentGatewayException;
 use App\Services\ChristmasTreeGiftService;
 use App\Services\GiftDraftAccessSession;
 use App\Services\GiftPaymentService;
@@ -82,6 +84,31 @@ final class GiftPaymentApiControllerTest extends TestCase
             rawBody: '{"type":"order","data":{"id":"ORD_TEST_123"},"live_mode":false}',
         );
         self::assertSame(401, $this->controller($invalid, $gateway)->webhook()->status());
+    }
+
+    public function testWebhookAcknowledgesValidUnknownOrderAndReportsProviderFailure(): void
+    {
+        $gateway = new FakePaymentGateway();
+        $gateway->charge = new PaymentCharge(
+            'ORD_TEST_UNKNOWN', null, 'unknownlocalorder', 199, 'BRL', 'pending', false, null, null, null,
+        );
+        $request = new Request(
+            queryParams: ['data.id' => 'ORD_TEST_UNKNOWN', 'type' => 'order'],
+            server: ['HTTP_X_SIGNATURE' => 'signed', 'HTTP_X_REQUEST_ID' => 'request-123'],
+            rawBody: '{"type":"order","data":{"id":"ORD_TEST_UNKNOWN"},"live_mode":false}',
+        );
+
+        $response = $this->controller($request, $gateway)->webhook();
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('"accepted":true', $response->body());
+        self::assertSame(1, $gateway->fetchCalls);
+
+        $gateway->fetchFailure = new PaymentGatewayException('Temporary provider failure.', true);
+        $failure = $this->controller($request, $gateway)->webhook();
+        self::assertSame(503, $failure->status());
+        self::assertStringContainsString('provider_confirmation_failed', $failure->body());
+        self::assertStringNotContainsString('Temporary provider failure', $failure->body());
     }
 
     private function controller(Request $request, FakePaymentGateway $gateway): GiftPaymentApiController

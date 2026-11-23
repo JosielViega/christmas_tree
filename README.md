@@ -243,6 +243,8 @@ Rotas:
 
 O checkout usa catálogo do servidor e Mercado Pago Orders API quando o sandbox é configurado explicitamente. Sem credenciais, informa indisponibilidade e não cria cobranças. Pagamento confirmado muda o estado para `paid` e dispara a publicação idempotente no backend; se essa etapa falhar, o cron tenta novamente sem perder o pagamento. Execute `composer gifts:cleanup` para reconciliar pendências, retomar publicações e limpar somente rascunhos elegíveis. Veja [armazenamento privado](docs/GIFT_STORAGE.md) e [pagamentos](docs/PAYMENTS.md).
 
+Use `composer payments:status` para auditar a configuração sandbox local sem exibir segredos. O procedimento de HTTPS temporário expõe um ingresso separado que aceita somente o webhook; os comandos de início, parada e o checklist do painel estão em [pagamentos](docs/PAYMENTS.md#https-temporário-para-teste-local).
+
 ## Etapa 08A — estabilização antes do lançamento
 
 Links copiados pela interface usam a origem real do navegador, evitando trocar acidentalmente `localhost` por `127.0.0.1` e perder os cookies do proprietário. A interface mobile usa duas linhas de ações sem rolagem horizontal, indicadores compactos e áreas seguras. O vídeo 9:16 calcula a distância pelo FOV e pelos limites da estrela/base, mantém a árvore inteira durante uma órbita de 360° e restaura câmera, viewport, DPR e exposição.

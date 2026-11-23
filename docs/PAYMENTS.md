@@ -48,6 +48,36 @@ O cenário oficial de teste Pix da Orders API é isolado do catálogo comercial:
 
 Para receber uma notificação real, cadastre no painel um endpoint HTTPS isolado para o evento de order. `localhost` não é alcançável pelo Mercado Pago. Receber um webhook no painel continua sendo uma validação manual separada da suíte local.
 
+### HTTPS temporário para teste local
+
+Antes de qualquer exposição, execute `composer payments:status`. O comando informa apenas o estado sanitizado da configuração e da conexão local; nunca imprime Access Token, segredo HMAC, senha ou payload Pix. O catálogo deve continuar indisponível enquanto `MERCADOPAGO_WEBHOOK_SECRET` estiver ausente.
+
+Para um teste temporário, a opção recomendada é um **Cloudflare Quick Tunnel apontado para o ingresso PHP dedicado**, e não para a aplicação completa. Inicie primeiro, em um terminal separado:
+
+```powershell
+php -S 127.0.0.1:8011 bin/webhook-only-router.php
+```
+
+Esse processo aceita somente `POST /api/payments/webhook/mercadopago`; qualquer outro caminho recebe 404 e outros métodos recebem 405. Após autorização explícita para expor o endpoint e com `cloudflared` instalado, inicie:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:8011
+```
+
+O comando gera uma URL efêmera no formato `https://<subdomínio-aleatório>.trycloudflare.com`. Cadastre no modo **Teste** da aplicação Mercado Pago somente:
+
+```text
+https://<subdomínio-aleatório>.trycloudflare.com/api/payments/webhook/mercadopago
+```
+
+O subdomínio real só existe depois que o túnel é iniciado; nunca invente nem reutilize uma URL de execução anterior. Quick Tunnels são apenas para desenvolvimento e qualquer pessoa que conheça a URL pode alcançar o ingresso, por isso a restrição local de rota e a validação HMAC continuam obrigatórias. Não use autenticação interativa por e-mail nesse endpoint: o emissor servidor-a-servidor não conseguiria concluí-la.
+
+Para encerrar, pressione `Ctrl+C` primeiro no terminal do `cloudflared` e depois no terminal PHP. Confirme que ambos os processos terminaram; a URL `trycloudflare.com` deixa de funcionar. Não deixe o túnel em execução fora da janela de teste.
+
+O segredo deve ser copiado da **Configuração de Webhooks** da aplicação `arvore_natal_pix` no modo Teste e salvo apenas como `MERCADOPAGO_WEBHOOK_SECRET` no `.env` local. Não envie o valor por chat, não o inclua na URL e não o versione. No painel, selecione o evento de Orders. A tela de monitoramento permite conferir status HTTP, tempo de resposta e reenvio sem revelar a credencial.
+
+Uma entrega HTTPS bem-sucedida comprova transporte e assinatura; ela não comprova pagamento. A confirmação financeira continua dependendo da consulta autenticada `GET /v1/orders/{id}`, da correspondência de order/referência/valor/ambiente e do estado `processed / accredited`. Notificações pendentes, desconhecidas ou repetidas não publicam presentes.
+
 ## Limitações da etapa
 
 - A publicação automática depende de confirmação oficial e pode permanecer temporariamente em `paid` quando houver falha operacional; o cron retoma a tentativa.

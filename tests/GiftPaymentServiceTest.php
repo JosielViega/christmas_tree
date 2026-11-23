@@ -103,6 +103,61 @@ final class GiftPaymentServiceTest extends TestCase
         self::assertSame(1, $this->gateway->createCalls);
     }
 
+    public function testWebhookKeepsPendingRejectsEnvironmentMismatchAndAppliesRefund(): void
+    {
+        $service = $this->service();
+        $order = $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('w', 16));
+        $providerOrderId = (string) $order?->providerOrderId;
+        $publicId = (string) $order?->publicId;
+
+        $this->gateway->charge = new PaymentCharge(
+            $providerOrderId, 'PAY_PENDING_123', $publicId, 199, 'BRL', 'pending', false, null, null, null,
+        );
+        self::assertTrue($service->processNotification('signature', 'pending', $providerOrderId, '{"event":"pending"}'));
+        self::assertSame('pending', $service->findAuthorized($this->giftId, $this->token)?->status);
+
+        $this->gateway->notificationLiveMode = true;
+        self::assertFalse($service->processNotification('signature', 'wrong-environment', $providerOrderId, '{"event":"live"}'));
+        self::assertSame(1, $this->gateway->fetchCalls);
+
+        $this->gateway->notificationLiveMode = false;
+        $this->gateway->charge = new PaymentCharge(
+            $providerOrderId, 'PAY_PAID_123', $publicId, 199, 'BRL', 'paid', false, null, null, null,
+        );
+        self::assertTrue($service->processNotification('signature', 'paid', $providerOrderId, '{"event":"paid"}'));
+        self::assertSame('paid', $service->findAuthorized($this->giftId, $this->token)?->status);
+
+        $this->gateway->charge = new PaymentCharge(
+            $providerOrderId, 'PAY_PAID_123', $publicId, 199, 'BRL', 'refunded', false, null, null, null,
+        );
+        self::assertTrue($service->processNotification('signature', 'refunded', $providerOrderId, '{"event":"refunded"}'));
+        self::assertSame('refunded', $service->findAuthorized($this->giftId, $this->token)?->status);
+    }
+
+    public function testWebhookRejectsAmountAndChargeEnvironmentMismatches(): void
+    {
+        $service = $this->service();
+        $order = $service->create($this->giftId, $this->token, 'special', 'buyer@example.com', str_repeat('z', 16));
+
+        foreach ([[200, false], [199, true]] as [$amount, $liveMode]) {
+            $this->gateway->charge = new PaymentCharge(
+                (string) $order?->providerOrderId, null, (string) $order?->publicId,
+                $amount, 'BRL', 'paid', $liveMode, null, null, null,
+            );
+            try {
+                $service->processNotification(
+                    'signature', 'mismatch-' . $amount . '-' . (int) $liveMode,
+                    (string) $order?->providerOrderId, '{"event":"mismatch"}',
+                );
+                self::fail('A mismatched provider confirmation must be rejected.');
+            } catch (PaymentGatewayException $exception) {
+                self::assertFalse($exception->retryable);
+            }
+        }
+
+        self::assertSame('pending', $service->findAuthorized($this->giftId, $this->token)?->status);
+    }
+
     public function testReconciliationConfirmsPaymentWhenWebhookIsLost(): void
     {
         $service = $this->service();

@@ -84,6 +84,9 @@ final class MercadoPagoPaymentGatewayTest extends TestCase
         $signature = 'ts=1742505638683,v1=' . hash_hmac('sha256', $manifest, 'webhook-secret');
         self::assertTrue($gateway->verifyNotification($signature, 'req-123', 'ORD_TEST_123'));
         self::assertFalse($gateway->verifyNotification($signature . '0', 'req-123', 'ORD_TEST_123'));
+        self::assertFalse($gateway->verifyNotification('', 'req-123', 'ORD_TEST_123'));
+        self::assertFalse($gateway->verifyNotification($signature, '', 'ORD_TEST_123'));
+        self::assertFalse($gateway->verifyNotification($signature, 'req-123', 'ORD_TEST_OTHER'));
         $notification = $gateway->interpretNotification(json_encode([
             'type' => 'order', 'action' => 'order.updated', 'date_created' => '2026-11-23T12:00:00Z',
             'live_mode' => false, 'data' => ['id' => 'ORD_TEST_123', 'version' => '1'],
