@@ -34,7 +34,10 @@ final class CurlPaymentHttpClient implements PaymentHttpClient
         $ok = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
         $error = curl_error($handle);
-        curl_close($handle);
+        // CurlHandle resources are released automatically. Calling curl_close()
+        // is deprecated on PHP 8.5 and the application error handler promotes
+        // that deprecation to an exception after a successful HTTP exchange.
+        unset($handle);
         if ($ok === false) throw new PaymentGatewayException('Payment provider connection failed: ' . ($error === '' ? 'transport error' : 'transport error'));
         return new PaymentHttpResponse($status, $responseBody);
     }
