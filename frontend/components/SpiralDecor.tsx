@@ -34,9 +34,12 @@ interface SpiralDecorProps {
   photos?: PhotoData[];
   lightBoost?: number;
   celebrating?: boolean;
+  reducedMotion?: boolean;
 }
 
-const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = [], lightBoost = 0, celebrating = false }) => {
+export const AUTOMATIC_BAUBLE_COUNT = 32;
+
+const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = [], lightBoost = 0, celebrating = false, reducedMotion = false }) => {
   const lineRef = useRef<THREE.Mesh>(null);
   const pointsRef = useRef<THREE.Points>(null);
   const baubleMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -63,7 +66,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
   // Generate "Fluffy" Tinsel Particles
   const { tinselGeo } = useMemo(() => {
     const curvePoints = curve.getSpacedPoints(800);
-    const particlesPerPoint = 8;
+    const particlesPerPoint = 5;
     const totalParticles = curvePoints.length * particlesPerPoint;
 
     const positions = new Float32Array(totalParticles * 3);
@@ -126,7 +129,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
   // Generate decorative balls
   const baubles = useMemo(() => {
     const items = [];
-    const count = 100; // Increased count for fuller bottom
+    const count = AUTOMATIC_BAUBLE_COUNT;
 
     for (let i = 0; i < count; i++) {
       let x = 0, y = 0, z = 0;
@@ -136,8 +139,9 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
 
       while (collides && attempts < 30) {
         const rawRandom = Math.random();
-        // Bias more towards bottom (higher power) and cap height to avoid star position
-        const h = Math.pow(rawRandom, 2.2) * 0.85;
+        // Keep automatic accents above the gift area. Social ornaments retain
+        // their own independent persisted layout.
+        const h = 0.14 + Math.pow(rawRandom, 1.6) * 0.68;
 
         y = (h * TREE_CONFIG.HEIGHT) - (TREE_CONFIG.HEIGHT / 2);
         const maxRadius = TREE_CONFIG.RADIUS_BOTTOM * (1 - h);
@@ -183,7 +187,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       if (collides) continue;
 
       const isRed = Math.random() > 0.5;
-      const scale = Math.random() * 0.15 + 0.15;
+      const scale = Math.random() * 0.05 + 0.08;
 
       items.push({
         position: new THREE.Vector3(x, y, z),
@@ -211,7 +215,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
 
     if (lineRef.current) {
         const material = lineRef.current.material as THREE.MeshStandardMaterial;
-        const pulse = (Math.sin(time * 3.0) * 0.3 + 0.7);
+        const pulse = reducedMotion ? 0.72 : (Math.sin(time * 3.0) * 0.3 + 0.7);
         const celebrationBoost = celebrating ? 0.7 : 0;
         material.emissiveIntensity = (3.0 + lightBoost * 3 + celebrationBoost) * pulse * (1 - explodeProgress.current);
         lineRef.current.scale.setScalar(1 - explodeProgress.current);
@@ -219,7 +223,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
     }
 
     if (pointsRef.current) {
-        pointsRef.current.rotation.y = Math.sin(time * 0.5) * 0.02;
+        pointsRef.current.rotation.y = reducedMotion ? 0 : Math.sin(time * 0.5) * 0.02;
     }
 
     if (needsUpdate && baubleMeshRef.current && baubleCapMeshRef.current) {
@@ -264,39 +268,6 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
         baubleCapMeshRef.current.instanceMatrix.needsUpdate = true;
     }
 
-    // Update baubles with floating motion
-    if (baubleMeshRef.current) {
-        const tempObject = new THREE.Object3D();
-        baubles.forEach((b, i) => {
-            const dir = b.position.clone().normalize();
-
-            // Floating motion in explode mode
-            const seed = Math.sin(b.position.x * 12.9898 + b.position.y * 78.233) * 43758.5453;
-            const floatTime = time * 0.4 + seed;
-            const drift = new THREE.Vector3(
-                Math.sin(floatTime) * 0.3,
-                Math.cos(floatTime * 0.7) * 0.3,
-                Math.sin(floatTime * 0.5) * 0.3
-            ).multiplyScalar(explodeProgress.current);
-
-            const baublePos = new THREE.Vector3(
-                b.position.x + dir.x * explodeProgress.current * 20 + drift.x,
-                b.position.y + dir.y * explodeProgress.current * 20 + drift.y,
-                b.position.z + dir.z * explodeProgress.current * 20 + drift.z
-            );
-
-            tempObject.position.copy(baublePos);
-            tempObject.rotation.set(
-                b.rotation[0] + (Math.sin(floatTime * 0.2) * 0.2 * explodeProgress.current),
-                b.rotation[1] + (Math.cos(floatTime * 0.3) * 0.2 * explodeProgress.current),
-                b.rotation[2]
-            );
-            tempObject.scale.setScalar(b.scale);
-            tempObject.updateMatrix();
-            baubleMeshRef.current!.setMatrixAt(i, tempObject.matrix);
-        });
-        baubleMeshRef.current.instanceMatrix.needsUpdate = true;
-    }
   });
 
   // Initialize matrices for baubles
@@ -408,10 +379,10 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
             map={fluffTexture}
             color="#ffffff"
             vertexColors={true}
-            size={0.25}
+            size={0.18}
             sizeAttenuation={true}
             transparent={true}
-            opacity={0.9}
+            opacity={0.62}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             alphaTest={0.01}
@@ -457,19 +428,19 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       {/* Point lights along the spiral path to illuminate tree and photos */}
       {!isExploded && (
         <>
-            <pointLight position={[0, 2, 0]} intensity={2 + lightBoost * 2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
-            <pointLight position={[0, -2, 0]} intensity={2 + lightBoost * 2} color={COLORS.SPIRAL_LIGHT} distance={10} decay={2} />
+            <pointLight position={[0, 2, 0]} intensity={1.2 + lightBoost * 1.4} color="#f4d77d" distance={9} decay={2} />
+            <pointLight position={[0, -2, 0]} intensity={1.1 + lightBoost * 1.3} color="#f4d77d" distance={9} decay={2} />
         </>
       )}
 
       {/* Decorative Ornaments - Instanced */}
       <instancedMesh ref={baubleMeshRef} args={[undefined, undefined, baubles.length]}>
-        <sphereGeometry args={[1, 24, 24]} />
+        <sphereGeometry args={[1, 16, 16]} />
         <meshStandardMaterial
-          metalness={0.9}
-          roughness={0.1}
-          emissive="#ffffff"
-          emissiveIntensity={0.2}
+          metalness={0.42}
+          roughness={0.48}
+          emissive="#6b5014"
+          emissiveIntensity={0.04}
         />
       </instancedMesh>
 

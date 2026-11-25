@@ -41,6 +41,12 @@ export interface DecodedGiftPhoto {
   dispose: () => void;
 }
 
+export interface GiftPhotoCrop {
+  x: number;
+  y: number;
+  zoom?: number;
+}
+
 export const replaceDecodedGiftPhoto = (current: DecodedGiftPhoto | null, next: DecodedGiftPhoto | null): DecodedGiftPhoto | null => {
   if (current && current !== next) current.dispose();
   return next;
@@ -178,15 +184,35 @@ export const decodeGiftPhoto = async (
   }
 };
 
-export const calculateCoverCrop = (sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number) => {
+export const calculateCoverCrop = (
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  focalX = 0.5,
+  focalY = 0.5,
+  zoom = 1,
+) => {
+  const safeFocalX = THREE.MathUtils.clamp(focalX, 0, 1);
+  const safeFocalY = THREE.MathUtils.clamp(focalY, 0, 1);
+  const safeZoom = THREE.MathUtils.clamp(Number.isFinite(zoom) ? zoom : 1, 1, 3);
   const sourceRatio = sourceWidth / sourceHeight;
   const targetRatio = targetWidth / targetHeight;
+  let coverWidth = sourceWidth;
+  let coverHeight = sourceHeight;
   if (sourceRatio > targetRatio) {
-    const width = sourceHeight * targetRatio;
-    return { sx: (sourceWidth - width) / 2, sy: 0, sw: width, sh: sourceHeight };
+    coverWidth = sourceHeight * targetRatio;
+  } else {
+    coverHeight = sourceWidth / targetRatio;
   }
-  const height = sourceWidth / targetRatio;
-  return { sx: 0, sy: (sourceHeight - height) / 2, sw: sourceWidth, sh: height };
+  const width = coverWidth / safeZoom;
+  const height = coverHeight / safeZoom;
+  return {
+    sx: (sourceWidth - width) * safeFocalX,
+    sy: (sourceHeight - height) * safeFocalY,
+    sw: width,
+    sh: height,
+  };
 };
 
 const roundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
@@ -210,9 +236,10 @@ const drawPhotoCover = (
   y: number,
   width: number,
   height: number,
+  crop: GiftPhotoCrop,
 ) => {
-  const crop = calculateCoverCrop(photo.width, photo.height, width, height);
-  context.drawImage(photo.source, crop.sx, crop.sy, crop.sw, crop.sh, x, y, width, height);
+  const source = calculateCoverCrop(photo.width, photo.height, width, height, crop.x, crop.y, crop.zoom);
+  context.drawImage(photo.source, source.sx, source.sy, source.sw, source.sh, x, y, width, height);
 };
 
 const drawMotif = (context: CanvasRenderingContext2D, style: GiftStyleId, x: number, y: number, size: number, color: string) => {
@@ -261,15 +288,34 @@ const fillPatternBackground = (context: CanvasRenderingContext2D, style: GiftSty
   }
 };
 
-const drawFramedPhoto = (context: CanvasRenderingContext2D, photo: DecodedGiftPhoto, style: GiftStyle, x: number, y: number, size: number) => {
-  const border = Math.max(5, Math.round(size * 0.08));
-  roundedRect(context, x, y, size, size, Math.max(8, size * 0.09));
-  context.fillStyle = style.frame;
-  context.fill();
+const drawPhotoTile = (
+  context: CanvasRenderingContext2D,
+  photo: DecodedGiftPhoto,
+  style: GiftStyle,
+  x: number,
+  y: number,
+  size: number,
+  crop: GiftPhotoCrop,
+) => {
+  drawPhotoCover(context, photo, x, y, size, size, crop);
   context.save();
-  roundedRect(context, x + border, y + border, size - border * 2, size - border * 2, Math.max(5, size * 0.06));
-  context.clip();
-  drawPhotoCover(context, photo, x + border, y + border, size - border * 2, size - border * 2);
+  context.globalAlpha = 0.72;
+  context.strokeStyle = style.frame;
+  context.lineWidth = Math.max(3, Math.round(size * 0.035));
+  context.strokeRect(x + 1, y + 1, size - 2, size - 2);
+  context.restore();
+};
+
+const finishFeaturedFace = (context: CanvasRenderingContext2D, style: GiftStyle, size: number) => {
+  const border = Math.round(size * 0.028);
+  context.save();
+  context.strokeStyle = style.frame;
+  context.lineWidth = border;
+  context.strokeRect(border / 2, border / 2, size - border, size - border);
+  context.globalAlpha = 0.7;
+  context.strokeStyle = style.accent;
+  context.lineWidth = 3;
+  context.strokeRect(border + 5, border + 5, size - (border + 5) * 2, size - (border + 5) * 2);
   context.restore();
 };
 
@@ -283,6 +329,7 @@ export const createPersonalizedGiftCanvases = (
   styleId: GiftStyleId,
   mode: GiftCompositionMode,
   createCanvas: () => HTMLCanvasElement = () => document.createElement('canvas'),
+  crop: GiftPhotoCrop = { x: 0.5, y: 0.5 },
 ): PersonalizedGiftCanvases => {
   const style = GIFT_STYLES.find((candidate) => candidate.id === styleId) ?? GIFT_STYLES[0];
   const paper = createCanvas();
@@ -290,15 +337,11 @@ export const createPersonalizedGiftCanvases = (
   paper.height = GIFT_TEXTURE_SIZE;
   const paperContext = paper.getContext('2d');
   if (!paperContext) throw new GiftPhotoError('O navegador não conseguiu preparar a textura do presente.');
-  fillPatternBackground(paperContext, style, GIFT_TEXTURE_SIZE);
-
   if (mode === 'repeated') {
-    const tileSize = 118;
-    for (let row = 0; row < 3; row++) {
-      for (let column = 0; column < 3; column++) {
-        const x = 24 + column * 160 + (row % 2) * 12;
-        const y = 24 + row * 160;
-        drawFramedPhoto(paperContext, photo, style, x, y, tileSize);
+    const tileSize = GIFT_TEXTURE_SIZE / 4;
+    for (let row = 0; row < 4; row++) {
+      for (let column = 0; column < 4; column++) {
+        drawPhotoTile(paperContext, photo, style, column * tileSize, row * tileSize, tileSize, crop);
       }
     }
     return { paper, front: null };
@@ -309,9 +352,12 @@ export const createPersonalizedGiftCanvases = (
   front.height = GIFT_TEXTURE_SIZE;
   const frontContext = front.getContext('2d');
   if (!frontContext) throw new GiftPhotoError('O navegador não conseguiu preparar a face do presente.');
-  fillPatternBackground(frontContext, style, GIFT_TEXTURE_SIZE);
-  drawFramedPhoto(frontContext, photo, style, 70, 70, 372);
-  return { paper, front };
+  drawPhotoCover(frontContext, photo, 0, 0, GIFT_TEXTURE_SIZE, GIFT_TEXTURE_SIZE, crop);
+  finishFeaturedFace(frontContext, style, GIFT_TEXTURE_SIZE);
+  // Use the full-face photograph as wrapping paper on every side. `front`
+  // remains the persisted canvas so existing storage and API contracts stay
+  // unchanged and the upload is still a single 512x512 PNG.
+  return { paper: front, front };
 };
 
 export const createCanvasTexture = (canvas: HTMLCanvasElement): THREE.CanvasTexture => {

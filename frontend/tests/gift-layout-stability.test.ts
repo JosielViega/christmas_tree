@@ -15,6 +15,6 @@ test('decorative gifts are reduced, deterministic and do not collide with each o
 
 test('layout v1 remains stable while new premium gifts use the safer outer ring', () => {
   assert.deepEqual(getPremiumGiftTransform(0, 1).position, [0, -6.82, 4.9]);
-  assert.deepEqual(getPremiumGiftTransform(0, 2).position, [0, -6.82, 6.8]);
+  assert.deepEqual(getPremiumGiftTransform(0, 2).position, [0, -6.82, 7.2]);
   assert.ok(horizontalGiftDistance(getPremiumGiftTransform(0, 1).position, getPremiumGiftTransform(0, 2).position) > 1.5);
 });

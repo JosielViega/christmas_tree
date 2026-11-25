@@ -27,6 +27,7 @@ import { getInitialAmbientQuality } from '../utils/ambientEffects';
 import type { AmbientQuality } from '../utils/ambientEffects';
 import { storyCameraFrame } from '../utils/videoFraming';
 import { getInitialDpr, getInitialTreeParticleCount, markStartup, measureStartup } from '../utils/startup';
+import { PREMIUM_GIFT_FOCUS_DISTANCE } from '../utils/premiumGiftLayout';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -303,7 +304,7 @@ const CameraController: React.FC<{
           // Calculate target camera state
           const targetAngle = focusedPhoto.rotation[1];
           const targetHeight = photoPos.y;
-          const targetRadius = 6;
+          const targetRadius = focusedPhoto.id.startsWith('premium-gift-') ? PREMIUM_GIFT_FOCUS_DISTANCE : 6;
 
           // Smoothly interpolate the state components
           // This prevents the camera from cutting through the tree
@@ -757,7 +758,7 @@ const Scene: React.FC<SceneProps> = ({
       {/* 3D Scene Elements */}
       <group position={[0, TREE_OFFSET_Y, 0]}>
         <TreeMesh isExploded={isExploded} photos={photos} particleCount={initialTreeParticleCount} />
-        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} />
+        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} reducedMotion={reducedMotion} />
         <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} />
         {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} />}
 

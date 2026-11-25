@@ -162,6 +162,13 @@ test('fallback decoding revokes its Object URL when the preview closes', async (
 test('cover crop preserves aspect ratio without stretching', () => {
   assert.deepEqual(calculateCoverCrop(1200, 800, 100, 100), { sx: 200, sy: 0, sw: 800, sh: 800 });
   assert.deepEqual(calculateCoverCrop(800, 1200, 100, 100), { sx: 0, sy: 200, sw: 800, sh: 800 });
+  assert.deepEqual(calculateCoverCrop(1200, 800, 100, 100, 0, 0.5), { sx: 0, sy: 0, sw: 800, sh: 800 });
+  assert.deepEqual(calculateCoverCrop(1200, 800, 100, 100, 1, 0.5), { sx: 400, sy: 0, sw: 800, sh: 800 });
+  assert.deepEqual(calculateCoverCrop(800, 1200, 100, 100, 0.5, 1), { sx: 0, sy: 400, sw: 800, sh: 800 });
+  assert.deepEqual(calculateCoverCrop(1200, 800, 100, 100, 0.5, 0.5, 2), { sx: 400, sy: 200, sw: 400, sh: 400 });
+  assert.deepEqual(calculateCoverCrop(1200, 800, 100, 100, 1, 1, 3), {
+    sx: 1200 - (800 / 3), sy: 800 - (800 / 3), sw: 800 / 3, sh: 800 / 3,
+  });
 });
 
 test('three styles and two composition modes remain available', () => {
@@ -170,7 +177,7 @@ test('three styles and two composition modes remain available', () => {
   assert.equal(GIFT_TEXTURE_SIZE, 512);
 });
 
-test('pattern generation repeats photographs and creates a separate featured face', () => {
+test('wrapping generation fills the entire paper in repeated and featured modes', () => {
   let drawCalls = 0;
   const context = new Proxy({
     drawImage: () => { drawCalls += 1; },
@@ -189,13 +196,14 @@ test('pattern generation repeats photographs and creates a separate featured fac
   const repeated = createPersonalizedGiftCanvases(fakePhoto(), 'classic', 'repeated', createCanvas);
   assert.equal(repeated.paper.width, 512);
   assert.equal(repeated.front, null);
-  assert.equal(drawCalls, 9);
+  assert.equal(drawCalls, 16);
 
   drawCalls = 0;
   const featured = createPersonalizedGiftCanvases(fakePhoto(), 'magic', 'featured', createCanvas);
   assert.equal(featured.paper.width, 512);
   assert.equal(featured.front?.height, 512);
   assert.equal(drawCalls, 1);
+  assert.equal(featured.paper, featured.front);
 });
 
 test('missing Canvas 2D support produces a controlled error', () => {
@@ -292,5 +300,7 @@ test('persistence selects one final 512 texture and encodes PNG only', async () 
 test('style changes reuse the already decoded photo in the preview component', () => {
   const source = readFileSync(new URL('../components/GiftPreviewModal.tsx', import.meta.url), 'utf8');
   assert.equal((source.match(/decodeGiftPhoto\(/g) ?? []).length, 1);
-  assert.match(source, /createPersonalizedGiftCanvases\(photo, style, mode\)/);
+  assert.match(source, /createPersonalizedGiftCanvases\(photo, style, mode/);
+  assert.match(source, /Enquadramento da foto/);
+  assert.match(source, /Zoom · \{cropZoom\.toFixed\(1\)\}×/);
 });

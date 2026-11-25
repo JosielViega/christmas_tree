@@ -40,6 +40,19 @@ input {
   to { width: 0%; }
 }
 
+.gift-step-panel {
+  animation: gift-step-in 200ms ease-out both;
+}
+
+@keyframes gift-step-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gift-step-panel { animation: none; }
+}
+
 .christmas-loading {
   position: fixed;
   inset: 0;

@@ -6,8 +6,9 @@ import { COLORS, TREE_CONFIG } from '../constants';
 import { createProceduralGiftTexture } from '../utils/giftTextures';
 import type { GiftWrappingPattern } from '../utils/giftTextures';
 import type { PremiumGiftData } from '../types';
-import { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
+import { getPremiumGiftTransform, PREMIUM_GIFT_CLEARANCE, PREMIUM_GIFT_SCALE } from '../utils/premiumGiftLayout';
 import { getDecorativeGiftTransforms, horizontalGiftDistance } from '../utils/decorativeGiftLayout';
+import { createGiftBoxGeometry } from '../utils/giftBoxGeometry';
 export { getPremiumGiftTransform } from '../utils/premiumGiftLayout';
 
 interface PresentProps {
@@ -103,9 +104,12 @@ interface GiftBoxModelProps {
   ribbonColor: string;
 }
 
-export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTexture = null, ribbonColor }) => (
-  <group>
-    <RoundedBox args={[1, 1, 1]} radius={0.02} smoothness={4} position={[0, 0.5, 0]}>
+export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTexture = null, ribbonColor }) => {
+  const bodyGeometry = useMemo(() => createGiftBoxGeometry(), []);
+  useEffect(() => () => bodyGeometry.dispose(), [bodyGeometry]);
+
+  return <group>
+    <mesh geometry={bodyGeometry} position={[0, 0.5, 0]}>
       <meshPhysicalMaterial
         map={texture}
         roughness={0.3}
@@ -113,7 +117,7 @@ export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTextur
         clearcoat={0.3}
         clearcoatRoughness={0.2}
       />
-    </RoundedBox>
+    </mesh>
 
     {frontTexture && (
       <mesh position={[0, 0.5, 0.506]}>
@@ -140,8 +144,8 @@ export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTextur
       <RibbonTail rotation={[0, -0.5, 0]} length={1.2} color={ribbonColor} />
       <RibbonTail rotation={[0, Math.PI + 0.5, 0]} length={1.1} color={ribbonColor} />
     </group>
-  </group>
-);
+  </group>;
+};
 
 const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
   position, rotation, scale, color, pattern, ribbonColor, explodeDir, explodeRotation, isExploded
@@ -214,14 +218,14 @@ const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: Premiu
   }, [gift.texture_url]);
   const ribbon = gift.gift_style === 'romantic' ? '#e94b68' : gift.gift_style === 'magic' ? '#9f7aea' : '#FFD700';
   return (
-    <group position={transform.position} rotation={transform.rotation} scale={0.92}
+    <group position={transform.position} rotation={transform.rotation} scale={PREMIUM_GIFT_SCALE}
       onClick={(event) => { event.stopPropagation(); onSelect?.(gift); }}
       onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { document.body.style.cursor = 'default'; }}>
-      <pointLight position={[0, 1.1, 0.4]} color="#fff1a1" intensity={0.45} distance={3.4} decay={2} />
+      <pointLight position={[0, 1.1, 0.4]} color="#ffe19a" intensity={0.22} distance={2.8} decay={2} />
       <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
-        <ringGeometry args={[0.72, 1.18, 32]} />
-        <meshBasicMaterial color="#f2cf62" transparent opacity={0.16} depthWrite={false} />
+        <ringGeometry args={[0.86, 1.06, 32]} />
+        <meshBasicMaterial color="#e7c15a" transparent opacity={0.06} depthWrite={false} />
       </mesh>
       <GiftBoxModel texture={publishedTexture ?? fallbackTexture} ribbonColor={ribbon} />
     </group>
@@ -276,7 +280,7 @@ const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCoun
       {presents.filter((present) => premiumGifts.every((gift) => horizontalGiftDistance(
         [present.position.x, present.position.y, present.position.z],
         getPremiumGiftTransform(gift.position_index, gift.layout_version).position,
-      ) >= 1.55)).map((p, i) => (
+      ) >= PREMIUM_GIFT_CLEARANCE)).map((p, i) => (
         <PresentBox key={i} {...p} isExploded={isExploded} />
       ))}
       {specialPresents.slice(0, specialGiftCount).map((present, index) => (
