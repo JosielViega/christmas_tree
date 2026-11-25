@@ -177,6 +177,7 @@ $paymentGateway = new MercadoPagoPaymentGateway(
     $app['config']['payments']['webhook_secret'],
     $app['config']['payments']['environment'] === 'sandbox',
     $app['config']['payments']['enabled'] && $app['config']['payments']['provider'] === 'mercadopago',
+    $app['config']['payments']['sandbox_apro'],
 );
 $paymentService = new GiftPaymentService(
     $giftService,
@@ -195,6 +196,7 @@ $paymentApi = new GiftPaymentApiController(
         $app['config']['rate_limits']['gift_payment_creation']['max_attempts'],
         $app['config']['rate_limits']['gift_payment_creation']['window_seconds'],
     ),
+    technicalSandbox: (bool) $app['config']['payments']['sandbox_apro'],
 );
 $treeGiftApi = new TreeGiftApiController(
     $app['request'], $app['csrf'], $giftPublication, $treeIdentity, $treeOwnerSession,

@@ -52,8 +52,12 @@ final class GiftPaymentApiControllerTest extends TestCase
         self::assertSame(200, $catalog->status());
         self::assertStringContainsString('"available":false', $catalog->body());
         self::assertStringContainsString('"amount_cents":199', $catalog->body());
+        self::assertStringContainsString('"technical_environment":false', $catalog->body());
         self::assertStringNotContainsString('access_token', $catalog->body());
         self::assertStringNotContainsString('webhook_secret', $catalog->body());
+
+        $technicalCatalog = $this->controller(new Request(), $gateway, true)->catalog();
+        self::assertStringContainsString('"technical_environment":true', $technicalCatalog->body());
 
         $request = new Request(
             parsedBody: ['product_code' => 'special', 'payer_email' => 'test@example.com'],
@@ -111,7 +115,7 @@ final class GiftPaymentApiControllerTest extends TestCase
         self::assertStringNotContainsString('Temporary provider failure', $failure->body());
     }
 
-    private function controller(Request $request, FakePaymentGateway $gateway): GiftPaymentApiController
+    private function controller(Request $request, FakePaymentGateway $gateway, bool $technicalSandbox = false): GiftPaymentApiController
     {
         $trees = new InMemoryChristmasTreeRepository();
         $gifts = new ChristmasTreeGiftService(
@@ -123,6 +127,7 @@ final class GiftPaymentApiControllerTest extends TestCase
             new GiftPaymentService($gifts, new InMemoryPaymentOrderRepository(), $catalog, $gateway, 60, false),
             $catalog, new GiftDraftAccessSession($this->session),
             new RateLimiter($this->temporaryRoot . '/rates', 10, 900),
+            technicalSandbox: $technicalSandbox,
         );
     }
 }

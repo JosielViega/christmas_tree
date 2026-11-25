@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Services\MessageReleasePolicy;
 
 $appEnvironment = (string) env('APP_ENV', 'production');
+if (!in_array($appEnvironment, ['local', 'testing', 'staging', 'production'], true)) {
+    throw new RuntimeException('APP_ENV must be local, testing, staging, or production.');
+}
 $treeCreationRateLimit = $appEnvironment === 'local' ? 30 : 5;
 $manualMessageRelease = $_ENV['LIBERAR_MENSAGEM'] ?? $_SERVER['LIBERAR_MENSAGEM'] ?? getenv('LIBERAR_MENSAGEM');
 $manualMessageRelease = $manualMessageRelease === false ? null : $manualMessageRelease;
@@ -24,6 +27,10 @@ if ($memoryStoragePath === '') {
 $paymentEnvironment = (string) env('PAYMENTS_ENVIRONMENT', 'sandbox');
 $paymentRequested = filter_var(env('PAYMENTS_ENABLED', false), FILTER_VALIDATE_BOOL);
 $paymentProductionAllowed = filter_var(env('PAYMENTS_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL);
+$sandboxAproRequested = filter_var(env('PAYMENTS_SANDBOX_APRO', false), FILTER_VALIDATE_BOOL);
+if ($sandboxAproRequested && ($appEnvironment !== 'testing' || $paymentEnvironment !== 'sandbox' || $paymentProductionAllowed)) {
+    throw new RuntimeException('PAYMENTS_SANDBOX_APRO is restricted to testing with Sandbox and production disabled.');
+}
 $paymentEnabled = $paymentRequested && ($paymentEnvironment === 'sandbox' || (
     $paymentEnvironment === 'production' && $paymentProductionAllowed
     && $appEnvironment === 'production'
@@ -75,6 +82,7 @@ return [
         'enabled' => $paymentEnabled,
         'provider' => (string) env('PAYMENTS_PROVIDER', 'mercadopago'),
         'environment' => $paymentEnvironment,
+        'sandbox_apro' => $sandboxAproRequested,
         'access_token' => trim((string) env('MERCADOPAGO_ACCESS_TOKEN', '')),
         'webhook_secret' => trim((string) env('MERCADOPAGO_WEBHOOK_SECRET', '')),
         'expiration_minutes' => (int) env('PAYMENTS_PIX_EXPIRATION_MINUTES', 1440),

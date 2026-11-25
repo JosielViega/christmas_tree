@@ -75,6 +75,33 @@ final class MercadoPagoPaymentGatewayTest extends TestCase
         self::assertFalse($charge->liveMode);
     }
 
+    public function testAddsAproPayerOnlyForTheIsolatedFiftyRealSandboxScenario(): void
+    {
+        $http = new class implements PaymentHttpClient {
+            public string $body = '';
+            public function request(string $method, string $url, array $headers, ?string $body = null): PaymentHttpResponse
+            {
+                $this->body = (string) $body;
+                return new PaymentHttpResponse(201, json_encode([
+                    'id' => 'ORD_TEST_APRO', 'external_reference' => 'abcdefghijklmnop', 'total_amount' => '50.00',
+                    'country_code' => 'BRA', 'status' => 'action_required', 'status_detail' => 'waiting_transfer',
+                    'transactions' => ['payments' => [[
+                        'id' => 'PAY_TEST_APRO', 'payment_method' => ['id' => 'pix', 'type' => 'bank_transfer'],
+                    ]]],
+                ], JSON_THROW_ON_ERROR));
+            }
+        };
+        $request = new PaymentChargeRequest('abcdefghijklmnop', 5000, 'BRL', 'test_payer@example.com', 'ct-abcdefghijklmnop', 60);
+
+        (new MercadoPagoPaymentGateway($http, 'TEST_TOKEN', 'secret', true, true, true))->createCharge($request);
+        $payload = json_decode($http->body, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('APRO', $payload['payer']['first_name']);
+
+        (new MercadoPagoPaymentGateway($http, 'TEST_TOKEN', 'secret', false, true, true))->createCharge($request);
+        $payload = json_decode($http->body, true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('first_name', $payload['payer']);
+    }
+
     public function testVerifiesOfficialHmacManifestAndRejectsInvalidOrMalformedResponses(): void
     {
         $gateway = new MercadoPagoPaymentGateway(new class implements PaymentHttpClient {

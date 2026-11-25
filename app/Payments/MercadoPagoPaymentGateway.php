@@ -20,6 +20,7 @@ final class MercadoPagoPaymentGateway implements PaymentGateway
         private readonly string $webhookSecret,
         private readonly bool $sandbox,
         private readonly bool $enabled,
+        private readonly bool $sandboxApro = false,
     ) {
     }
 
@@ -32,6 +33,10 @@ final class MercadoPagoPaymentGateway implements PaymentGateway
 
     public function createCharge(PaymentChargeRequest $request): PaymentCharge
     {
+        $payer = ['email' => $request->payerEmail];
+        if ($this->sandbox && $this->sandboxApro && $request->amountCents === 5000) {
+            $payer['first_name'] = 'APRO';
+        }
         $payload = [
             'type' => 'online', 'total_amount' => $this->formatAmount($request->amountCents),
             'external_reference' => $request->externalReference, 'processing_mode' => 'automatic',
@@ -40,7 +45,7 @@ final class MercadoPagoPaymentGateway implements PaymentGateway
                 'payment_method' => ['id' => 'pix', 'type' => 'bank_transfer'],
                 'expiration_time' => 'PT' . max(30, min(43200, $request->expirationMinutes)) . 'M',
             ]]],
-            'payer' => ['email' => $request->payerEmail],
+            'payer' => $payer,
         ];
         return $this->send('POST', '/v1/orders', $payload, $request->idempotencyKey);
     }

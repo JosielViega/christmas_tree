@@ -31,10 +31,6 @@ $databaseConfig = require $root . '/config/database.php';
 $logger = new Logger($root . '/storage/logs');
 (new ErrorHandler($logger, $appConfig['debug']))->register();
 
-if (!in_array($appConfig['environment'], ['local', 'testing', 'production'], true)) {
-    throw new RuntimeException('APP_ENV must be local, testing, or production.');
-}
-
 date_default_timezone_set($appConfig['timezone']);
 
 $httpsActive = str_starts_with(strtolower($appConfig['url']), 'https://')

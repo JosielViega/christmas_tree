@@ -44,7 +44,7 @@ const request = async <T>(url: string, init: RequestInit = {}): Promise<T> => {
   return payload.data;
 };
 
-export const fetchGiftCatalog = (): Promise<{ available: boolean; products: GiftProduct[] }> =>
+export const fetchGiftCatalog = (): Promise<{ available: boolean; products: GiftProduct[]; technical_environment: boolean }> =>
   request('/api/payments/catalog', { headers: { Accept: 'application/json' } });
 
 export const createGiftPaymentOrder = (

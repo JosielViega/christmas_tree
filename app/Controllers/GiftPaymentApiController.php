@@ -25,12 +25,17 @@ final class GiftPaymentApiController
         private readonly GiftDraftAccessSession $accessSession,
         private readonly RateLimiter $creationLimiter,
         private readonly int $maxWebhookBytes = 65536,
+        private readonly bool $technicalSandbox = false,
     ) {
     }
 
     public function catalog(): Response
     {
-        return $this->privateJson(['data' => ['available' => $this->payments->available(), 'products' => $this->catalog->publicProducts()]]);
+        return $this->privateJson(['data' => [
+            'available' => $this->payments->available(),
+            'products' => $this->catalog->publicProducts(),
+            'technical_environment' => $this->technicalSandbox,
+        ]]);
     }
 
     public function store(string $giftPublicId): Response
