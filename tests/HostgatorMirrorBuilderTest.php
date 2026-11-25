@@ -26,10 +26,14 @@ final class HostgatorMirrorBuilderTest extends TestCase
         foreach ([
             'app/.keep',
             'bin/cleanup-gift-drafts.php',
+            'bin/lib/ProcessLock.php',
+            'bin/migrate.php',
+            'bin/migrations-status.php',
             'bootstrap/app.php',
             'config/app.php',
             'config/database.php',
             'public/index.php',
+            'public/.htaccess',
             'public/assets/app/.vite/manifest.json',
             'resources/views/.keep',
             'routes/web.php',
@@ -81,7 +85,7 @@ final class HostgatorMirrorBuilderTest extends TestCase
         return [
             'environment' => ['.env'],
             'environment example' => ['.env.example'],
-            'Apache rules' => ['public/.htaccess'],
+            'unexpected Apache rules' => ['app/.htaccess'],
             'user ini' => ['.user.ini'],
             'PHP ini' => ['php.ini'],
             'uploads' => ['public/uploads/user-file.txt'],
@@ -107,6 +111,21 @@ final class HostgatorMirrorBuilderTest extends TestCase
         self::assertFileExists($this->mirror . '/app/Domain/PersistentTreeCredential.php');
 
         $this->write('config/credentials.json', '{}');
+        $this->expectException(RuntimeException::class);
+        $this->builder()->validate();
+    }
+
+    public function testRejectsExecutableUploadsAndSecretLikeContents(): void
+    {
+        $this->write('public/assets/shell.php', '<?php echo 1;');
+        try {
+            $this->builder()->validate();
+            self::fail('Executable public asset should have been rejected.');
+        } catch (RuntimeException) {
+            unlink($this->mirror . '/public/assets/shell.php');
+        }
+
+        $this->write('config/leak.php', 'MERCADOPAGO_ACCESS_TOKEN=APP_USR-' . str_repeat('a', 32));
         $this->expectException(RuntimeException::class);
         $this->builder()->validate();
     }

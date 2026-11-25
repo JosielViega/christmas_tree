@@ -14,12 +14,19 @@ use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
 use App\Services\GiftPublicationService;
 use App\Services\GiftTextureStorage;
+use App\Console\ProcessLock;
 use Dotenv\Dotenv;
 
 $root = dirname(__DIR__);
 require $root . '/vendor/autoload.php';
+require $root . '/bin/lib/ProcessLock.php';
 Dotenv::createImmutable($root)->safeLoad();
 $appConfig = require $root . '/config/app.php';
+$lock = new ProcessLock(rtrim($appConfig['storage']['cache_path'], '/\\') . '/locks/gifts-cleanup.lock');
+if (!$lock->acquire()) {
+    fwrite(STDOUT, 'Gift maintenance already running; this invocation was skipped.' . PHP_EOL);
+    exit(0);
+}
 $database = new Database(require $root . '/config/database.php');
 $treeRepository = new PdoChristmasTreeRepository($database);
 $giftRepository = new PdoChristmasTreeGiftRepository($database);

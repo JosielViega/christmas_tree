@@ -24,6 +24,18 @@ if ($memoryStoragePath === '') {
 } elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $memoryStoragePath) !== 1) {
     $memoryStoragePath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $memoryStoragePath), '/');
 }
+$cachePath = trim((string) env('APP_CACHE_PATH', ''));
+if ($cachePath === '') {
+    $cachePath = dirname(__DIR__) . '/storage/cache';
+} elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $cachePath) !== 1) {
+    $cachePath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $cachePath), '/');
+}
+$logPath = trim((string) env('APP_LOG_PATH', ''));
+if ($logPath === '') {
+    $logPath = dirname(__DIR__) . '/storage/logs';
+} elseif (preg_match('#^(?:[A-Za-z]:[\\\\/]|/)#', $logPath) !== 1) {
+    $logPath = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $logPath), '/');
+}
 $paymentEnvironment = (string) env('PAYMENTS_ENVIRONMENT', 'sandbox');
 $paymentRequested = filter_var(env('PAYMENTS_ENABLED', false), FILTER_VALIDATE_BOOL);
 $paymentProductionAllowed = filter_var(env('PAYMENTS_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL);
@@ -44,6 +56,10 @@ return [
     'url' => (string) env('APP_URL', 'http://localhost'),
     'port' => (int) env('APP_PORT', 0),
     'timezone' => (string) env('APP_TIMEZONE', 'UTC'),
+    'storage' => [
+        'cache_path' => $cachePath,
+        'log_path' => $logPath,
+    ],
     'session' => [
         'name' => (string) env('SESSION_NAME', 'christmas_tree_session'),
         'secure' => (bool) env('SESSION_SECURE', false),

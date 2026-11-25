@@ -56,7 +56,7 @@ $home = new HomeController(
     $app['request'], $app['view'], $app['session'], $app['csrf'], $app['validator'], $app['config'],
     $app['frontendAssets'], $treeIdentity, $treeOwnerSession, $persistentAccess,
 );
-$rateLimitPath = dirname(__DIR__) . '/storage/cache/rate-limits';
+$rateLimitPath = rtrim($app['config']['storage']['cache_path'], '/\\') . '/rate-limits';
 $treeApi = new TreeApiController(
     $app['request'],
     $app['csrf'],

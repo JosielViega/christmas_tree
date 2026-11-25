@@ -124,6 +124,8 @@ Configure `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true` e HTTPS
 
 O builder HostGator usa allowlist e não transmite arquivos nem executa migrations. `.env`, cache, logs e uploads permanecem específicos de cada instalação.
 
+Homologação usa `APP_ENV=staging`, banco e cookies próprios, `APP_DEBUG=false`, HTTPS e pagamentos inicialmente desabilitados. O modo `PAYMENTS_SANDBOX_APRO` continua restrito ao ambiente `testing` e falha ao iniciar em staging/produção. O pacote rejeita credenciais reconhecíveis, executáveis inesperados sob `public/` e dependências de desenvolvimento. A raiz pública deve ser fisicamente `public/`; regras Apache complementam, mas não substituem, esse isolamento.
+
 ## Diagnóstico de inicialização
 
 Marcas de desempenho existem somente no build de desenvolvimento e usam nomes fixos de etapas. Elas não incluem URL de imagem, ID público, nome, mensagem, cookie, CSRF ou credencial. Requisições secundárias são canceladas ao trocar/desmontar a árvore; uma resposta antiga não pode substituir a coleção atual. Falhas de textura exibem fallback local e logs de cena registram apenas o tipo da exceção.

@@ -8,6 +8,7 @@
         "ext-curl": "*",
         "ext-fileinfo": "*",
         "ext-gd": "*",
+        "ext-mbstring": "*",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
         "vlucas/phpdotenv": "^5.6"
@@ -37,6 +38,7 @@
         "port:status": "@php bin/port-status.php",
         "port:release": "@php bin/port-release.php",
         "migrate": "@php bin/migrate.php",
+        "migrate:status": "@php bin/migrations-status.php",
         "gifts:cleanup": "@php bin/cleanup-gift-drafts.php",
         "payments:status": "@php bin/payment-sandbox-status.php",
         "lint": "@php bin/lint.php",

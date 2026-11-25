@@ -23,7 +23,7 @@ composer check
 composer deploy:hostgator
 ```
 
-Antes do primeiro pacote, execute `npm --prefix frontend ci`. O segundo comando recompila o frontend, executa `composer check`, limpa somente o mirror local anterior, copia a allowlist de produção, instala dependências PHP com o lockfile e valida a saída. Ao terminar, `deploy/hostgator/build-info.json` registra apenas data UTC, commit, versões das ferramentas, modo de instalação e quantidade de arquivos.
+Antes do primeiro pacote, execute `npm --prefix frontend ci`. O segundo comando recompila o frontend, executa `composer check`, limpa somente o mirror local anterior, copia a allowlist de produção, instala dependências PHP com o lockfile e valida a saída. Ao terminar, `deploy/hostgator/build-info.json` registra apenas data UTC, commit, estado limpo/sujo da árvore de trabalho, versões das ferramentas, modo de instalação e quantidade de arquivos.
 
 O manifesto versionado está em `config/deploy.php`. Ao surgir uma nova área de produção, adicione-a conscientemente à lista `include`; o builder não adota diretórios novos automaticamente.
 
@@ -31,7 +31,8 @@ O manifesto versionado está em `config/deploy.php`. Ao surgir uma nova área de
 
 - `app/`, `bootstrap/` e `config/` da aplicação;
 - migrations SQL versionadas, sem executá-las;
-- `public/index.php` e assets públicos;
+- `public/index.php`, `public/.htaccess` e assets públicos;
+- runners CLI de status/migration e manutenção, com lock contra sobreposição;
 - frontend Vite já compilado em `public/assets/app/`, incluindo o manifesto;
 - views e rotas;
 - `composer.json` e `composer.lock`;
@@ -59,12 +60,12 @@ Os exemplos em `server-config-examples/` ficam fora do mirror e não se chamam `
 1. Confirme no cPanel o diretório real do domínio. O domínio principal pode usar `public_html`, mas domínios adicionais podem usar outros diretórios.
 2. Prefira manter o projeto fora da área pública e apontar o Document Root para `public/`.
 3. Copie os arquivos de produção para a estrutura correspondente.
-4. Crie o `.env` diretamente no servidor com `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true`, credenciais próprias, `APP_URL=https://seu-dominio.example` sem credenciais/query/fragmento, `MESSAGE_REVEAL_AT="2026-12-25 00:00:00"` e `MESSAGE_REVEAL_TIMEZONE=America/Sao_Paulo`.
+4. Para a primeira homologação, use `config/staging.env.example` como checklist e crie o `.env` diretamente no servidor com `APP_ENV=staging`, `APP_DEBUG=false`, `SESSION_SECURE=true`, banco isolado e pagamentos desabilitados.
 5. Configure a versão adequada do PHP pelo cPanel.
 6. Mescle manualmente as regras necessárias dos exemplos nos `.htaccess` já existentes.
 7. Crie `storage/logs`, `storage/cache` e `public/uploads` quando necessários e aplique permissões mínimas de escrita ao usuário PHP. Os rate limiters de árvore, recuperação e enfeites gravam em `storage/cache/rate-limits`.
 8. Crie o banco e o usuário no painel da hospedagem.
-9. Execute migrations separadamente e de forma consciente, com backup disponível.
+9. Execute primeiro `composer migrate:status`; depois, com backup disponível, execute migrations separadamente e de forma consciente.
 10. Teste criação, URL pública, metadados Open Graph, imagem `/assets/images/christmas-tree-social.jpg`, compartilhamento/download do cartão, decoração com mensagem como visitante, estado bloqueado, remoção como proprietário, recuperação em outro navegador, `/credits`, health check, sessão e escrita em cache/log. Valide a revelação em instalação isolada, nunca alterando o relógio ou os dados de produção para antecipá-la.
 
 Não há caminho absoluto de conta embutido no template.
@@ -74,6 +75,8 @@ Não há caminho absoluto de conta embutido no template.
 O mirror inclui somente `storage/private/.gitkeep`, nunca texturas. Crie `storage/private/gift-textures` fora do Document Root, com escrita exclusiva para o usuário PHP. Confirme `fileinfo` e GD com PNG e configure o cron do cPanel para executar `composer gifts:cleanup`. Se não for possível isolar esse diretório de `public/`, mantenha a funcionalidade desabilitada.
 
 Pagamentos exigem também cURL, HTTPS e cron. Mantenha `PAYMENTS_ENABLED=false` até configurar credenciais de teste, segredo do webhook e URL HTTPS do tópico `order`. Produção requer opt-in separado; não copie credenciais entre ambientes. O cron reconcilia orders pendentes antes de remover qualquer textura.
+
+O runbook completo, incluindo requisitos de PHP/MySQL, cron de 15 minutos, checklist do cPanel e rollback não destrutivo, está em [`../../docs/HOSTGATOR_DEPLOYMENT.md`](../../docs/HOSTGATOR_DEPLOYMENT.md).
 
 ## Atualizações futuras
 

@@ -22,7 +22,7 @@ final class HostgatorMirrorBuilder
         $this->mirror = $this->root . '/deploy/hostgator/mirror';
     }
 
-    /** @return array{files: int, composerVersion: string, commit: ?string} */
+    /** @return array{files: int, composerVersion: string, commit: ?string, workingTreeDirty: ?bool} */
     public function build(): array
     {
         $this->assertProjectInputs();
@@ -47,9 +47,10 @@ final class HostgatorMirrorBuilder
 
             $files = $this->countFiles();
             $commit = $this->currentCommit();
-            $this->writeBuildInfo($files, $composerVersion, $commit);
+            $workingTreeDirty = $this->workingTreeDirty();
+            $this->writeBuildInfo($files, $composerVersion, $commit, $workingTreeDirty);
 
-            return ['files' => $files, 'composerVersion' => $composerVersion, 'commit' => $commit];
+            return ['files' => $files, 'composerVersion' => $composerVersion, 'commit' => $commit, 'workingTreeDirty' => $workingTreeDirty];
         } catch (\Throwable $exception) {
             $this->removeMirror();
             throw $exception;
@@ -61,10 +62,14 @@ final class HostgatorMirrorBuilder
         $required = [
             'app',
             'bin/cleanup-gift-drafts.php',
+            'bin/lib/ProcessLock.php',
+            'bin/migrate.php',
+            'bin/migrations-status.php',
             'bootstrap/app.php',
             'config/app.php',
             'config/database.php',
             'public/index.php',
+            'public/.htaccess',
             'public/assets/app/.vite/manifest.json',
             'resources/views',
             'routes/web.php',
@@ -84,6 +89,8 @@ final class HostgatorMirrorBuilder
         foreach ($this->files() as $file) {
             $relative = $this->relativePath($file->getPathname());
             $this->assertSafeRelativePath($relative);
+            $this->assertSafePublicFile($relative);
+            $this->assertNoSecretContent($file, $relative);
         }
 
         $installed = json_decode(
@@ -196,9 +203,10 @@ final class HostgatorMirrorBuilder
         $segments = explode('/', strtolower($normalized));
         $basename = strtolower((string) end($segments));
         $extension = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+        $allowedServerFile = in_array($normalized, $this->manifest['allowed_server_files'] ?? [], true);
 
         if (str_starts_with($basename, '.env')
-            || in_array($basename, array_map('strtolower', $this->manifest['protected_names']), true)
+            || (!$allowedServerFile && in_array($basename, array_map('strtolower', $this->manifest['protected_names']), true))
         ) {
             throw new RuntimeException('Protected server file detected: ' . $normalized);
         }
@@ -216,6 +224,34 @@ final class HostgatorMirrorBuilder
         foreach ($this->manifest['sensitive_name_patterns'] as $pattern) {
             if (preg_match($pattern, $basename) === 1) {
                 throw new RuntimeException('Sensitive-looking filename detected: ' . $normalized);
+            }
+        }
+    }
+
+    private function assertSafePublicFile(string $relativePath): void
+    {
+        $normalized = strtolower(str_replace('\\', '/', $relativePath));
+        if (!str_starts_with($normalized, 'public/')) {
+            return;
+        }
+        $extension = strtolower(pathinfo($normalized, PATHINFO_EXTENSION));
+        if (in_array($extension, ['php', 'phtml', 'phar'], true) && $normalized !== 'public/index.php') {
+            throw new RuntimeException('Unexpected executable file inside the public root: ' . $relativePath);
+        }
+    }
+
+    private function assertNoSecretContent(SplFileInfo $file, string $relativePath): void
+    {
+        if ($file->getSize() > 5 * 1024 * 1024) {
+            return;
+        }
+        $contents = file_get_contents($file->getPathname());
+        if (!is_string($contents) || str_contains($contents, "\0")) {
+            return;
+        }
+        foreach ($this->manifest['secret_content_patterns'] ?? [] as $pattern) {
+            if (preg_match($pattern, $contents) === 1) {
+                throw new RuntimeException('Secret-like content detected in deployment file: ' . $relativePath);
             }
         }
     }
@@ -303,11 +339,23 @@ final class HostgatorMirrorBuilder
         return null;
     }
 
-    private function writeBuildInfo(int $files, string $composerVersion, ?string $commit): void
+    private function workingTreeDirty(): ?bool
+    {
+        $output = [];
+        exec('git -C ' . escapeshellarg($this->root) . ' status --porcelain --untracked-files=normal 2>&1', $output, $exitCode);
+        if ($exitCode !== 0) {
+            return null;
+        }
+
+        return $output !== [];
+    }
+
+    private function writeBuildInfo(int $files, string $composerVersion, ?string $commit, ?bool $workingTreeDirty): void
     {
         $information = [
             'built_at' => gmdate(DATE_ATOM),
             'commit' => $commit,
+            'working_tree_dirty' => $workingTreeDirty,
             'php_version' => PHP_VERSION,
             'composer_version' => $composerVersion,
             'install_mode' => 'no-dev, classmap-authoritative',

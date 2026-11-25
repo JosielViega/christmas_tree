@@ -7,10 +7,14 @@ return [
     'include' => [
         'app',
         'bin/cleanup-gift-drafts.php',
+        'bin/lib/ProcessLock.php',
+        'bin/migrate.php',
+        'bin/migrations-status.php',
         'bootstrap',
         'config',
         'database/migrations',
         'public/assets',
+        'public/.htaccess',
         'public/index.php',
         'resources',
         'routes',
@@ -46,6 +50,9 @@ return [
         'php.ini',
         'error_log',
     ],
+    'allowed_server_files' => [
+        'public/.htaccess',
+    ],
     'protected_extensions' => [
         'log',
         'pem',
@@ -72,5 +79,11 @@ return [
         '/(?:^|\/)(?:secret|secrets)(?:\.|\/|$)/i',
         '/(?:^|\/)(?:credential|credentials)(?:\.|\/|$)/i',
         '/private[-_]?key/i',
+    ],
+    'secret_content_patterns' => [
+        '/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/',
+        '/\b(?:APP_USR|TEST)-[A-Za-z0-9_-]{20,}\b/',
+        '/\bMERCADOPAGO_(?:ACCESS_TOKEN|WEBHOOK_SECRET)[ \t]*=[ \t]*[^\s#]{12,}/i',
+        '/\bDB_PASSWORD[ \t]*=[ \t]*[^\s#]{8,}/i',
     ],
 ];

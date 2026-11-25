@@ -10,6 +10,8 @@
 - `composer deploy:hostgator`
 - `git diff --check`
 
+O mirror deve conter `public/.htaccess`, `bin/migrate.php`, `bin/migrations-status.php`, o lock do cron e `vendor/` sem dependências de desenvolvimento. A validação falha diante de segredo reconhecível, executável PHP inesperado na raiz pública ou arquivo de servidor fora da allowlist.
+
 Os testes cobrem proprietário/visitante, restauração persistente, link na mesma origem, autodecoração, layout mobile em duas linhas, cabeçalho com nomes longos, menu acessível, recolhimento do indicador, ausência de rolagem horizontal, projeção 9:16, órbita monotônica de 360°, enquadramento em todos os frames, escala uniforme do compositor, restauração da exposição, iluminação temporária, decodificação alternativa de fotografias, JPEG/EXIF/PNG/WebP reais, layouts de presentes, gates Pix, efeitos, movimento reduzido, PNG e vídeo.
 
 ## Validação de pagamentos Sandbox

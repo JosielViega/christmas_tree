@@ -38,6 +38,8 @@ Antes da transição, o backend confere ID externo, order do provedor, valor em 
 
 Configure o cron do cPanel em intervalo conservador. O polling do navegador lê apenas o banco local a cada dez segundos e para após dez minutos; ele nunca consulta o Mercado Pago diretamente.
 
+Na HostGator compartilhada, o intervalo mínimo documentado é de 15 minutos. `bin/cleanup-gift-drafts.php` usa lock não bloqueante em `storage/cache/locks/gifts-cleanup.lock`, evitando sobreposição entre reconciliação, publicação e limpeza. A primeira homologação deve manter pagamentos e webhook desabilitados; consulte `docs/HOSTGATOR_DEPLOYMENT.md`.
+
 ## Configuração sandbox
 
 Variáveis: `PAYMENTS_ENABLED`, `PAYMENTS_PROVIDER`, `PAYMENTS_ENVIRONMENT`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`, `PAYMENTS_PIX_EXPIRATION_MINUTES`, preços em centavos e limites de reconciliação/rate limit. O Access Token é usado somente no backend. Cadastre a URL HTTPS do webhook no painel do Mercado Pago para o tópico de orders.

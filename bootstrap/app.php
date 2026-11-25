@@ -28,7 +28,7 @@ Dotenv::createImmutable($root)->safeLoad();
 
 $appConfig = require $root . '/config/app.php';
 $databaseConfig = require $root . '/config/database.php';
-$logger = new Logger($root . '/storage/logs');
+$logger = new Logger($appConfig['storage']['log_path']);
 (new ErrorHandler($logger, $appConfig['debug']))->register();
 
 date_default_timezone_set($appConfig['timezone']);

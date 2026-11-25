@@ -187,7 +187,7 @@ Esta é a seção central. As fases são cumulativas: leitura sem explicação e
 
 **Leia em ordem:** `public/index.php`, `bootstrap/app.php`, helpers, `config/app.php`, `config/database.php` e `.env.example`.
 
-**Investigue:** ausência de `vendor/autoload.php`; `safeLoad()`; ambientes `local`, `testing` e `production`; debug, URL, timezone e cookie; detecção HTTPS; ordem de criação de Logger, ErrorHandler, Session, Csrf, Validator, Database, View, Router e Request; conexão lazy.
+**Investigue:** ausência de `vendor/autoload.php`; `safeLoad()`; ambientes `local`, `testing`, `staging` e `production`; debug, URL, timezone e cookie; detecção HTTPS; ordem de criação de Logger, ErrorHandler, Session, Csrf, Validator, Database, View, Router e Request; conexão lazy.
 
 **Exercícios:**
 
