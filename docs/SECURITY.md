@@ -124,7 +124,7 @@ Configure `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE=true` e HTTPS
 
 O builder HostGator usa allowlist e não transmite arquivos nem executa migrations. `.env`, cache, logs e uploads permanecem específicos de cada instalação.
 
-Homologação usa `APP_ENV=staging`, banco e cookies próprios, `APP_DEBUG=false`, HTTPS e pagamentos inicialmente desabilitados. O modo `PAYMENTS_SANDBOX_APRO` continua restrito ao ambiente `testing` e falha ao iniciar em staging/produção. O pacote rejeita credenciais reconhecíveis, executáveis inesperados sob `public/` e dependências de desenvolvimento. A raiz pública deve ser fisicamente `public/`; regras Apache complementam, mas não substituem, esse isolamento.
+A primeira instalação pública usa `natal.jzlcode.com.br` como produção temporária, com `APP_ENV=production`, banco e cookies próprios, `APP_DEBUG=false`, HTTPS e pagamentos desabilitados. O modo `PAYMENTS_SANDBOX_APRO` permanece `false` e sua ativação é rejeitada fora de `testing`; ele não faz parte de nenhum ambiente público. O pacote rejeita credenciais reconhecíveis, executáveis inesperados sob `public/` e dependências de desenvolvimento. A raiz pública deve ser fisicamente `public/`; regras Apache complementam, mas não substituem, esse isolamento. O domínio definitivo receberá posteriormente uma instalação limpa, sem reaproveitar `.env`, cookies ou credenciais da produção temporária.
 
 ## Diagnóstico de inicialização
 

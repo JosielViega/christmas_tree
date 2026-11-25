@@ -38,7 +38,7 @@ Antes da transição, o backend confere ID externo, order do provedor, valor em 
 
 Configure o cron do cPanel em intervalo conservador. O polling do navegador lê apenas o banco local a cada dez segundos e para após dez minutos; ele nunca consulta o Mercado Pago diretamente.
 
-Na HostGator compartilhada, o intervalo mínimo documentado é de 15 minutos. `bin/cleanup-gift-drafts.php` usa lock não bloqueante em `storage/cache/locks/gifts-cleanup.lock`, evitando sobreposição entre reconciliação, publicação e limpeza. A primeira homologação deve manter pagamentos e webhook desabilitados; consulte `docs/HOSTGATOR_DEPLOYMENT.md`.
+Na HostGator compartilhada, o intervalo mínimo documentado é de 15 minutos. `bin/cleanup-gift-drafts.php` usa lock não bloqueante em `storage/cache/locks/gifts-cleanup.lock`, evitando sobreposição entre reconciliação, publicação e limpeza. A produção temporária em `natal.jzlcode.com.br` deve iniciar com pagamentos e webhook desabilitados; consulte `docs/HOSTGATOR_DEPLOYMENT.md`.
 
 ## Configuração sandbox
 

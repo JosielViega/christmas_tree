@@ -1,13 +1,13 @@
-# Homologação e implantação na HostGator
+# Produção temporária e implantação na HostGator
 
-Este documento prepara uma primeira homologação; ele não autoriza upload, migration remota, webhook ou pagamento. O pacote é gerado localmente por allowlist e a instalação remota é manual.
+Este documento prepara a primeira publicação em `https://natal.jzlcode.com.br`, que será tratada como produção temporária. Não haverá ambiente separado de homologação. Este documento não autoriza upload, migration remota, webhook ou pagamento; o pacote é gerado localmente por allowlist e a instalação remota é manual.
 
 ## Requisitos confirmados
 
-- PHP mínimo do projeto: 8.2; recomendado para a homologação: 8.5, depois de confirmar a versão efetivamente oferecida ao domínio no MultiPHP Manager.
+- PHP mínimo do projeto: 8.2; recomendado para a produção temporária: 8.5, depois de confirmar a versão efetivamente oferecida ao domínio no MultiPHP Manager.
 - Extensões obrigatórias: `curl`, `fileinfo`, `gd` com JPEG/PNG/WebP, `mbstring`, `PDO` e `pdo_mysql`. JSON, hash, OpenSSL, session e random devem estar disponíveis na instalação PHP.
 - Apache 2.4 com `mod_rewrite` e, preferencialmente, `mod_headers`.
-- MySQL 5.7 ou 8.0, InnoDB e `utf8mb4`. Em MySQL 5.7 os `CHECK` podem ser apenas aceitos/ignorados; a aplicação mantém validação própria, mas a homologação deve confirmar o servidor e o `sql_mode` no cPanel.
+- MySQL 5.7 ou 8.0, InnoDB e `utf8mb4`. Em MySQL 5.7 os `CHECK` podem ser apenas aceitos/ignorados; a aplicação mantém validação própria, mas a instalação deve confirmar o servidor e o `sql_mode` no cPanel.
 - O frontend é estático depois do build. Node.js/Vite não são necessários no servidor.
 
 Para esta aplicação, configure no cPanel pelo menos `memory_limit=128M`,
@@ -30,13 +30,13 @@ Os artigos da HostGator não são totalmente uniformes sobre as versões instala
 Preferida:
 
 ```text
-/home/CPANEL_USER/christmas-tree-staging/   aplicação, vendor, .env e storage
-/home/CPANEL_USER/christmas-tree-staging/public/   único Document Root HTTPS
+/home/CPANEL_USER/christmas-tree-production/   aplicação, vendor, .env e storage
+/home/CPANEL_USER/christmas-tree-production/public/   Document Root de natal.jzlcode.com.br
 ```
 
 `app/`, `config/`, `database/`, `storage/`, `vendor/` e `.env` ficam fisicamente fora do Document Root. O arquivo `public/.htaccess` entrega rewrite, HTTPS, bloqueio de listagem, cabeçalhos de segurança e cache estático. Não use `.htaccess` como substituto para o isolamento físico.
 
-Se o cPanel não permitir apontar o domínio para `public/`, não copie a aplicação inteira para `public_html`. Mantenha a aplicação em `/home/CPANEL_USER/christmas-tree-staging` e peça ao suporte uma raiz de documento dedicada. Uma adaptação de front controller só deve ser feita depois de conhecer os caminhos reais da conta.
+O Document Root decidido para `natal.jzlcode.com.br` é `public/`. Se o cPanel não permitir essa configuração, não copie a aplicação inteira para `public_html` e não prossiga com a publicação. Mantenha a aplicação em `/home/CPANEL_USER/christmas-tree-production` e peça ao suporte uma raiz de documento dedicada.
 
 ## Build e pacote
 
@@ -53,24 +53,24 @@ O mirror em `deploy/hostgator/mirror/` contém PHP da aplicação, migrations e 
 
 O builder rejeita executáveis inesperados sob `public/`, nomes protegidos, extensões de chaves/certificados e padrões de conteúdo compatíveis com credenciais. O mirror não é uma lista de arquivos para apagar no servidor.
 
-## Configuração de homologação
+## Configuração da produção temporária
 
-Use `deploy/hostgator/config/staging.env.example` como checklist e crie o `.env` diretamente fora de `public/`. A primeira homologação exige `APP_ENV=staging`, `APP_DEBUG=false`, URL HTTPS, timezone de São Paulo, cookies Secure e banco exclusivo. Caminhos de cache, logs, memórias e texturas devem apontar para diretórios privados e graváveis.
+Use `deploy/hostgator/config/production-temporary.env.example` como checklist e crie o `.env` diretamente fora de `public/`. A instalação exige `APP_ENV=production`, `APP_URL=https://natal.jzlcode.com.br`, `APP_DEBUG=false`, timezone de São Paulo, cookies Secure e banco próprio. Caminhos de cache, logs, memórias e texturas devem apontar para diretórios privados e graváveis.
 
 Mantenha:
 
 ```dotenv
 PAYMENTS_ENABLED=false
-PAYMENTS_ENVIRONMENT=sandbox
+PAYMENTS_ENVIRONMENT=production
 PAYMENTS_ALLOW_PRODUCTION=false
 PAYMENTS_SANDBOX_APRO=false
 ```
 
-O modo APRO aceita somente `APP_ENV=testing`; portanto não pode ser habilitado em staging ou produção. Não copie o banco técnico, credenciais locais ou a Order de R$ 50,00.
+O modo APRO aceita somente `APP_ENV=testing`; portanto permanece permanentemente bloqueado na produção temporária. Access Token e segredo de webhook ficam vazios até uma autorização financeira posterior. Não copie banco técnico, credenciais locais ou a Order de R$ 50,00.
 
 ## Banco e migrations
 
-1. Crie banco e usuário exclusivos de homologação, com privilégios somente nesse banco.
+1. Crie banco e usuário próprios da produção temporária, com privilégios somente nesse banco.
 2. Exporte um backup antes de qualquer atualização e faça download fora do Document Root.
 3. Execute `composer migrate:status`; retorno 2 significa migrations pendentes, sem alterar schema.
 4. Revise a lista e execute `composer migrate` uma vez, em janela controlada.
@@ -88,19 +88,19 @@ O frontend consulta somente o backend a cada dez segundos por até dez minutos. 
 No plano compartilhado, use no máximo a cada 15 minutos e confirme o caminho do PHP CLI no cPanel:
 
 ```cron
-*/15 * * * * cd /home/CPANEL_USER/christmas-tree-staging && /CAMINHO/CONFIRMADO/php bin/cleanup-gift-drafts.php >> /home/CPANEL_USER/christmas-tree-staging/storage/logs/gifts-cron.log 2>&1
+*/15 * * * * cd /home/CPANEL_USER/christmas-tree-production && /CAMINHO/CONFIRMADO/php bin/cleanup-gift-drafts.php >> /home/CPANEL_USER/christmas-tree-production/storage/logs/gifts-cron.log 2>&1
 ```
 
 O script possui lock não bloqueante em `storage/cache/locks/gifts-cleanup.lock`; uma execução sobreposta encerra sem reconciliar duas vezes. A saída contém apenas contagens ou classe sanitizada de falha. Defina retenção curta para o log do cron e nunca o coloque sob `public/`.
 
-Não cadastre webhook na primeira publicação. Depois da homologação funcional, a ativação Sandbox exige nova autorização, credenciais exclusivamente de teste e URL HTTPS definitiva. O ingresso local/cloudflared nunca é servidor de produção.
+Não cadastre webhook nem habilite o cron financeiro na primeira publicação. Uma futura ativação comercial exige autorização separada, credenciais de produção, revisão do endpoint HTTPS e validação controlada. O cenário Sandbox APRO e o ingresso local/cloudflared nunca fazem parte deste servidor público.
 
-## Checklist da primeira homologação
+## Checklist da primeira publicação
 
 Antes:
 
 - backup de arquivos e banco; pacote e `build-info.json` revisados, sem promover um build marcado como `working_tree_dirty`;
-- domínio/subdomínio HTTPS com Document Root em `public/`;
+- `natal.jzlcode.com.br` com HTTPS e Document Root em `public/`;
 - PHP web e CLI, extensões, MySQL e limites confirmados no cPanel;
 - `.env` criado no servidor, debug e pagamentos desabilitados;
 - banco isolado, diretórios privados e permissões mínimas;
@@ -116,6 +116,10 @@ Depois, sem pagamentos:
 - 404, APIs, CSRF, rate limiting, cache, headers e ausência de stack trace;
 - logs sanitizados e persistência após recarregar.
 
+## Migração futura para o domínio definitivo
+
+O domínio definitivo receberá uma instalação limpa. Gere um novo pacote a partir de um commit aprovado, crie novo `.env`, novos nomes de cookies, banco e diretórios privados próprios e repita o checklist completo. Não copie credenciais, cache, sessões, logs ou configuração da produção temporária. Qualquer transferência de dados persistentes deverá ter plano e autorização específicos; não presuma que o banco temporário será reutilizado.
+
 ## Rollback não destrutivo
 
 1. Desative imediatamente pagamentos (`PAYMENTS_ENABLED=false`) e, em incidente de webhook, remova/desative a URL no painel sem apagar eventos.
@@ -127,7 +131,7 @@ Depois, sem pagamentos:
 
 ## Pendências do cPanel
 
-- domínio/subdomínio e Document Root real;
+- confirmação de `natal.jzlcode.com.br` e Document Root físico em `public/`;
 - PHP web disponível e caminho absoluto do PHP CLI;
 - extensões GD/WebP, cURL, fileinfo, mbstring, PDO MySQL e OpenSSL;
 - MySQL 5.7 ou 8.0, versão exata e `sql_mode`;

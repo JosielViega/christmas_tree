@@ -60,6 +60,16 @@ final class PaymentSandboxAproConfigTest extends TestCase
         $this->load('staging', 'sandbox', false, true);
     }
 
+    public function testProductionPermanentlyRejectsTechnicalApro(): void
+    {
+        $config = $this->load('production', 'production', false, false);
+        self::assertFalse($config['payments']['sandbox_apro']);
+        self::assertFalse($config['payments']['enabled']);
+
+        $this->expectException(RuntimeException::class);
+        $this->load('production', 'production', false, true);
+    }
+
     public function testRejectsUnknownApplicationEnvironment(): void
     {
         $this->expectException(RuntimeException::class);

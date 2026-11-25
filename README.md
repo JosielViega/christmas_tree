@@ -227,7 +227,7 @@ CHRISTMAS_TREE_MYSQL_INTEGRATION=1 composer test -- --filter PdoChristmasTreeRep
 
 O servidor de produção executa somente PHP, MySQL e assets estáticos. Rode `composer deploy:hostgator`, revise `deploy/hostgator/build-info.json` e copie manualmente o mirror. O builder não publica arquivos e não executa migrations.
 
-Para a primeira homologação, use `APP_ENV=staging`, banco isolado e pagamentos desabilitados. Requisitos de cPanel, estrutura pública/privada, cron, segurança, checklist e rollback estão em [`docs/HOSTGATOR_DEPLOYMENT.md`](docs/HOSTGATOR_DEPLOYMENT.md).
+A primeira publicação usará `https://natal.jzlcode.com.br` como produção temporária, com `APP_ENV=production`, Document Root em `public/`, banco próprio e pagamentos desabilitados. Uma instalação limpa será feita posteriormente no domínio definitivo. Requisitos de cPanel, estrutura pública/privada, cron, segurança, checklist e rollback estão em [`docs/HOSTGATOR_DEPLOYMENT.md`](docs/HOSTGATOR_DEPLOYMENT.md).
 
 No servidor, configure `.env`, HTTPS, `SESSION_SECURE=true`, credenciais MySQL e escrita em `storage/cache` para o rate limiter. `APP_URL` deve ser a origem HTTPS pública, sem usuário, senha, query ou fragmento, pois define links canônicos e Open Graph. `ORNAMENT_MAX_PER_TREE` pode reduzir o limite operacional entre 1 e os 60 slots do layout v1. `MESSAGE_REVEAL_AT` e `MESSAGE_REVEAL_TIMEZONE` controlam a temporada; os valores de 2026 são `2026-12-25 00:00:00` e `America/Sao_Paulo`. Depois execute `composer migrate` conscientemente, com backup disponível. Veja o [guia HostGator](deploy/hostgator/README.md).
 

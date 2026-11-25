@@ -53,15 +53,21 @@ final class HostgatorDeployManifestTest extends TestCase
         self::assertStringContainsString('Strict-Transport-Security', $rules);
     }
 
-    public function testStagingTemplateKeepsPaymentsAndDebugDisabled(): void
+    public function testTemporaryProductionTemplateKeepsPaymentsAndDebugDisabled(): void
     {
-        $template = (string) file_get_contents(dirname(__DIR__) . '/deploy/hostgator/config/staging.env.example');
+        $template = (string) file_get_contents(dirname(__DIR__) . '/deploy/hostgator/config/production-temporary.env.example');
 
-        self::assertStringContainsString('APP_ENV=staging', $template);
+        self::assertStringContainsString('APP_ENV=production', $template);
         self::assertStringContainsString('APP_DEBUG=false', $template);
+        self::assertStringContainsString('APP_URL=https://natal.jzlcode.com.br', $template);
+        self::assertStringContainsString('SESSION_SECURE=true', $template);
         self::assertStringContainsString('PAYMENTS_ENABLED=false', $template);
+        self::assertStringContainsString('PAYMENTS_ENVIRONMENT=production', $template);
         self::assertStringContainsString('PAYMENTS_ALLOW_PRODUCTION=false', $template);
         self::assertStringContainsString('PAYMENTS_SANDBOX_APRO=false', $template);
+        self::assertStringContainsString('GIFT_PRICE_SPECIAL_CENTS=199', $template);
+        self::assertStringContainsString('GIFT_PRICE_PERSONALIZED_CENTS=399', $template);
+        self::assertStringContainsString('GIFT_PRICE_MAGIC_CENTS=599', $template);
         self::assertContains('MERCADOPAGO_ACCESS_TOKEN=', preg_split('/\R/', $template));
         self::assertContains('MERCADOPAGO_WEBHOOK_SECRET=', preg_split('/\R/', $template));
     }

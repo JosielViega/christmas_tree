@@ -60,7 +60,7 @@ Os exemplos em `server-config-examples/` ficam fora do mirror e não se chamam `
 1. Confirme no cPanel o diretório real do domínio. O domínio principal pode usar `public_html`, mas domínios adicionais podem usar outros diretórios.
 2. Prefira manter o projeto fora da área pública e apontar o Document Root para `public/`.
 3. Copie os arquivos de produção para a estrutura correspondente.
-4. Para a primeira homologação, use `config/staging.env.example` como checklist e crie o `.env` diretamente no servidor com `APP_ENV=staging`, `APP_DEBUG=false`, `SESSION_SECURE=true`, banco isolado e pagamentos desabilitados.
+4. Para a produção temporária, use `config/production-temporary.env.example` como checklist e crie o `.env` diretamente no servidor com `APP_ENV=production`, `APP_URL=https://natal.jzlcode.com.br`, `APP_DEBUG=false`, `SESSION_SECURE=true`, banco próprio e pagamentos desabilitados.
 5. Configure a versão adequada do PHP pelo cPanel.
 6. Mescle manualmente as regras necessárias dos exemplos nos `.htaccess` já existentes.
 7. Crie `storage/logs`, `storage/cache` e `public/uploads` quando necessários e aplique permissões mínimas de escrita ao usuário PHP. Os rate limiters de árvore, recuperação e enfeites gravam em `storage/cache/rate-limits`.
@@ -74,9 +74,9 @@ Não há caminho absoluto de conta embutido no template.
 
 O mirror inclui somente `storage/private/.gitkeep`, nunca texturas. Crie `storage/private/gift-textures` fora do Document Root, com escrita exclusiva para o usuário PHP. Confirme `fileinfo` e GD com PNG e configure o cron do cPanel para executar `composer gifts:cleanup`. Se não for possível isolar esse diretório de `public/`, mantenha a funcionalidade desabilitada.
 
-Pagamentos exigem também cURL, HTTPS e cron. Mantenha `PAYMENTS_ENABLED=false` até configurar credenciais de teste, segredo do webhook e URL HTTPS do tópico `order`. Produção requer opt-in separado; não copie credenciais entre ambientes. O cron reconcilia orders pendentes antes de remover qualquer textura.
+Pagamentos exigem também cURL, HTTPS e cron. Na produção temporária, mantenha `PAYMENTS_ENABLED=false`, `PAYMENTS_ALLOW_PRODUCTION=false`, credenciais vazias e o cron financeiro desabilitado. Uma ativação futura exigirá autorização separada, credenciais de produção, segredo do webhook e URL HTTPS do tópico `order`; não copie credenciais entre ambientes. O cron reconcilia orders pendentes antes de remover qualquer textura.
 
-O runbook completo, incluindo requisitos de PHP/MySQL, cron de 15 minutos, checklist do cPanel e rollback não destrutivo, está em [`../../docs/HOSTGATOR_DEPLOYMENT.md`](../../docs/HOSTGATOR_DEPLOYMENT.md).
+O runbook completo, incluindo a estratégia de produção temporária, requisitos de PHP/MySQL, cron de 15 minutos, checklist do cPanel e rollback não destrutivo, está em [`../../docs/HOSTGATOR_DEPLOYMENT.md`](../../docs/HOSTGATOR_DEPLOYMENT.md).
 
 ## Atualizações futuras
 
