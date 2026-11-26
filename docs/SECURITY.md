@@ -130,6 +130,8 @@ A primeira instalação pública usa `natal.jzlcode.com.br` como produção temp
 
 Marcas de desempenho existem somente no build de desenvolvimento e usam nomes fixos de etapas. Elas não incluem URL de imagem, ID público, nome, mensagem, cookie, CSRF ou credencial. Requisições secundárias são canceladas ao trocar/desmontar a árvore; uma resposta antiga não pode substituir a coleção atual. Falhas de textura exibem fallback local e logs de cena registram apenas o tipo da exceção.
 
+O painel 3D também exige simultaneamente build `DEV` e `?perf=1`. Ele lê apenas contadores anônimos do renderer, tempos de frame e capacidades aproximadas expostas pelo navegador; não envia telemetria, não persiste fingerprint e não acessa conteúdo social. O build de produção elimina a condição de desenvolvimento e não expõe a sobreposição.
+
 `hardwareConcurrency`, `deviceMemory`, preferência de movimento e DPR servem apenas para escolher qualidade local. Esses valores não são enviados, persistidos nem combinados como fingerprint.
 
 ## Identidade anônima de visitante

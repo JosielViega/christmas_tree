@@ -10,12 +10,14 @@ interface PolaroidProps {
   data: PhotoData;
   onPhotoClick: (data: PhotoData) => void;
   isExploded?: boolean;
+  animationsEnabled?: boolean;
 }
 
 const Polaroid: React.FC<PolaroidProps> = ({
   data,
   onPhotoClick,
-  isExploded = false
+  isExploded = false,
+  animationsEnabled = true,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const photoMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -112,16 +114,16 @@ const Polaroid: React.FC<PolaroidProps> = ({
 
         const baseQuat = scratch.baseQuat.setFromEuler(scratch.euler.set(
             0,
-            data.rotation[1] + Math.sin(time * 0.5 + data.position[0]) * 0.02 + explodeProgress.current * 5,
-            Math.sin(time + data.position[1]) * swayAmount + explodeProgress.current * 5
+            data.rotation[1] + (animationsEnabled ? Math.sin(time * 0.5 + data.position[0]) * 0.02 : 0) + explodeProgress.current * 5,
+            (animationsEnabled ? Math.sin(time + data.position[1]) * swayAmount : 0) + explodeProgress.current * 5
         ));
         groupRef.current.quaternion.slerpQuaternions(baseQuat, targetQuat, floatFactor);
       } else {
         groupRef.current.position.copy(basePos);
         groupRef.current.rotation.set(
             0,
-            data.rotation[1] + Math.sin(time * 0.5 + data.position[0]) * 0.02,
-            Math.sin(time + data.position[1]) * swayAmount
+            data.rotation[1] + (animationsEnabled ? Math.sin(time * 0.5 + data.position[0]) * 0.02 : 0),
+            animationsEnabled ? Math.sin(time + data.position[1]) * swayAmount : 0
         );
       }
 

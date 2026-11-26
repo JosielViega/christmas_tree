@@ -103,6 +103,10 @@ Chamadas externas ocorrem fora de transações. A idempotência do provedor perm
 
 `frontend/App.tsx` inicializa o contexto vindo do PHP, carrega os enfeites uma vez por árvore e atualiza o estado somente após confirmação da API. `Overlay` mostra a identidade da árvore e só oferece edição ao proprietário. O modal social é mobile-first; tocar no enfeite usa o foco de câmera já existente. Apenas o modo proprietário consulta a API privada, uma vez por carregamento e após novas participações do próprio fluxo, sem polling. Mensagens são renderizadas como texto React com quebras de linha preservadas. Dados administrativos não são persistidos em `localStorage`.
 
+### Orçamento adaptativo da cena
+
+`frontend/utils/performance.ts` escolhe entre qualidade alta, equilibrada e econômica usando capacidade aproximada e carga de pixels, sem user-agent ou identificação. O perfil controla DPR, contagem e detalhe da folhagem, ambiente, partículas e pós-processamento. Quedas degradam um nível; a recuperação possui histerese e respeita o teto inicial. A qualidade alta preserva a geometria e os efeitos do desktop capaz. `PerformanceDiagnostics` existe somente no build de desenvolvimento e não integra dados da árvore, sessão ou APIs.
+
 O Vite grava diretamente em `public/assets/app/`; o diretório compilado é versionado para produção sem Node.js. Em desenvolvimento, o proxy `/api` aponta para o backend PHP.
 
 Os componentes sociais não adicionam dependências. O build da Etapa 05B gera JavaScript minificado de aproximadamente 1.225,8 kB (343,1 kB gzip), crescimento de cerca de 12,0 kB antes de gzip e 3,0 kB após gzip em relação à Etapa 05A.1; o custo principal continua sendo Three.js e o pipeline visual original.

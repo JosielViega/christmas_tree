@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -16,13 +16,18 @@ const getSnowTexture = () => {
     return new THREE.CanvasTexture(canvas);
 }
 
-const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number }> = ({ isExploded = false, atmosphereBoost = 0 }) => {
-  const count = 1200; // Reduced for performance
+const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number; count?: number; animationsEnabled?: boolean }> = ({
+  isExploded = false,
+  atmosphereBoost = 0,
+  count = 1200,
+  animationsEnabled = true,
+}) => {
   const mesh = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const explodeProgress = useRef(0);
 
   const texture = useMemo(() => getSnowTexture(), []);
+  useEffect(() => () => texture.dispose(), [texture]);
 
   const particles = useMemo(() => {
     const positions = new Float32Array(count * 3);
@@ -53,7 +58,8 @@ const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number }> = ({ is
     geo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
     geo.setAttribute('explodeDir', new THREE.BufferAttribute(explodeDirs, 3));
     return { geo };
-  }, []);
+  }, [count]);
+  useEffect(() => () => particles.geo.dispose(), [particles]);
 
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
@@ -69,7 +75,7 @@ const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number }> = ({ is
     const lerpFactor = isExploded ? 0.05 : 0.12;
     explodeProgress.current = THREE.MathUtils.lerp(explodeProgress.current, targetProgress, lerpFactor);
 
-    materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    if (animationsEnabled) materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
     materialRef.current.uniforms.uExplodeProgress.value = explodeProgress.current;
     materialRef.current.uniforms.uSize.value = 0.25 + atmosphereBoost * 0.08;
   });

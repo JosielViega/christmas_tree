@@ -43,6 +43,10 @@ Separe os resultados em quatro camadas: gateway falso automatizado, HTTP local c
 - [ ] Menu de desenvolvimento: testar trenó e estrela cadente; confirmar ausência em build de produção.
 - [ ] Movimento reduzido e dispositivo modesto: efeitos suspensos/reduzidos sem travamentos.
 - [ ] Abrir a mesma árvore com 0, 1, 3 e 6 memórias; registrar `performance.getEntriesByType('measure')`, tempo até interação e tempo das texturas, sem inferir FPS.
+- [ ] No Vite em desenvolvimento, abrir a mesma árvore no Android com `?perf=1`, aguardar 15 segundos e copiar média, mínimo, p95/p99, draw calls, triângulos, DPR e resolução.
+- [ ] Repetir alterando um único grupo: perfil, efeitos, luzes, enfeites automáticos, fotos/presentes, animações e DPR.
+- [ ] Verificar que a URL de produção ignora `?perf=1` e não mostra métricas nem controles técnicos.
+- [ ] Registrar separadamente Chrome Android e Instagram WebView; não comparar sessões com orientação, câmera ou temperatura diferentes.
 - [ ] Confirmar que a tela mostra preparação, luzes e “Tudo pronto”, sem revelar a cena antes do segundo frame.
 - [ ] Simular offline/API lenta e perda de WebGL; confirmar timeout, mensagem segura e botão “Tentar novamente”.
 - [ ] Em 320, 360, 390, 430 e 446 px, confirmar loading sem scroll horizontal e respeito às áreas seguras.

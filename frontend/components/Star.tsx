@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
@@ -25,14 +25,23 @@ interface StarProps {
   isExploded?: boolean;
   glowBoost?: number;
   celebrating?: boolean;
+  sparkleScale?: number;
+  animationsEnabled?: boolean;
 }
 
-const Star: React.FC<StarProps> = ({ isExploded = false, glowBoost = 0, celebrating = false }) => {
+const Star: React.FC<StarProps> = ({
+  isExploded = false,
+  glowBoost = 0,
+  celebrating = false,
+  sparkleScale = 1,
+  animationsEnabled = true,
+}) => {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.PointLight>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const explodeProgress = useRef(0);
   const glowTexture = useMemo(() => GlowTexture(), []);
+  useEffect(() => () => glowTexture.dispose(), [glowTexture]);
 
   // Classic 5-Pointed Star Shape
   const starGeometry = useMemo(() => {
@@ -64,6 +73,7 @@ const Star: React.FC<StarProps> = ({ isExploded = false, glowBoost = 0, celebrat
     geo.center();
     return geo;
   }, []);
+  useEffect(() => () => starGeometry.dispose(), [starGeometry]);
 
   useFrame((state) => {
     const targetProgress = isExploded ? 1 : 0;
@@ -75,21 +85,21 @@ const Star: React.FC<StarProps> = ({ isExploded = false, glowBoost = 0, celebrat
 
       // Gentle floating motion + Explode offset
       const baseY = (TREE_CONFIG.HEIGHT / 2) + 0.8;
-      groupRef.current.position.y = baseY + Math.sin(time * 1.5) * 0.1 + explodeProgress.current * 20;
+      groupRef.current.position.y = baseY + (animationsEnabled ? Math.sin(time * 1.5) * 0.1 : 0) + explodeProgress.current * 20;
 
       // Slow rotation + Explode spin
-      groupRef.current.rotation.y = time * (0.5 + explodeProgress.current * 5);
-      groupRef.current.rotation.z = Math.sin(time * 0.5) * 0.1;
+      groupRef.current.rotation.y = animationsEnabled ? time * (0.5 + explodeProgress.current * 5) : 0;
+      groupRef.current.rotation.z = animationsEnabled ? Math.sin(time * 0.5) * 0.1 : 0;
 
       // Pulsing scale
-      const celebrationPulse = celebrating ? Math.sin(time * 8) * 0.04 : 0;
-      const pulse = 1 + Math.sin(time * 3) * (0.05 + glowBoost * 0.015) + celebrationPulse;
+      const celebrationPulse = animationsEnabled && celebrating ? Math.sin(time * 8) * 0.04 : 0;
+      const pulse = 1 + (animationsEnabled ? Math.sin(time * 3) * (0.05 + glowBoost * 0.015) : 0) + celebrationPulse;
       groupRef.current.scale.set(pulse, pulse, pulse);
 
       // Pulse the light intensity
       if (glowRef.current) {
         const celebrationLight = celebrating ? 1.2 : 0;
-        glowRef.current.intensity = (3 + glowBoost * 2 + celebrationLight + Math.sin(time * 3) * 1) * (1 - explodeProgress.current * 0.8);
+        glowRef.current.intensity = (3 + glowBoost * 2 + celebrationLight + (animationsEnabled ? Math.sin(time * 3) : 0)) * (1 - explodeProgress.current * 0.8);
       }
       if (materialRef.current) {
         materialRef.current.emissiveIntensity = 1 + glowBoost * 0.9 + (celebrating ? 0.45 : 0);
@@ -123,7 +133,7 @@ const Star: React.FC<StarProps> = ({ isExploded = false, glowBoost = 0, celebrat
       </mesh>
 
       {/* Extra Sparkles for magical feel */}
-      <Sparkles count={20 + Math.round(glowBoost * 16)} scale={4} size={3} speed={0.4 + glowBoost * 0.15} opacity={0.8} color="#fff" material-toneMapped={false} />
+      {sparkleScale > 0 && <Sparkles count={Math.max(4, Math.round((20 + glowBoost * 16) * sparkleScale))} scale={4} size={3} speed={animationsEnabled ? 0.4 + glowBoost * 0.15 : 0} opacity={0.8} color="#fff" material-toneMapped={false} />}
 
       {/* Light Source inside the star - No shadows for performance */}
       <pointLight

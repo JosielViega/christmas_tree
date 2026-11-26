@@ -1,15 +1,24 @@
-import React, { useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, TREE_CONFIG } from '../constants';
 import { PhotoData } from '../types';
 import { getMemorySlot } from '../utils/math';
 import { markStartup, measureStartup } from '../utils/startup';
+import type { LeafDetail } from '../utils/performance';
 
 const memoryCenters = Array.from({ length: 6 }, (_, index) => {
   const slot = getMemorySlot(index);
   return new THREE.Vector3(slot.position[0], slot.position[1] - 1.25, slot.position[2]);
 });
+
+const seededRandom = (seed: number) => () => {
+  seed |= 0;
+  seed = seed + 0x6D2B79F5 | 0;
+  let value = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  value = value + Math.imul(value ^ value >>> 7, 61 | value) ^ value;
+  return ((value ^ value >>> 14) >>> 0) / 4294967296;
+};
 
 const getLeafTexture = () => {
   const canvas = document.createElement('canvas');
@@ -65,14 +74,23 @@ interface TreeMeshProps {
   isExploded?: boolean;
   photos?: PhotoData[];
   particleCount?: number;
+  leafDetail?: LeafDetail;
+  animationsEnabled?: boolean;
 }
 
-const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], particleCount = TREE_CONFIG.PARTICLE_COUNT }) => {
+const TreeMesh: React.FC<TreeMeshProps> = ({
+  isExploded = false,
+  photos = [],
+  particleCount = TREE_CONFIG.PARTICLE_COUNT,
+  leafDetail = 'full',
+  animationsEnabled = true,
+}) => {
   const innerMeshRef = useRef<THREE.InstancedMesh>(null);
   const outerMeshRef = useRef<THREE.InstancedMesh>(null);
   const explodeProgress = useRef(0);
 
   const leafTexture = useMemo(() => getLeafTexture(), []);
+  useEffect(() => () => leafTexture.dispose(), [leafTexture]);
 
   const leafGeometry = useMemo(() => {
     const shape = new THREE.Shape();
@@ -81,16 +99,17 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
     shape.bezierCurveTo(0.8, 0.8, 0.8, -0.4, 0, -1.2); // Right side
     shape.bezierCurveTo(-0.8, -0.4, -0.8, 0.8, 0, 1.6); // Left side
 
-    const extrudeSettings = {
-      depth: 0.2,
-      bevelEnabled: true,
-      bevelSegments: 3,
-      steps: 1,
-      bevelSize: 0.1,
-      bevelThickness: 0.05,
-    };
-
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const geo = leafDetail === 'flat'
+      ? new THREE.ShapeGeometry(shape, 6)
+      : new THREE.ExtrudeGeometry(shape, {
+          depth: 0.2,
+          bevelEnabled: true,
+          bevelSegments: leafDetail === 'reduced' ? 1 : 3,
+          curveSegments: leafDetail === 'reduced' ? 6 : 12,
+          steps: 1,
+          bevelSize: 0.1,
+          bevelThickness: 0.05,
+        });
     geo.center();
 
     // Normalize UVs for the front/back faces to fit the texture perfectly
@@ -116,13 +135,15 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
     uv.needsUpdate = true;
 
     return geo;
-  }, []);
+  }, [leafDetail]);
+  useEffect(() => () => leafGeometry.dispose(), [leafGeometry]);
 
   // Generate particles for the tree body
   const { innerParticles, outerParticles } = useMemo(() => {
     markStartup('geometry_start');
     const inner = [];
     const outer = [];
+    const random = seededRandom(0x25122026);
 
     for (let i = 0; i < particleCount; i++) {
       let x = 0, y = 0, z = 0, yNorm = 0, r = 0, rMax = 0;
@@ -130,15 +151,15 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
       let collides = true;
 
       while (collides && attempts < 10) {
-        const rawRandom = Math.random();
+        const rawRandom = random();
         // Higher exponent (1.5) biases more particles towards the bottom (yNorm near 0)
         yNorm = Math.pow(rawRandom, 1.5);
 
         y = (yNorm * TREE_CONFIG.HEIGHT) - (TREE_CONFIG.HEIGHT / 2);
         rMax = TREE_CONFIG.RADIUS_BOTTOM * (1 - yNorm);
 
-        r = Math.sqrt(Math.random()) * rMax;
-        const theta = Math.random() * Math.PI * 2;
+        r = Math.sqrt(random()) * rMax;
+        const theta = random() * Math.PI * 2;
 
         x = r * Math.cos(theta);
         z = r * Math.sin(theta);
@@ -179,14 +200,14 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
       const wobbleFactor = 0.6 * (1 - yNorm * 0.85);
       const wobble = new THREE.Quaternion().setFromEuler(
         new THREE.Euler(
-          (Math.random() * 1.2 - 0.1) * wobbleFactor,
-          (Math.random() - 0.5) * wobbleFactor,
-          (Math.random() - 0.5) * wobbleFactor
+          (random() * 1.2 - 0.1) * wobbleFactor,
+          (random() - 0.5) * wobbleFactor,
+          (random() - 0.5) * wobbleFactor
         )
       );
       quaternion.multiply(wobble);
 
-            const explodeDir = new THREE.Vector3(x, y, z).normalize().multiplyScalar(10 + Math.random() * 20);
+      const explodeDir = new THREE.Vector3(x, y, z).normalize().multiplyScalar(10 + random() * 20);
       const color = new THREE.Color().lerpColors(
         new THREE.Color(COLORS.TREE_BOTTOM),
         new THREE.Color(COLORS.TREE_TOP),
@@ -195,9 +216,9 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
 
       // Add random color variation for leaf particles
       if (isOuter) {
-        const hueShift = (Math.random() - 0.5) * 0.05;
-        const saturationShift = (Math.random() - 0.5) * 0.1;
-        const lightnessShift = (Math.random() - 0.5) * 0.1;
+        const hueShift = (random() - 0.5) * 0.05;
+        const saturationShift = (random() - 0.5) * 0.1;
+        const lightnessShift = (random() - 0.5) * 0.1;
 
         const hsl = { h: 0, s: 0, l: 0 };
         color.getHSL(hsl);
@@ -212,8 +233,8 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
       const particleData = {
         position: [x, y, z],
         quaternion: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
-        scale: (Math.random() * 0.5 + 0.5) * heightScale ** 2,
-        thickness: 0.2 + Math.random() * 0.05, // Thinner leaves
+        scale: (random() * 0.5 + 0.5) * heightScale ** 2,
+        thickness: 0.2 + random() * 0.05, // Thinner leaves
         color,
         explodeDir: [explodeDir.x, explodeDir.y, explodeDir.z]
       };
@@ -234,7 +255,7 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
       if (!mesh) return;
 
       // Base rotation
-      mesh.rotation.y = Math.sin(state.clock.elapsedTime * 0.15) * 0.03;
+      mesh.rotation.y = animationsEnabled ? Math.sin(state.clock.elapsedTime * 0.15) * 0.03 : 0;
 
       const targetProgress = isExploded ? 1 : 0;
       const lerpFactor = isExploded ? 0.05 : 0.12;
@@ -336,8 +357,9 @@ const TreeMesh: React.FC<TreeMeshProps> = ({ isExploded = false, photos = [], pa
           map={leafTexture}
           roughness={0.5}
           metalness={0.9}
-          emissive={new THREE.Color(0x051005)}
+          emissive="#051005"
           emissiveIntensity={0.5}
+          side={leafDetail === 'flat' ? THREE.DoubleSide : THREE.FrontSide}
         />
       </instancedMesh>
     </group>

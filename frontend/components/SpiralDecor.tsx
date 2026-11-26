@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { COLORS, SPIRAL_CONFIG, TREE_CONFIG } from '../constants';
@@ -35,11 +35,27 @@ interface SpiralDecorProps {
   lightBoost?: number;
   celebrating?: boolean;
   reducedMotion?: boolean;
+  particleScale?: number;
+  showSpiral?: boolean;
+  showAutomaticOrnaments?: boolean;
+  dynamicLights?: boolean;
+  animationsEnabled?: boolean;
 }
 
 export const AUTOMATIC_BAUBLE_COUNT = 32;
 
-const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = [], lightBoost = 0, celebrating = false, reducedMotion = false }) => {
+const SpiralDecor: React.FC<SpiralDecorProps> = ({
+  isExploded = false,
+  photos = [],
+  lightBoost = 0,
+  celebrating = false,
+  reducedMotion = false,
+  particleScale = 1,
+  showSpiral = true,
+  showAutomaticOrnaments = true,
+  dynamicLights = true,
+  animationsEnabled = true,
+}) => {
   const lineRef = useRef<THREE.Mesh>(null);
   const pointsRef = useRef<THREE.Points>(null);
   const baubleMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -52,6 +68,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
   }).current;
 
   const fluffTexture = useMemo(() => getFluffTexture(), []);
+  useEffect(() => () => fluffTexture.dispose(), [fluffTexture]);
 
   // Calculate points for the tube geometry
   const curve = useMemo(() => {
@@ -65,8 +82,8 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
 
   // Generate "Fluffy" Tinsel Particles
   const { tinselGeo } = useMemo(() => {
-    const curvePoints = curve.getSpacedPoints(800);
-    const particlesPerPoint = 5;
+    const curvePoints = curve.getSpacedPoints(Math.max(240, Math.round(800 * particleScale)));
+    const particlesPerPoint = Math.max(2, Math.round(5 * particleScale));
     const totalParticles = curvePoints.length * particlesPerPoint;
 
     const positions = new Float32Array(totalParticles * 3);
@@ -124,7 +141,11 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
     geo.setAttribute('explodeDir', new THREE.BufferAttribute(explodeDirs, 3));
 
     return { tinselGeo: geo };
-  }, [curve]);
+  }, [curve, particleScale]);
+  useEffect(() => () => tinselGeo.dispose(), [tinselGeo]);
+
+  const tubeSegments = particleScale < 0.5 ? 120 : particleScale < 0.8 ? 200 : 300;
+  const glowSegments = particleScale < 0.5 ? 80 : particleScale < 0.8 ? 130 : 200;
 
   // Generate decorative balls
   const baubles = useMemo(() => {
@@ -201,7 +222,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
 
   useFrame((state) => {
     const time = state.clock.elapsedTime;
-    uniforms.uTime.value = time;
+    if (animationsEnabled && !reducedMotion) uniforms.uTime.value = time;
 
     const targetProgress = isExploded ? 1 : 0;
     const lerpFactor = isExploded ? 0.05 : 0.12;
@@ -215,7 +236,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
 
     if (lineRef.current) {
         const material = lineRef.current.material as THREE.MeshStandardMaterial;
-        const pulse = reducedMotion ? 0.72 : (Math.sin(time * 3.0) * 0.3 + 0.7);
+        const pulse = reducedMotion || !animationsEnabled ? 0.72 : (Math.sin(time * 3.0) * 0.3 + 0.7);
         const celebrationBoost = celebrating ? 0.7 : 0;
         material.emissiveIntensity = (3.0 + lightBoost * 3 + celebrationBoost) * pulse * (1 - explodeProgress.current);
         lineRef.current.scale.setScalar(1 - explodeProgress.current);
@@ -223,7 +244,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
     }
 
     if (pointsRef.current) {
-        pointsRef.current.rotation.y = reducedMotion ? 0 : Math.sin(time * 0.5) * 0.02;
+        pointsRef.current.rotation.y = reducedMotion || !animationsEnabled ? 0 : Math.sin(time * 0.5) * 0.02;
     }
 
     if (needsUpdate && baubleMeshRef.current && baubleCapMeshRef.current) {
@@ -295,14 +316,14 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       if (baubleMeshRef.current.instanceColor) baubleMeshRef.current.instanceColor.needsUpdate = true;
       baubleCapMeshRef.current.instanceMatrix.needsUpdate = true;
     }
-  }, [baubles]);
+  }, [baubles, showAutomaticOrnaments]);
 
 
   return (
     <group>
       {/* The Spiral String - Core */}
-      <mesh ref={lineRef}>
-        <tubeGeometry args={[curve, 300, SPIRAL_CONFIG.THICKNESS * 0.6, 8, false]} />
+      {showSpiral && <mesh ref={lineRef}>
+        <tubeGeometry args={[curve, tubeSegments, SPIRAL_CONFIG.THICKNESS * 0.6, 8, false]} />
         <meshStandardMaterial
           color={COLORS.SPIRAL_LIGHT}
           emissive={COLORS.SPIRAL_LIGHT}
@@ -334,12 +355,12 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
             );
           }}
         />
-      </mesh>
+      </mesh>}
 
       {/* Volumetric Glow Shell */}
-      {!isExploded && (
+      {showSpiral && !isExploded && (
         <mesh>
-            <tubeGeometry args={[curve, 200, SPIRAL_CONFIG.THICKNESS * 2.5, 6, false]} />
+            <tubeGeometry args={[curve, glowSegments, SPIRAL_CONFIG.THICKNESS * 2.5, 6, false]} />
             <meshBasicMaterial
                 color={COLORS.SPIRAL_LIGHT}
                 transparent
@@ -374,7 +395,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       )}
 
       {/* Fluffy Tinsel Particles */}
-      <points ref={pointsRef} geometry={tinselGeo}>
+      {showSpiral && <points ref={pointsRef} geometry={tinselGeo}>
          <pointsMaterial
             map={fluffTexture}
             color="#ffffff"
@@ -423,10 +444,10 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
               );
             }}
          />
-      </points>
+      </points>}
 
       {/* Point lights along the spiral path to illuminate tree and photos */}
-      {!isExploded && (
+      {showSpiral && dynamicLights && !isExploded && (
         <>
             <pointLight position={[0, 2, 0]} intensity={1.2 + lightBoost * 1.4} color="#f4d77d" distance={9} decay={2} />
             <pointLight position={[0, -2, 0]} intensity={1.1 + lightBoost * 1.3} color="#f4d77d" distance={9} decay={2} />
@@ -434,7 +455,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
       )}
 
       {/* Decorative Ornaments - Instanced */}
-      <instancedMesh ref={baubleMeshRef} args={[undefined, undefined, baubles.length]}>
+      {showAutomaticOrnaments && <instancedMesh ref={baubleMeshRef} args={[undefined, undefined, baubles.length]}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshStandardMaterial
           metalness={0.42}
@@ -442,12 +463,12 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({ isExploded = false, photos = 
           emissive="#6b5014"
           emissiveIntensity={0.04}
         />
-      </instancedMesh>
+      </instancedMesh>}
 
-      <instancedMesh ref={baubleCapMeshRef} args={[undefined, undefined, baubles.length]}>
+      {showAutomaticOrnaments && <instancedMesh ref={baubleCapMeshRef} args={[undefined, undefined, baubles.length]}>
         <cylinderGeometry args={[0.2, 0.2, 0.25, 12]} />
         <meshStandardMaterial color={COLORS.DECORATION_GOLD} metalness={1} roughness={0.3} />
-      </instancedMesh>
+      </instancedMesh>}
     </group>
   );
 };

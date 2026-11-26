@@ -2,8 +2,7 @@ import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment, Lightformer, Sparkles, AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
-import { EffectComposer, Bloom, Noise, Vignette, BrightnessContrast, ChromaticAberration, SMAA, DepthOfField } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import TreeMesh from './TreeMesh';
 import SpiralDecor from './SpiralDecor';
 import Polaroid from './Polaroid';
@@ -23,11 +22,25 @@ import type { StoryFrameCapture } from '../utils/socialSharing';
 import type { StoryVideoSceneCapture } from '../utils/videoRecording';
 import { STORY_VIDEO_DURATION_MS } from '../utils/videoRecording';
 import type { TreeProgressionEffects } from '../utils/treeProgression';
-import { getInitialAmbientQuality } from '../utils/ambientEffects';
 import type { AmbientQuality } from '../utils/ambientEffects';
 import { storyCameraFrame } from '../utils/videoFraming';
-import { getInitialDpr, getInitialTreeParticleCount, markStartup, measureStartup } from '../utils/startup';
+import { markStartup, measureStartup } from '../utils/startup';
 import { PREMIUM_GIFT_FOCUS_DISTANCE } from '../utils/premiumGiftLayout';
+import {
+  degradePerformanceQuality,
+  getInitialPerformanceQuality,
+  getPerformanceBudget,
+  getPerformanceDpr,
+  getTreeParticleCount,
+  improvePerformanceQuality,
+} from '../utils/performance';
+import type { PerformanceQuality } from '../utils/performance';
+import {
+  DEFAULT_DIAGNOSTIC_SETTINGS,
+  PerformanceDiagnosticsPanel,
+  PerformanceProbe,
+} from './PerformanceDiagnostics';
+import type { DiagnosticSettings, PerformanceMetrics } from './PerformanceDiagnostics';
 
 interface SceneProps {
   photos: PhotoData[];
@@ -93,16 +106,19 @@ const SceneEffects: React.FC<{
   recordingType: 'FULL' | 'ALBUM' | null;
   photos: PhotoData[];
   progressionGlow: number;
-}> = ({ progressionGlow }) => {
+  quality: 'full' | 'reduced' | 'off';
+}> = ({ progressionGlow, quality }) => {
+  if (quality === 'off') return null;
   return (
-    <EffectComposer disableNormalPass multisampling={4}>
+    <EffectComposer disableNormalPass multisampling={quality === 'full' ? 4 : 0}>
       <Bloom
-        intensity={0.5 + progressionGlow * 0.12}
-        luminanceThreshold={0.9}
+        intensity={(quality === 'full' ? 0.5 : 0.32) + progressionGlow * 0.12}
+        luminanceThreshold={quality === 'full' ? 0.9 : 1.05}
         luminanceSmoothing={0.9}
+        mipmapBlur={quality === 'full'}
       />
 
-      <Vignette eskil={false} offset={0.1} darkness={1.1} />
+      <Vignette eskil={false} offset={0.1} darkness={quality === 'full' ? 1.1 : 0.85} />
     </EffectComposer>
   );
 };
@@ -583,63 +599,6 @@ const StoryCaptureController: React.FC<{
   return null;
 };
 
-// Component to handle dynamic effects
-const PostProcessingEffects: React.FC<{
-  zoomLevel: ZoomLevel;
-  focusedPhoto: PhotoData | null;
-}> = ({ zoomLevel, focusedPhoto }) => {
-  const dofRef = useRef<any>(null);
-
-  useFrame((state, delta) => {
-    if (dofRef.current) {
-      // Dynamic Focus Logic
-      // If zoomed in, focus on the photo. If full tree, focus on center of tree.
-      const targetVec = new THREE.Vector3();
-
-      if (zoomLevel === ZoomLevel.ZOOMED_IN && focusedPhoto) {
-        targetVec.set(...focusedPhoto.position);
-      } else {
-        targetVec.copy(CAMERA_CONFIG.LOOK_AT_OFFSET);
-      }
-
-      // Smoothly interpolate the focus target
-      dofRef.current.target = targetVec;
-    }
-  });
-
-  return (
-    <EffectComposer disableNormalPass multisampling={0}>
-      {/*
-         Selective Bloom:
-         Only pixels with luminance > 1.0 will bloom.
-         We achieve "selective" bloom by setting emissiveIntensity > 1 on lights/stars.
-      */}
-      <Bloom
-        luminanceThreshold={1.2} // High threshold to only catch bright lights
-        mipmapBlur
-        intensity={1.5}
-        radius={0.6}
-        levels={9}
-      />
-
-      {/*
-        Cinematic Depth of Field (Bokeh)
-        Only apply strong bokeh when zoomed in to specific photos.
-        When viewing the full tree, reduce bokeh significantly or keep it minimal for a sharp view.
-      */}
-      <DepthOfField
-        ref={dofRef}
-        target={[0, 0, 0]} // Updated in useFrame
-        focalLength={0.02}
-        bokehScale={zoomLevel === ZoomLevel.ZOOMED_IN ? 6 : 0} // 0 means sharp in full view
-      />
-
-      {/* Vignette for cinematic focus */}
-      <Vignette eskil={false} offset={0.1} darkness={1.1} />
-    </EffectComposer>
-  );
-};
-
 const Scene: React.FC<SceneProps> = ({
   photos,
   onPhotoClick,
@@ -666,28 +625,53 @@ const Scene: React.FC<SceneProps> = ({
   onStartupEvent,
 }) => {
   const captureActive = useRef(false);
-  const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>(() => getInitialAmbientQuality({
-    hardwareConcurrency: navigator.hardwareConcurrency,
-    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
-  }));
-  const initialDpr = useMemo(() => getInitialDpr({
+  const capabilities = useMemo(() => ({
     hardwareConcurrency: navigator.hardwareConcurrency,
     deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
     devicePixelRatio: window.devicePixelRatio,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
   }), []);
-  const initialTreeParticleCount = useMemo(() => getInitialTreeParticleCount({
-    hardwareConcurrency: navigator.hardwareConcurrency,
-    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
-  }, TREE_CONFIG.PARTICLE_COUNT), []);
+  const initialQuality = useMemo(() => getInitialPerformanceQuality(capabilities), [capabilities]);
+  const [adaptiveQuality, setAdaptiveQuality] = useState<PerformanceQuality>(initialQuality);
+  const [diagnosticSettings, setDiagnosticSettings] = useState<DiagnosticSettings>(DEFAULT_DIAGNOSTIC_SETTINGS);
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
+  const inclineStreak = useRef(0);
+  const diagnosticsEnabled = import.meta.env.DEV && new URLSearchParams(window.location.search).get('perf') === '1';
+  const activeQuality = diagnosticsEnabled && diagnosticSettings.quality !== 'auto'
+    ? diagnosticSettings.quality
+    : adaptiveQuality;
+  const performanceBudget = getPerformanceBudget(activeQuality);
+  const activeDpr = getPerformanceDpr(activeQuality, window.devicePixelRatio, diagnosticsEnabled && diagnosticSettings.reducedDpr);
+  const treeParticleCount = getTreeParticleCount(activeQuality, TREE_CONFIG.PARTICLE_COUNT);
+  const ambientQuality: AmbientQuality = activeQuality === 'high' ? 'full' : activeQuality === 'balanced' ? 'reduced' : 'off';
+  const effectsEnabled = !diagnosticsEnabled || diagnosticSettings.effects;
+  const dynamicLightsEnabled = !diagnosticsEnabled || diagnosticSettings.dynamicLights;
+  const automaticOrnamentsEnabled = !diagnosticsEnabled || diagnosticSettings.automaticOrnaments;
+  const giftsAndPhotosEnabled = !diagnosticsEnabled || diagnosticSettings.giftsAndPhotos;
+  const animationsEnabled = !reducedMotion && (!diagnosticsEnabled || diagnosticSettings.animations);
+  const decorativeAnimationsEnabled = animationsEnabled && activeQuality !== 'economy';
+
+  const handleDecline = () => {
+    inclineStreak.current = 0;
+    setAdaptiveQuality((quality) => degradePerformanceQuality(quality));
+  };
+  const handleIncline = () => {
+    inclineStreak.current += 1;
+    if (inclineStreak.current < 3) return;
+    inclineStreak.current = 0;
+    setAdaptiveQuality((quality) => improvePerformanceQuality(quality, initialQuality));
+  };
 
   return (
+    <>
     <SceneErrorBoundary onError={() => onStartupEvent?.('error')}>
     <Canvas
       frameloop={paused ? 'never' : 'always'}
-      dpr={initialDpr}
+      dpr={activeDpr}
       camera={{ position: CAMERA_CONFIG.DEFAULT_POS, fov: CAMERA_CONFIG.FOV }}
       gl={{
-        antialias: true,
+        antialias: getPerformanceBudget(initialQuality).antialias,
         alpha: false,
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.0,
@@ -705,13 +689,14 @@ const Scene: React.FC<SceneProps> = ({
       <SceneReadiness enabled={essentialReady} onEvent={onStartupEvent} />
       <color attach="background" args={[COLORS.BACKGROUND]} />
       <fog attach="fog" args={[COLORS.BACKGROUND, 55, 115]} />
-      <PerformanceMonitor
+      <PerformanceProbe enabled={diagnosticsEnabled} onMetrics={setPerformanceMetrics} />
+      {!diagnosticsEnabled && !isRecording && <PerformanceMonitor
         flipflops={3}
-        onIncline={() => setAmbientQuality('full')}
-        onDecline={() => setAmbientQuality('reduced')}
-        onFallback={() => setAmbientQuality('off')}
-      />
-      <AdaptiveDpr pixelated />
+        onIncline={handleIncline}
+        onDecline={handleDecline}
+        onFallback={() => setAdaptiveQuality('economy')}
+      />}
+      {!diagnosticsEnabled && !isRecording && <AdaptiveDpr pixelated />}
       <CameraController
         zoomLevel={zoomLevel}
         controlMode={controlMode}
@@ -727,7 +712,7 @@ const Scene: React.FC<SceneProps> = ({
       <StoryCaptureFillLights captureActive={captureActive} />
 
       {/* Procedural environment preserves reflective lighting without a runtime CDN asset. */}
-      <Environment resolution={256} background={false}>
+      <Environment resolution={performanceBudget.environmentResolution} background={false}>
         <group rotation={[-Math.PI / 3, 0, 1]}>
           <Lightformer form="circle" intensity={4} position={[0, 5, -9]} scale={5} color="#fff1a1" />
           <Lightformer form="rect" intensity={2} position={[-7, 1, 3]} scale={[4, 8, 1]} color="#d8e8ff" />
@@ -737,55 +722,55 @@ const Scene: React.FC<SceneProps> = ({
 
       {/* Lighting Setup */}
       <ambientLight intensity={0.1 + progressionEffects.lightBoost * 0.08} />
-      {/* Warm Main Light */}
-      <pointLight position={[20, 10, 20]} intensity={1 + progressionEffects.lightBoost} color="#ffaa00" distance={50} decay={2} />
-      {/* Cool Fill Light */}
-      <pointLight position={[-20, 5, -20]} intensity={0.5} color="#0055ff" distance={50} decay={2} />
-      {/* Rim Light for shape definition */}
-      <spotLight position={[0, 30, 0]} intensity={1} angle={0.5} penumbra={1} color="#ffffff" />
+      {dynamicLightsEnabled && <>
+        <pointLight position={[20, 10, 20]} intensity={1 + progressionEffects.lightBoost} color="#ffaa00" distance={50} decay={2} />
+        <pointLight position={[-20, 5, -20]} intensity={0.5} color="#0055ff" distance={50} decay={2} />
+        {activeQuality !== 'economy' && <spotLight position={[0, 30, 0]} intensity={1} angle={0.5} penumbra={1} color="#ffffff" />}
+      </>}
 
-      <Stars radius={100} depth={50} count={3000 + Math.round(progressionEffects.atmosphereBoost * 400)} factor={4} saturation={0} fade speed={1 + progressionEffects.atmosphereBoost * 0.15} />
-      <AmbientNight
+      {effectsEnabled && <Stars radius={100} depth={50} count={performanceBudget.starCount + Math.round(progressionEffects.atmosphereBoost * 200 * performanceBudget.sparkleScale)} factor={4} saturation={0} fade speed={decorativeAnimationsEnabled ? 1 + progressionEffects.atmosphereBoost * 0.15 : 0} />}
+      {effectsEnabled && <AmbientNight
         quality={ambientQuality}
-        reducedMotion={reducedMotion}
+        reducedMotion={!decorativeAnimationsEnabled}
         recording={isRecording}
         captureActive={captureActive}
-      />
+      />}
 
       {/* Global Snow Effect */}
-      <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} />
+      {effectsEnabled && <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} count={performanceBudget.snowCount} animationsEnabled={decorativeAnimationsEnabled} />}
 
       {/* 3D Scene Elements */}
       <group position={[0, TREE_OFFSET_Y, 0]}>
-        <TreeMesh isExploded={isExploded} photos={photos} particleCount={initialTreeParticleCount} />
-        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} reducedMotion={reducedMotion} />
-        <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} />
-        {!(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} />}
+        <TreeMesh isExploded={isExploded} photos={photos} particleCount={treeParticleCount} leafDetail={performanceBudget.leafDetail} animationsEnabled={decorativeAnimationsEnabled} />
+        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} reducedMotion={!decorativeAnimationsEnabled} particleScale={performanceBudget.sparkleScale} showSpiral={effectsEnabled} showAutomaticOrnaments={automaticOrnamentsEnabled} dynamicLights={dynamicLightsEnabled} animationsEnabled={decorativeAnimationsEnabled} />
+        <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} sparkleScale={effectsEnabled ? performanceBudget.sparkleScale : 0} animationsEnabled={decorativeAnimationsEnabled} />
+        {giftsAndPhotosEnabled && !(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} animationsEnabled={decorativeAnimationsEnabled} />}
 
         {/* Magic Flies / Sparkles around the tree */}
-        <Sparkles
+        {effectsEnabled && <Sparkles
           position={[0, -3, 0]}
-          count={160 + progressionEffects.goldenParticleCount}
+          count={Math.max(24, Math.round((160 + progressionEffects.goldenParticleCount) * performanceBudget.sparkleScale))}
           scale={[12, 10, 12]}
           size={2}
-          speed={0.2 + progressionEffects.atmosphereBoost * 0.08}
+          speed={decorativeAnimationsEnabled ? 0.2 + progressionEffects.atmosphereBoost * 0.08 : 0}
           opacity={0.8}
           color="#fff1a1"
           material-toneMapped={false}
-        />
+        />}
 
-        {isProgressionCelebrating && (
-          <Sparkles position={[0, 0, 0]} count={48} scale={[13, 16, 13]} size={3} speed={0.65} opacity={0.9} color="#fff1a1" material-toneMapped={false} />
+        {effectsEnabled && isProgressionCelebrating && (
+          <Sparkles position={[0, 0, 0]} count={Math.max(12, Math.round(48 * performanceBudget.sparkleScale))} scale={[13, 16, 13]} size={3} speed={decorativeAnimationsEnabled ? 0.65 : 0} opacity={0.9} color="#fff1a1" material-toneMapped={false} />
         )}
 
-        {progressionEffects.fullyEnchanted && <pointLight position={[0, 3, 7]} intensity={0.45} color="#fff1a1" distance={18} decay={2} />}
+        {dynamicLightsEnabled && progressionEffects.fullyEnchanted && <pointLight position={[0, 3, 7]} intensity={0.45} color="#fff1a1" distance={18} decay={2} />}
 
-        {photos.map((photo) => (
+        {giftsAndPhotosEnabled && photos.map((photo) => (
           <Polaroid
             key={photo.id}
             data={photo}
             onPhotoClick={onPhotoClick}
             isExploded={isExploded}
+            animationsEnabled={decorativeAnimationsEnabled}
           />
         ))}
         {ornaments.map((ornament) => (
@@ -794,6 +779,7 @@ const Scene: React.FC<SceneProps> = ({
             ornament={ornament}
             isNew={ornament.public_id === newOrnamentId}
             onSelect={onOrnamentSelect}
+            animationsEnabled={decorativeAnimationsEnabled}
           />
         ))}
       </group>
@@ -805,9 +791,12 @@ const Scene: React.FC<SceneProps> = ({
         recordingType={recordingType}
         photos={photos}
         progressionGlow={progressionEffects.starGlowBoost}
+        quality={effectsEnabled ? performanceBudget.postProcessing : 'off'}
       />
     </Canvas>
     </SceneErrorBoundary>
+    {diagnosticsEnabled && <PerformanceDiagnosticsPanel metrics={performanceMetrics} settings={diagnosticSettings} activeQuality={activeQuality} onChange={setDiagnosticSettings} />}
+    </>
   );
 };
 

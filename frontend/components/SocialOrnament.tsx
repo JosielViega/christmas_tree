@@ -8,6 +8,7 @@ interface SocialOrnamentProps {
   ornament: SocialOrnamentData;
   isNew?: boolean;
   onSelect: (ornament: SocialOrnamentData) => void;
+  animationsEnabled?: boolean;
 }
 
 const heartShape = new THREE.Shape();
@@ -60,7 +61,7 @@ const OrnamentGeometry: React.FC<{ ornament: SocialOrnamentData }> = ({ ornament
   return <group><mesh geometry={geometries.present} material={material} /><mesh position={[0, 0, 0.37]} geometry={geometries.ribbonFront} material={ribbonMaterial} /><mesh position={[0, 0.37, 0]} geometry={geometries.ribbonTop} material={ribbonMaterial} /></group>;
 };
 
-const SocialOrnament: React.FC<SocialOrnamentProps> = ({ ornament, isNew = false, onSelect }) => {
+const SocialOrnament: React.FC<SocialOrnamentProps> = ({ ornament, isNew = false, onSelect, animationsEnabled = true }) => {
   const group = useRef<THREE.Group>(null);
   const slot = useMemo(() => getOrnamentSlot(ornament.slot_index, ornament.layout_version), [ornament.slot_index, ornament.layout_version]);
   const reducedMotion = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
@@ -69,10 +70,10 @@ const SocialOrnament: React.FC<SocialOrnamentProps> = ({ ornament, isNew = false
   useFrame((state, delta) => {
     if (!group.current) return;
     const elapsed = (performance.now() - appearedAt.current) / 1000;
-    const targetScale = isNew && !reducedMotion ? Math.min(1, elapsed * 2.4) : 1;
+    const targetScale = isNew && !reducedMotion && animationsEnabled ? Math.min(1, elapsed * 2.4) : 1;
     const currentScale = group.current.scale.x;
     group.current.scale.setScalar(THREE.MathUtils.lerp(currentScale, targetScale, Math.min(1, delta * 10)));
-    if (!reducedMotion) {
+    if (!reducedMotion && animationsEnabled) {
       group.current.rotation.y = slot.rotation[1] + Math.sin(state.clock.elapsedTime * 1.2 + ornament.slot_index) * 0.08;
       group.current.position.y = slot.position[1] + Math.sin(state.clock.elapsedTime * 1.5 + ornament.slot_index) * 0.035;
     }
@@ -83,7 +84,7 @@ const SocialOrnament: React.FC<SocialOrnamentProps> = ({ ornament, isNew = false
       ref={group}
       position={slot.position}
       rotation={slot.rotation}
-      scale={isNew && !reducedMotion ? 0.01 : 1}
+      scale={isNew && !reducedMotion && animationsEnabled ? 0.01 : 1}
       onClick={(event) => { event.stopPropagation(); onSelect(ornament); }}
       onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { document.body.style.cursor = 'auto'; }}

@@ -147,11 +147,12 @@ export const GiftBoxModel: React.FC<GiftBoxModelProps> = ({ texture, frontTextur
   </group>;
 };
 
-const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
-  position, rotation, scale, color, pattern, ribbonColor, explodeDir, explodeRotation, isExploded
+const PresentBox: React.FC<PresentProps & { isExploded: boolean; animationsEnabled: boolean }> = ({
+  position, rotation, scale, color, pattern, ribbonColor, explodeDir, explodeRotation, isExploded, animationsEnabled
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const progress = useRef(0);
+  const drift = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     const target = isExploded ? 1 : 0;
@@ -164,16 +165,16 @@ const PresentBox: React.FC<PresentProps & { isExploded: boolean }> = ({
       const floatTime = time * 0.4 + seed;
 
       // Floating motion in explode mode
-      const drift = new THREE.Vector3(
-        Math.sin(floatTime) * 0.4,
-        Math.cos(floatTime * 0.8) * 0.4,
-        Math.sin(floatTime * 0.6) * 0.4
+      const driftVector = drift.current.set(
+        animationsEnabled ? Math.sin(floatTime) * 0.4 : 0,
+        animationsEnabled ? Math.cos(floatTime * 0.8) * 0.4 : 0,
+        animationsEnabled ? Math.sin(floatTime * 0.6) * 0.4 : 0
       ).multiplyScalar(progress.current);
 
       groupRef.current.position.set(
-        position.x + explodeDir.x * progress.current + drift.x,
-        position.y + explodeDir.y * progress.current + drift.y,
-        position.z + explodeDir.z * progress.current + drift.z
+        position.x + explodeDir.x * progress.current + driftVector.x,
+        position.y + explodeDir.y * progress.current + driftVector.y,
+        position.z + explodeDir.z * progress.current + driftVector.z
       );
 
       groupRef.current.rotation.set(
@@ -198,6 +199,7 @@ interface PresentsProps {
   specialGiftCount?: number;
   premiumGifts?: PremiumGiftData[];
   onPremiumGiftSelect?: (gift: PremiumGiftData) => void;
+  animationsEnabled?: boolean;
 }
 
 const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: PremiumGiftData) => void }> = ({ gift, onSelect }) => {
@@ -232,7 +234,7 @@ const PremiumPresent: React.FC<{ gift: PremiumGiftData; onSelect?: (gift: Premiu
   );
 };
 
-const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0, premiumGifts = [], onPremiumGiftSelect }) => {
+const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCount = 0, premiumGifts = [], onPremiumGiftSelect, animationsEnabled = true }) => {
   const presents = useMemo(() => {
     const items: PresentProps[] = [];
     const patterns = ['solid', 'stripes', 'dots', 'checkers'] as const;
@@ -281,10 +283,10 @@ const Presents: React.FC<PresentsProps> = ({ isExploded = false, specialGiftCoun
         [present.position.x, present.position.y, present.position.z],
         getPremiumGiftTransform(gift.position_index, gift.layout_version).position,
       ) >= PREMIUM_GIFT_CLEARANCE)).map((p, i) => (
-        <PresentBox key={i} {...p} isExploded={isExploded} />
+        <PresentBox key={i} {...p} isExploded={isExploded} animationsEnabled={animationsEnabled} />
       ))}
       {specialPresents.slice(0, specialGiftCount).map((present, index) => (
-        <PresentBox key={`special-${index}`} {...present} isExploded={isExploded} />
+        <PresentBox key={`special-${index}`} {...present} isExploded={isExploded} animationsEnabled={animationsEnabled} />
       ))}
       {premiumGifts.map((gift) => <PremiumPresent key={gift.public_id} gift={gift} onSelect={onPremiumGiftSelect} />)}
     </group>

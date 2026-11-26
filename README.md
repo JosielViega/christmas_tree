@@ -271,6 +271,8 @@ Ao abrir uma árvore, uma tela DOM leve acompanha estados reais: dados essenciai
 
 Polaroids são decodificadas progressivamente, no máximo duas por vez, reduzidas em memória para até 512 px antes do upload à GPU e substituídas por fallback individual em caso de falha. As imagens persistidas não são alteradas. Em desenvolvimento, medidas `christmas-tree:*` ficam disponíveis em `performance.getEntriesByType('measure')` sem URLs, fotos ou dados pessoais.
 
+A cena também possui perfis de qualidade baseados em capacidade e carga de pixels. A auditoria, os orçamentos geométricos e o painel manual `?perf=1`, restrito ao Vite em desenvolvimento, estão documentados em [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+
 ### Etapa 08A.5 — uma participação gratuita por visitante
 
 Cada navegador recebe uma identidade anônima persistente de 90 dias em cookie `HttpOnly`, `SameSite=Lax` e `Secure` sob HTTPS. O backend permite um enfeite gratuito por identidade e árvore; o mesmo navegador continua livre para decorar outras árvores. A restrição é transacional e possui índice único no MySQL.
