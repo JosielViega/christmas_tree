@@ -108,6 +108,11 @@ final class ChristmasTreeGiftService
         return $this->gifts->findById($giftId)?->gift;
     }
 
+    public function recipientTreeIdForAccess(string $publicId, string $accessToken): ?int
+    {
+        return $this->authorizedRecord($publicId, $accessToken)?->gift->treeId;
+    }
+
     public function cancel(string $publicId, string $accessToken): ?GiftDraft
     {
         $record = $this->authorizedRecord($publicId, $accessToken);

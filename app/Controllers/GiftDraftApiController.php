@@ -10,8 +10,10 @@ use App\Core\Response;
 use App\Domain\GiftDraftValidationException;
 use App\Domain\IdempotencyConflict;
 use App\Services\ChristmasTreeGiftService;
+use App\Services\ChristmasTreeIdentityService;
 use App\Services\GiftDraftAccessSession;
 use App\Services\RateLimiter;
+use App\Services\TreeOwnerSession;
 
 final class GiftDraftApiController
 {
@@ -19,6 +21,8 @@ final class GiftDraftApiController
         private readonly Request $request,
         private readonly Csrf $csrf,
         private readonly ChristmasTreeGiftService $gifts,
+        private readonly ChristmasTreeIdentityService $trees,
+        private readonly TreeOwnerSession $ownerSession,
         private readonly GiftDraftAccessSession $accessSession,
         private readonly RateLimiter $creationLimiter,
         private readonly int $maxRequestBytes,
@@ -29,6 +33,9 @@ final class GiftDraftApiController
     {
         if ($response = $this->validateMutableRequest()) {
             return $response;
+        }
+        if ($this->ownerSession->isAuthorized($treePublicId, $this->trees)) {
+            return $this->error('owner_cannot_gift', 'Compartilhe sua árvore com amigos para receber presentes especiais.', 403);
         }
         if (!$this->creationLimiter->consume('gift-draft:' . $this->request->ipAddress())) {
             return $this->error('rate_limit_exceeded', 'Muitos presentes foram preparados recentemente. Tente novamente mais tarde.', 429);

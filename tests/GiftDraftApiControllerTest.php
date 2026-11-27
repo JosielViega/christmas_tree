@@ -13,6 +13,7 @@ use App\Services\ChristmasTreeIdentityService;
 use App\Services\GiftDraftAccessSession;
 use App\Services\GiftTextureStorage;
 use App\Services\RateLimiter;
+use App\Services\TreeOwnerSession;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\InMemoryChristmasTreeGiftRepository;
 use Tests\Support\InMemoryChristmasTreeRepository;
@@ -25,6 +26,7 @@ final class GiftDraftApiControllerTest extends TestCase
     private ChristmasTreeIdentityService $trees;
     private ChristmasTreeGiftService $gifts;
     private GiftDraftAccessSession $access;
+    private TreeOwnerSession $owner;
 
     protected function setUp(): void
     {
@@ -35,6 +37,7 @@ final class GiftDraftApiControllerTest extends TestCase
         $this->session = new Session(false);
         $this->csrf = new Csrf($this->session);
         $this->access = new GiftDraftAccessSession($this->session);
+        $this->owner = new TreeOwnerSession($this->session);
         $this->gifts = new ChristmasTreeGiftService(
             $treeRepository,
             new InMemoryChristmasTreeGiftRepository(),
@@ -101,12 +104,34 @@ final class GiftDraftApiControllerTest extends TestCase
         unlink($limitedUpload['tmp_name']);
     }
 
+    public function testOwnerCannotCreateOrUploadGiftForOwnTreeButCanGiftAnotherTree(): void
+    {
+        $ownerTree = $this->trees->create('Lia');
+        $friendTree = $this->trees->create('Bia');
+        $this->owner->grant($ownerTree->tree->publicId, $ownerTree->adminToken);
+
+        $blockedUpload = $this->upload();
+        $blocked = $this->controller($this->createRequest($blockedUpload))->store($ownerTree->tree->publicId);
+        self::assertSame(403, $blocked->status());
+        self::assertStringContainsString('owner_cannot_gift', $blocked->body());
+        self::assertDirectoryDoesNotExist($this->temporaryRoot . '/private');
+
+        $friendUpload = $this->upload();
+        $allowed = $this->controller($this->createRequest($friendUpload, null, str_repeat('f', 16)))->store($friendTree->tree->publicId);
+        self::assertSame(201, $allowed->status());
+
+        unlink($blockedUpload['tmp_name']);
+        unlink($friendUpload['tmp_name']);
+    }
+
     private function controller(Request $request, int $limit = 20): GiftDraftApiController
     {
         return new GiftDraftApiController(
             $request,
             $this->csrf,
             $this->gifts,
+            $this->trees,
+            $this->owner,
             $this->access,
             new RateLimiter($this->temporaryRoot . '/rates', $limit, 900),
             2359296,

@@ -159,6 +159,8 @@ $giftApi = new GiftDraftApiController(
     $app['request'],
     $app['csrf'],
     $giftService,
+    $treeIdentity,
+    $treeOwnerSession,
     $giftAccessSession,
     new RateLimiter(
         $rateLimitPath . '/gift-drafts',
@@ -190,7 +192,7 @@ $paymentService = new GiftPaymentService(
     $giftPublication,
 );
 $paymentApi = new GiftPaymentApiController(
-    $app['request'], $app['csrf'], $paymentService, $paymentCatalog, $giftAccessSession,
+    $app['request'], $app['csrf'], $paymentService, $paymentCatalog, $treeIdentity, $treeOwnerSession, $giftAccessSession,
     new RateLimiter(
         $rateLimitPath . '/gift-payments',
         $app['config']['rate_limits']['gift_payment_creation']['max_attempts'],

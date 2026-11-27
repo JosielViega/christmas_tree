@@ -14,6 +14,8 @@ use App\Services\GiftDraftAccessSession;
 use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
 use App\Services\RateLimiter;
+use App\Services\ChristmasTreeIdentityService;
+use App\Services\TreeOwnerSession;
 
 final class GiftPaymentApiController
 {
@@ -22,6 +24,8 @@ final class GiftPaymentApiController
         private readonly Csrf $csrf,
         private readonly GiftPaymentService $payments,
         private readonly GiftProductCatalog $catalog,
+        private readonly ChristmasTreeIdentityService $trees,
+        private readonly TreeOwnerSession $ownerSession,
         private readonly GiftDraftAccessSession $accessSession,
         private readonly RateLimiter $creationLimiter,
         private readonly int $maxWebhookBytes = 65536,
@@ -46,10 +50,14 @@ final class GiftPaymentApiController
         if (!$this->csrf->verify($this->request->header('X-CSRF-Token', $this->request->input('_token')))) {
             return $this->error('csrf_failed', 'A sessão expirou. Recarregue a página e tente novamente.', 419);
         }
+        $token = $this->accessToken($giftPublicId);
+        $recipientTreeId = $this->payments->recipientTreeIdForAccess($giftPublicId, $token);
+        if ($recipientTreeId !== null && $this->ownerSession->isAuthorizedTreeId($recipientTreeId, $this->trees)) {
+            return $this->error('owner_cannot_gift', 'Compartilhe sua árvore com amigos para receber presentes especiais.', 403);
+        }
         if (!$this->creationLimiter->consume('gift-payment:' . $this->request->ipAddress())) {
             return $this->error('rate_limit_exceeded', 'Muitas tentativas de pagamento. Tente novamente mais tarde.', 429);
         }
-        $token = $this->accessToken($giftPublicId);
         try {
             $order = $this->payments->create(
                 $giftPublicId, $token, $this->stringInput('product_code'), $this->stringInput('payer_email'),

@@ -11,11 +11,13 @@ use App\Core\Session;
 use App\Domain\PaymentCharge;
 use App\Domain\PaymentGatewayException;
 use App\Services\ChristmasTreeGiftService;
+use App\Services\ChristmasTreeIdentityService;
 use App\Services\GiftDraftAccessSession;
 use App\Services\GiftPaymentService;
 use App\Services\GiftProductCatalog;
 use App\Services\GiftTextureStorage;
 use App\Services\RateLimiter;
+use App\Services\TreeOwnerSession;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\FakePaymentGateway;
 use Tests\Support\InMemoryChristmasTreeGiftRepository;
@@ -115,19 +117,107 @@ final class GiftPaymentApiControllerTest extends TestCase
         self::assertStringNotContainsString('Temporary provider failure', $failure->body());
     }
 
+    public function testOwnerCannotCreatePaymentForOwnTreeAndNoOrderOrChargeIsCreated(): void
+    {
+        $trees = new InMemoryChristmasTreeRepository();
+        $identity = new ChristmasTreeIdentityService($trees);
+        $ownerTree = $identity->create('Lia');
+        $gifts = new ChristmasTreeGiftService(
+            $trees, new InMemoryChristmasTreeGiftRepository(), new GiftTextureStorage($this->temporaryRoot . '/private'),
+        );
+        $upload = $this->upload();
+        $draft = $gifts->create(
+            $ownerTree->tree->publicId, 'Ana', 'classic', 'repeated', 'Mensagem privada',
+            str_repeat('d', 16), true, $upload,
+        );
+        $owner = new TreeOwnerSession($this->session);
+        $owner->grant($ownerTree->tree->publicId, $ownerTree->adminToken);
+        $gateway = new FakePaymentGateway();
+        $orders = new InMemoryPaymentOrderRepository();
+        $catalog = new GiftProductCatalog(['special' => 199, 'personalized' => 399, 'magic' => 599]);
+        $controller = new GiftPaymentApiController(
+            $this->paymentRequest((string) $draft?->accessToken), $this->csrf,
+            new GiftPaymentService($gifts, $orders, $catalog, $gateway, 60, false),
+            $catalog, $identity, $owner, new GiftDraftAccessSession($this->session),
+            new RateLimiter($this->temporaryRoot . '/owner-rates', 10, 900),
+        );
+
+        $response = $controller->store((string) $draft?->gift->publicId);
+
+        self::assertSame(403, $response->status());
+        self::assertStringContainsString('owner_cannot_gift', $response->body());
+        self::assertSame(0, $gateway->createCalls);
+        self::assertSame([], $orders->orders);
+        unlink($upload['tmp_name']);
+    }
+
+    public function testOwnerCanCreatePaymentForAnotherTree(): void
+    {
+        $trees = new InMemoryChristmasTreeRepository();
+        $identity = new ChristmasTreeIdentityService($trees);
+        $ownerTree = $identity->create('Lia');
+        $friendTree = $identity->create('Bia');
+        $gifts = new ChristmasTreeGiftService(
+            $trees, new InMemoryChristmasTreeGiftRepository(), new GiftTextureStorage($this->temporaryRoot . '/private'),
+        );
+        $upload = $this->upload();
+        $draft = $gifts->create(
+            $friendTree->tree->publicId, 'Lia', 'magic', 'featured', 'Presente para amiga',
+            str_repeat('e', 16), true, $upload,
+        );
+        $owner = new TreeOwnerSession($this->session);
+        $owner->grant($ownerTree->tree->publicId, $ownerTree->adminToken);
+        $gateway = new FakePaymentGateway();
+        $orders = new InMemoryPaymentOrderRepository();
+        $catalog = new GiftProductCatalog(['special' => 199, 'personalized' => 399, 'magic' => 599]);
+        $controller = new GiftPaymentApiController(
+            $this->paymentRequest((string) $draft?->accessToken), $this->csrf,
+            new GiftPaymentService($gifts, $orders, $catalog, $gateway, 60, false),
+            $catalog, $identity, $owner, new GiftDraftAccessSession($this->session),
+            new RateLimiter($this->temporaryRoot . '/friend-rates', 10, 900),
+        );
+
+        self::assertSame(201, $controller->store((string) $draft?->gift->publicId)->status());
+        self::assertSame(1, $gateway->createCalls);
+        self::assertCount(1, $orders->orders);
+        unlink($upload['tmp_name']);
+    }
+
     private function controller(Request $request, FakePaymentGateway $gateway, bool $technicalSandbox = false): GiftPaymentApiController
     {
         $trees = new InMemoryChristmasTreeRepository();
         $gifts = new ChristmasTreeGiftService(
             $trees, new InMemoryChristmasTreeGiftRepository(), new GiftTextureStorage($this->temporaryRoot . '/private'),
         );
+        $identity = new ChristmasTreeIdentityService($trees);
         $catalog = new GiftProductCatalog(['special' => 199, 'personalized' => 399, 'magic' => 599]);
         return new GiftPaymentApiController(
             $request, $this->csrf,
             new GiftPaymentService($gifts, new InMemoryPaymentOrderRepository(), $catalog, $gateway, 60, false),
-            $catalog, new GiftDraftAccessSession($this->session),
+            $catalog, $identity, new TreeOwnerSession($this->session), new GiftDraftAccessSession($this->session),
             new RateLimiter($this->temporaryRoot . '/rates', 10, 900),
             technicalSandbox: $technicalSandbox,
         );
+    }
+
+    private function paymentRequest(string $token): Request
+    {
+        return new Request(
+            parsedBody: ['product_code' => 'personalized', 'payer_email' => 'test@example.com'],
+            server: [
+                'REMOTE_ADDR' => '127.0.0.1', 'CONTENT_LENGTH' => 512,
+                'HTTP_X_CSRF_TOKEN' => $this->csrf->token(), 'HTTP_X_GIFT_DRAFT_TOKEN' => $token,
+                'HTTP_IDEMPOTENCY_KEY' => str_repeat('p', 16),
+            ],
+        );
+    }
+
+    private function upload(): array
+    {
+        $path = tempnam(sys_get_temp_dir(), 'payment-owner-png-');
+        $image = imagecreatetruecolor(64, 64);
+        imagefill($image, 0, 0, imagecolorallocate($image, 20, 100, 50));
+        imagepng($image, $path);
+        return ['tmp_name' => $path, 'size' => filesize($path), 'error' => UPLOAD_ERR_OK, 'name' => 'texture.png', 'type' => 'image/png'];
     }
 }

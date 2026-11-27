@@ -49,6 +49,18 @@ final class TreeOwnerSession
             || $trees->ownerIsAuthorized($publicId, $this->tokenFor($publicId));
     }
 
+    public function isAuthorizedTreeId(int $treeId, ChristmasTreeIdentityService $trees): bool
+    {
+        $publicIds = array_unique([...array_keys($this->tokens()), ...array_keys($this->persistentOwners())]);
+        foreach ($publicIds as $publicId) {
+            $tree = $trees->findPublic($publicId);
+            if ($tree !== null && $tree->id === $treeId && $this->isAuthorized($publicId, $trees)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function primaryPublicId(): ?string
     {
         $publicId = $this->session->get(self::PRIMARY_KEY);

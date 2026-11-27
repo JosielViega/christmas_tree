@@ -39,6 +39,10 @@ final class GiftPaymentService
 
     public function available(): bool { return $this->gateway->isAvailable(); }
     public function products(): array { return $this->catalog->publicProducts(); }
+    public function recipientTreeIdForAccess(string $giftPublicId, string $accessToken): ?int
+    {
+        return $this->gifts->recipientTreeIdForAccess($giftPublicId, $accessToken);
+    }
 
     public function create(string $giftPublicId, string $accessToken, string $productCode, string $payerEmail, string $idempotencyKey): ?PaymentOrder
     {

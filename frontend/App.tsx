@@ -295,6 +295,10 @@ const App: React.FC = () => {
   }, [isOwner]);
 
   useEffect(() => {
+    if (isOwner) setGiftPreviewOpen(false);
+  }, [isOwner]);
+
+  useEffect(() => {
     if (!tree || loadedOrnamentsFor.current === tree.public_id) return;
     const controller = new AbortController();
     loadedOrnamentsFor.current = tree.public_id;
@@ -688,7 +692,9 @@ const App: React.FC = () => {
               {ornamentsLoading ? 'Carregando…' : visitorHasDecorated ? '✅ Você já decorou esta árvore!' : ornaments.length >= ornamentCapacity ? '🎄 Árvore completa' : '🎄 Decorar esta árvore'}
             </button>
           </>}
-          {giftPreviewEnabled ? (
+          {isOwner ? (
+            <p className="col-span-2 rounded-2xl border border-[#fff1a1]/20 bg-black/65 px-4 py-3 text-center text-xs leading-relaxed text-[#fff1a1] shadow-xl backdrop-blur-xl sm:max-w-xs">Esta é sua árvore! 🎄 Compartilhe com seus amigos para receber presentes especiais.</p>
+          ) : giftPreviewEnabled ? (
             <button type="button" onClick={() => setGiftPreviewOpen(true)} className="flex min-h-12 items-center justify-center gap-1.5 rounded-full border border-[#fff1a1]/25 bg-black/65 px-3 py-3 text-center text-xs font-semibold text-[#fff1a1] shadow-xl backdrop-blur-xl hover:bg-white/10 sm:shrink-0 sm:px-4 sm:text-sm"><Gift size={17} /> Presente especial</button>
           ) : (
             <button type="button" disabled aria-disabled="true" className="flex min-h-12 cursor-not-allowed items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/55 px-3 py-3 text-center text-xs font-semibold text-white/55 shadow-xl backdrop-blur-xl sm:shrink-0 sm:px-4 sm:text-sm"><Gift size={17} /> Presentes · Em breve</button>
@@ -750,7 +756,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {giftPreviewEnabled && giftPreviewOpen && (
+      {giftPreviewEnabled && !isOwner && giftPreviewOpen && (
         <GiftPreviewModal
           maxPhotoBytes={giftPhotoMaxBytes}
           treePublicId={tree?.public_id ?? ''}
