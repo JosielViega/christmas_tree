@@ -20,7 +20,7 @@ const Polaroid: React.FC<PolaroidProps> = ({
   animationsEnabled = true,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const photoMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const photoMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const explodeProgress = useRef(0);
   const [hovered, setHovered] = useState(false);
   const [loadedTexture, setLoadedTexture] = useState<{ url: string; texture: THREE.Texture; resourceId: number } | null>(null);
@@ -193,13 +193,10 @@ const Polaroid: React.FC<PolaroidProps> = ({
         {/* The Photo Area */}
         <mesh position={[0, -0.65, 0.025]}>
           <planeGeometry args={[1.0, 1.0]} />
-          <meshStandardMaterial
+          <meshBasicMaterial
             ref={photoMaterialRef}
             color={texture ? '#ffffff' : textureFailed ? '#5f1d25' : '#253b31'}
-            emissive={texture ? '#000000' : '#10251c'}
-            emissiveIntensity={texture ? 0 : 0.25}
-            roughness={0.7}
-            metalness={0.1}
+            toneMapped={false}
           />
         </mesh>
 

@@ -24,7 +24,7 @@ final class MemoryImageStorageTest extends TestCase
         $inspected = $storage->inspect($stored->logicalPath);
         self::assertMatchesRegularExpression('#^\d{4}/\d{2}/[a-f0-9]{40}\.jpg$#', $stored->logicalPath);
         self::assertSame('image/jpeg', (new \finfo(FILEINFO_MIME_TYPE))->file($inspected['path']));
-        self::assertSame([900, 900], array_slice((array) getimagesize($inspected['path']), 0, 2));
+        self::assertSame([1024, 1024], array_slice((array) getimagesize($inspected['path']), 0, 2));
         self::assertStringNotContainsString('EXIF-PRIVATE-MARKER', (string) file_get_contents($inspected['path']));
         self::assertTrue($storage->delete($stored->logicalPath));
         unlink($upload['tmp_name']);
@@ -41,11 +41,41 @@ final class MemoryImageStorageTest extends TestCase
                 $upload = $this->imageUpload($width, $height, $format);
                 $stored = $storage->store($upload);
                 $inspected = $storage->inspect($stored->logicalPath);
-                self::assertSame([180, 180], array_slice((array) getimagesize($inspected['path']), 0, 2));
+                self::assertSame([320, 320], array_slice((array) getimagesize($inspected['path']), 0, 2));
                 self::assertTrue($storage->delete($stored->logicalPath));
                 unlink($upload['tmp_name']);
             }
         }
+    }
+
+    public function testContainNormalizationPreservesLandscapeEdgesAndAddsNeutralPadding(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'memory-edges-');
+        $source = imagecreatetruecolor(160, 90);
+        imagefill($source, 0, 0, imagecolorallocate($source, 35, 120, 65));
+        imagefilledrectangle($source, 0, 0, 15, 89, imagecolorallocate($source, 220, 35, 35));
+        imagefilledrectangle($source, 144, 0, 159, 89, imagecolorallocate($source, 35, 55, 220));
+        imagepng($source, $path);
+        $upload = ['tmp_name' => $path, 'size' => filesize($path), 'error' => UPLOAD_ERR_OK, 'name' => 'edges.png', 'type' => 'image/png'];
+
+        $storage = new MemoryImageStorage($this->root);
+        $stored = $storage->store($upload);
+        $inspected = $storage->inspect($stored->logicalPath);
+        $normalized = imagecreatefromjpeg($inspected['path']);
+        self::assertNotFalse($normalized);
+        self::assertSame([160, 160], array_slice((array) getimagesize($inspected['path']), 0, 2));
+
+        $left = imagecolorsforindex($normalized, imagecolorat($normalized, 5, 80));
+        $right = imagecolorsforindex($normalized, imagecolorat($normalized, 154, 80));
+        $padding = imagecolorsforindex($normalized, imagecolorat($normalized, 80, 5));
+        self::assertGreaterThan($left['blue'] + 100, $left['red']);
+        self::assertGreaterThan($right['red'] + 100, $right['blue']);
+        self::assertGreaterThan(220, $padding['red']);
+        self::assertGreaterThan(220, $padding['green']);
+        self::assertGreaterThan(210, $padding['blue']);
+
+        self::assertTrue($storage->delete($stored->logicalPath));
+        unlink($path);
     }
 
     public function testAcceptsOrientedJpegAndRemovesExifMetadata(): void
@@ -61,7 +91,7 @@ final class MemoryImageStorageTest extends TestCase
         $stored = $storage->store($upload);
         $inspected = $storage->inspect($stored->logicalPath);
         self::assertStringNotContainsString('Exif', (string) file_get_contents($inspected['path']));
-        self::assertSame([180, 180], array_slice((array) getimagesize($inspected['path']), 0, 2));
+        self::assertSame([320, 320], array_slice((array) getimagesize($inspected['path']), 0, 2));
         self::assertTrue($storage->delete($stored->logicalPath));
         unlink($upload['tmp_name']);
     }

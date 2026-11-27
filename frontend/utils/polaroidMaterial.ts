@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export const applyPolaroidPhotoTexture = (
-  material: THREE.MeshStandardMaterial,
+  material: THREE.MeshBasicMaterial,
   texture: THREE.Texture | null,
 ): boolean => {
   if (material.map === texture) return false;

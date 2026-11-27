@@ -56,15 +56,19 @@ final class MemoryImageStorage
         };
         if ($source === false) throw $this->invalid('Não foi possível decodificar a fotografia.');
 
-        $crop = min($width, $height);
-        $targetSize = min(self::MAX_DIMENSION, $crop);
+        $targetSize = min(self::MAX_DIMENSION, max($width, $height));
         $target = imagecreatetruecolor($targetSize, $targetSize);
         if ($target === false) throw new RuntimeException('Unable to allocate normalized memory image.');
         $background = imagecolorallocate($target, 248, 245, 235);
         imagefill($target, 0, 0, $background);
+        $scale = min($targetSize / $width, $targetSize / $height);
+        $fittedWidth = max(1, (int) round($width * $scale));
+        $fittedHeight = max(1, (int) round($height * $scale));
+        $offsetX = intdiv($targetSize - $fittedWidth, 2);
+        $offsetY = intdiv($targetSize - $fittedHeight, 2);
         imagecopyresampled(
-            $target, $source, 0, 0, (int) (($width - $crop) / 2), (int) (($height - $crop) / 2),
-            $targetSize, $targetSize, $crop, $crop,
+            $target, $source, $offsetX, $offsetY, 0, 0,
+            $fittedWidth, $fittedHeight, $width, $height,
         );
 
         $relativeDirectory = gmdate('Y/m');

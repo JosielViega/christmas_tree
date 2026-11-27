@@ -22,12 +22,15 @@ test('contain framing preserves complete horizontal, vertical, square and 4:3 ph
 test('edge content is padded rather than cropped in upload and display pipelines', () => {
   const upload = readFileSync(new URL('../utils/memoryImages.ts', import.meta.url), 'utf8');
   const display = readFileSync(new URL('../utils/progressiveTextures.ts', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../components/MemoriesPanel.tsx', import.meta.url), 'utf8');
   assert.match(upload, /calculateContainRect/);
   assert.doesNotMatch(upload, /calculateCoverCrop/);
   assert.match(display, /calculateContainRect/);
   assert.match(display, /fillStyle = '#f8f5eb'/);
   assert.match(display, /canvas\.width = canvasSize/);
   assert.match(display, /canvas\.height = canvasSize/);
+  assert.match(panel, /object-contain/);
+  assert.doesNotMatch(panel, /object-cover/);
 });
 
 test('invalid dimensions fail before producing a misleading crop', () => {
