@@ -5,7 +5,7 @@ import { COLORS, TREE_CONFIG } from '../constants';
 import { PhotoData } from '../types';
 import { getMemorySlot } from '../utils/math';
 import { markStartup, measureStartup } from '../utils/startup';
-import type { LeafDetail } from '../utils/performance';
+import { getLeafMaterialProfile, type LeafDetail } from '../utils/performance';
 
 const memoryCenters = Array.from({ length: 6 }, (_, index) => {
   const slot = getMemorySlot(index);
@@ -137,6 +137,7 @@ const TreeMesh: React.FC<TreeMeshProps> = ({
     return geo;
   }, [leafDetail]);
   useEffect(() => () => leafGeometry.dispose(), [leafGeometry]);
+  const leafMaterial = getLeafMaterialProfile(leafDetail);
 
   // Generate particles for the tree body
   const { innerParticles, outerParticles } = useMemo(() => {
@@ -355,10 +356,10 @@ const TreeMesh: React.FC<TreeMeshProps> = ({
       <instancedMesh ref={outerMeshRef} args={[leafGeometry, undefined, outerParticles.length]}>
         <meshStandardMaterial
           map={leafTexture}
-          roughness={leafDetail === 'reduced' ? 0.72 : 0.5}
-          metalness={leafDetail === 'reduced' ? 0.2 : 0.9}
-          emissive={leafDetail === 'reduced' ? '#0a2510' : '#051005'}
-          emissiveIntensity={leafDetail === 'reduced' ? 0.3 : 0.5}
+          roughness={leafMaterial.roughness}
+          metalness={leafMaterial.metalness}
+          emissive={leafMaterial.emissive}
+          emissiveIntensity={leafMaterial.emissiveIntensity}
           side={leafDetail === 'full' ? THREE.FrontSide : THREE.DoubleSide}
         />
       </instancedMesh>

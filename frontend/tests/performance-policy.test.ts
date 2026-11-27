@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   getInitialPerformanceQuality,
+  getLeafMaterialProfile,
   getPerformanceBudget,
   getPerformanceDpr,
   getSceneAmbientLightIntensity,
@@ -35,11 +36,34 @@ test('scene budgets progressively reduce expensive GPU work while preserving the
   assert.equal(getPerformanceBudget('economy').antialias, false);
 });
 
-test('balanced lighting lifts leaf definition without changing high or economy profiles', () => {
-  assert.equal(getSceneAmbientLightIntensity('high'), 0.1);
+test('quality profiles preserve balanced illumination while compensating economy fill light', () => {
+  assert.equal(getSceneAmbientLightIntensity('high'), 0.115);
   assert.equal(getSceneAmbientLightIntensity('balanced'), 0.115);
-  assert.equal(getSceneAmbientLightIntensity('economy'), 0.1);
+  assert.equal(getSceneAmbientLightIntensity('economy'), 0.13);
   assert.equal(getSceneAmbientLightIntensity('balanced', 1), 0.195);
+});
+
+test('leaf materials preserve balanced values and avoid highly metallic dark leaves', () => {
+  assert.deepEqual(getLeafMaterialProfile('reduced'), {
+    roughness: 0.72,
+    metalness: 0.2,
+    emissive: '#0a2510',
+    emissiveIntensity: 0.3,
+  });
+  assert.deepEqual(getLeafMaterialProfile('full'), {
+    roughness: 0.64,
+    metalness: 0.35,
+    emissive: '#08220e',
+    emissiveIntensity: 0.35,
+  });
+  assert.deepEqual(getLeafMaterialProfile('flat'), {
+    roughness: 0.76,
+    metalness: 0.12,
+    emissive: '#0c3015',
+    emissiveIntensity: 0.4,
+  });
+  assert.ok(getLeafMaterialProfile('full').metalness < 0.9);
+  assert.ok(getLeafMaterialProfile('flat').metalness < 0.9);
 });
 
 test('representative Android mobile and desktop-site viewports explain the observed density and sharpness tradeoff', () => {
@@ -95,7 +119,7 @@ test('mobile visual polish refines silhouettes without adding framebuffer antial
   assert.equal(getPerformanceBudget('balanced').antialias, false);
   assert.equal(getPerformanceBudget('balanced').postProcessing, 'off');
   assert.match(tree, /curveSegments: leafDetail === 'reduced' \? 8 : 12/);
-  assert.match(tree, /metalness=\{leafDetail === 'reduced' \? 0\.2 : 0\.9\}/);
+  assert.match(tree, /metalness=\{leafMaterial\.metalness\}/);
   assert.match(tree, /leafDetail === 'full' \? THREE\.FrontSide : THREE\.DoubleSide/);
   assert.match(star, /metalness=\{0\.72\}/);
   assert.match(star, /roughness=\{0\.26\}/);

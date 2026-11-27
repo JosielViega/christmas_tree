@@ -22,6 +22,13 @@ export interface ScenePerformanceBudget {
   antialias: boolean;
 }
 
+export interface LeafMaterialProfile {
+  roughness: number;
+  metalness: number;
+  emissive: string;
+  emissiveIntensity: number;
+}
+
 export const SCENE_PERFORMANCE_BUDGETS: Record<PerformanceQuality, ScenePerformanceBudget> = {
   high: {
     maxDpr: 1.75,
@@ -99,7 +106,34 @@ export const getTreeParticleCount = (quality: PerformanceQuality, fullCount: num
 export const getSceneAmbientLightIntensity = (
   quality: PerformanceQuality,
   progressionLightBoost = 0,
-): number => (quality === 'balanced' ? 0.115 : 0.1) + progressionLightBoost * 0.08;
+): number => ({
+  high: 0.115,
+  balanced: 0.115,
+  // Economy has no overhead spotlight, so a small ambient lift avoids black leaf clusters.
+  economy: 0.13,
+}[quality] + progressionLightBoost * 0.08);
+
+export const getLeafMaterialProfile = (leafDetail: LeafDetail): LeafMaterialProfile => ({
+  full: {
+    roughness: 0.64,
+    metalness: 0.35,
+    emissive: '#08220e',
+    emissiveIntensity: 0.35,
+  },
+  reduced: {
+    // Keep the visually approved balanced profile unchanged.
+    roughness: 0.72,
+    metalness: 0.2,
+    emissive: '#0a2510',
+    emissiveIntensity: 0.3,
+  },
+  flat: {
+    roughness: 0.76,
+    metalness: 0.12,
+    emissive: '#0c3015',
+    emissiveIntensity: 0.4,
+  },
+}[leafDetail]);
 
 export interface FrameSummary {
   averageFps: number;
