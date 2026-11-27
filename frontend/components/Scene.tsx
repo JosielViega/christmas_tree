@@ -34,6 +34,7 @@ import {
   getInitialPerformanceQuality,
   getPerformanceBudget,
   getPerformanceDpr,
+  getSceneAmbientLightIntensity,
   getTreeParticleCount,
 } from '../utils/performance';
 import type { PerformanceQuality } from '../utils/performance';
@@ -755,7 +756,7 @@ const Scene: React.FC<SceneProps> = ({
       </Environment>
 
       {/* Lighting Setup */}
-      <ambientLight intensity={0.1 + progressionEffects.lightBoost * 0.08} />
+      <ambientLight intensity={getSceneAmbientLightIntensity(activeQuality, progressionEffects.lightBoost)} />
       {dynamicLightsEnabled && <>
         <pointLight position={[20, 10, 20]} intensity={1 + progressionEffects.lightBoost} color="#ffaa00" distance={50} decay={2} />
         <pointLight position={[-20, 5, -20]} intensity={0.5} color="#0055ff" distance={50} decay={2} />

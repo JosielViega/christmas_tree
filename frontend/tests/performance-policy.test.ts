@@ -9,6 +9,7 @@ import {
   getInitialPerformanceQuality,
   getPerformanceBudget,
   getPerformanceDpr,
+  getSceneAmbientLightIntensity,
   getTreeParticleCount,
   improvePerformanceQuality,
   summarizeFrameTimes,
@@ -23,7 +24,7 @@ test('performance policy uses capability and rendered-pixel workload instead of 
 
 test('scene budgets progressively reduce expensive GPU work while preserving the high profile', () => {
   assert.deepEqual(getPerformanceDpr('high', 3), [1, 1.75]);
-  assert.deepEqual(getPerformanceDpr('balanced', 3), [1, 1.4]);
+  assert.deepEqual(getPerformanceDpr('balanced', 3), [1, 1.5]);
   assert.deepEqual(getPerformanceDpr('economy', 3), [1, 1]);
   assert.deepEqual(getPerformanceDpr('high', 3, true), [1, 1]);
   assert.equal(getTreeParticleCount('high', 20_000), 20_000);
@@ -31,8 +32,19 @@ test('scene budgets progressively reduce expensive GPU work while preserving the
   assert.equal(getTreeParticleCount('economy', 20_000), 5_000);
   assert.equal(getPerformanceBudget('high').leafDetail, 'full');
   assert.equal(getPerformanceBudget('balanced').leafDetail, 'reduced');
+  assert.equal(getPerformanceBudget('high').postProcessing, 'full');
   assert.equal(getPerformanceBudget('balanced').postProcessing, 'off');
   assert.equal(getPerformanceBudget('economy').postProcessing, 'off');
+  assert.equal(getPerformanceBudget('high').antialias, true);
+  assert.equal(getPerformanceBudget('balanced').antialias, false);
+  assert.equal(getPerformanceBudget('economy').antialias, false);
+});
+
+test('balanced lighting lifts leaf definition without changing high or economy profiles', () => {
+  assert.equal(getSceneAmbientLightIntensity('high'), 0.1);
+  assert.equal(getSceneAmbientLightIntensity('balanced'), 0.115);
+  assert.equal(getSceneAmbientLightIntensity('economy'), 0.1);
+  assert.equal(getSceneAmbientLightIntensity('balanced', 1), 0.195);
 });
 
 test('representative Android mobile and desktop-site viewports explain the observed density and sharpness tradeoff', () => {
@@ -47,7 +59,7 @@ test('representative Android mobile and desktop-site viewports explain the obser
 
   const mobileDpr = getPerformanceDpr('balanced', mobile.devicePixelRatio)[1];
   const desktopSiteDpr = getPerformanceDpr('economy', desktopSite.devicePixelRatio)[1];
-  assert.equal(Math.round(mobile.viewportWidth * mobileDpr), 577);
+  assert.equal(Math.round(mobile.viewportWidth * mobileDpr), 618);
   assert.equal(Math.round(desktopSite.viewportWidth * desktopSiteDpr), 980);
 });
 

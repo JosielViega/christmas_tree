@@ -35,7 +35,7 @@ export const SCENE_PERFORMANCE_BUDGETS: Record<PerformanceQuality, ScenePerforma
     antialias: true,
   },
   balanced: {
-    maxDpr: 1.4,
+    maxDpr: 1.5,
     treeParticleScale: 0.4,
     leafDetail: 'reduced',
     starCount: 1_200,
@@ -109,6 +109,11 @@ export const getPerformanceDpr = (
 export const getTreeParticleCount = (quality: PerformanceQuality, fullCount: number): number => (
   Math.max(3_000, Math.round(fullCount * SCENE_PERFORMANCE_BUDGETS[quality].treeParticleScale))
 );
+
+export const getSceneAmbientLightIntensity = (
+  quality: PerformanceQuality,
+  progressionLightBoost = 0,
+): number => (quality === 'balanced' ? 0.115 : 0.1) + progressionLightBoost * 0.08;
 
 export const degradePerformanceQuality = (quality: PerformanceQuality): PerformanceQuality => (
   qualityOrder[Math.max(0, qualityOrder.indexOf(quality) - 1)]
