@@ -27,12 +27,14 @@ import { storyCameraFrame } from '../utils/videoFraming';
 import { markStartup, measureStartup } from '../utils/startup';
 import { PREMIUM_GIFT_FOCUS_DISTANCE } from '../utils/premiumGiftLayout';
 import {
-  degradePerformanceQuality,
+  ADAPTIVE_INITIAL_STABILIZATION_MS,
+  ADAPTIVE_TRANSITION_STABILIZATION_MS,
+  advanceAdaptivePerformanceState,
+  createAdaptivePerformanceState,
   getInitialPerformanceQuality,
   getPerformanceBudget,
   getPerformanceDpr,
   getTreeParticleCount,
-  improvePerformanceQuality,
 } from '../utils/performance';
 import type { PerformanceQuality } from '../utils/performance';
 import {
@@ -634,9 +636,11 @@ const Scene: React.FC<SceneProps> = ({
   }), []);
   const initialQuality = useMemo(() => getInitialPerformanceQuality(capabilities), [capabilities]);
   const [adaptiveQuality, setAdaptiveQuality] = useState<PerformanceQuality>(initialQuality);
+  const adaptiveState = useRef(createAdaptivePerformanceState(initialQuality));
+  const adaptiveMonitoringStarted = useRef(false);
+  const [adaptiveMonitorReady, setAdaptiveMonitorReady] = useState(false);
   const [diagnosticSettings, setDiagnosticSettings] = useState<DiagnosticSettings>(DEFAULT_DIAGNOSTIC_SETTINGS);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
-  const inclineStreak = useRef(0);
   const diagnosticsEnabled = import.meta.env.DEV && new URLSearchParams(window.location.search).get('perf') === '1';
   const activeQuality = diagnosticsEnabled && diagnosticSettings.quality !== 'auto'
     ? diagnosticSettings.quality
@@ -650,17 +654,46 @@ const Scene: React.FC<SceneProps> = ({
   const automaticOrnamentsEnabled = !diagnosticsEnabled || diagnosticSettings.automaticOrnaments;
   const giftsAndPhotosEnabled = !diagnosticsEnabled || diagnosticSettings.giftsAndPhotos;
   const animationsEnabled = !reducedMotion && (!diagnosticsEnabled || diagnosticSettings.animations);
-  const decorativeAnimationsEnabled = animationsEnabled && activeQuality !== 'economy';
+
+  useEffect(() => {
+    setAdaptiveMonitorReady(false);
+    adaptiveState.current = advanceAdaptivePerformanceState(adaptiveState.current, 'reset', initialQuality);
+    if (!essentialReady || paused || isRecording || diagnosticsEnabled) return;
+
+    let timer: number | undefined;
+    const schedule = (delay: number) => {
+      window.clearTimeout(timer);
+      setAdaptiveMonitorReady(false);
+      adaptiveState.current = advanceAdaptivePerformanceState(adaptiveState.current, 'reset', initialQuality);
+      if (document.visibilityState !== 'visible') return;
+      timer = window.setTimeout(() => {
+        adaptiveMonitoringStarted.current = true;
+        setAdaptiveMonitorReady(true);
+      }, delay);
+    };
+    const handleVisibilityChange = () => {
+      schedule(ADAPTIVE_TRANSITION_STABILIZATION_MS);
+    };
+
+    schedule(adaptiveMonitoringStarted.current
+      ? ADAPTIVE_TRANSITION_STABILIZATION_MS
+      : ADAPTIVE_INITIAL_STABILIZATION_MS);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [adaptiveQuality, diagnosticsEnabled, essentialReady, initialQuality, isRecording, paused]);
 
   const handleDecline = () => {
-    inclineStreak.current = 0;
-    setAdaptiveQuality((quality) => degradePerformanceQuality(quality));
+    const next = advanceAdaptivePerformanceState(adaptiveState.current, 'decline', initialQuality);
+    adaptiveState.current = next;
+    setAdaptiveQuality(next.quality);
   };
   const handleIncline = () => {
-    inclineStreak.current += 1;
-    if (inclineStreak.current < 3) return;
-    inclineStreak.current = 0;
-    setAdaptiveQuality((quality) => improvePerformanceQuality(quality, initialQuality));
+    const next = advanceAdaptivePerformanceState(adaptiveState.current, 'incline', initialQuality);
+    adaptiveState.current = next;
+    setAdaptiveQuality(next.quality);
   };
 
   return (
@@ -690,11 +723,13 @@ const Scene: React.FC<SceneProps> = ({
       <color attach="background" args={[COLORS.BACKGROUND]} />
       <fog attach="fog" args={[COLORS.BACKGROUND, 55, 115]} />
       <PerformanceProbe enabled={diagnosticsEnabled} onMetrics={setPerformanceMetrics} />
-      {!diagnosticsEnabled && !isRecording && <PerformanceMonitor
-        flipflops={3}
+      {adaptiveMonitorReady && <PerformanceMonitor
+        key={adaptiveQuality}
+        iterations={12}
+        ms={500}
+        threshold={0.8}
         onIncline={handleIncline}
         onDecline={handleDecline}
-        onFallback={() => setAdaptiveQuality('economy')}
       />}
       {!diagnosticsEnabled && !isRecording && <AdaptiveDpr pixelated />}
       <CameraController
@@ -728,23 +763,23 @@ const Scene: React.FC<SceneProps> = ({
         {activeQuality !== 'economy' && <spotLight position={[0, 30, 0]} intensity={1} angle={0.5} penumbra={1} color="#ffffff" />}
       </>}
 
-      {effectsEnabled && <Stars radius={100} depth={50} count={performanceBudget.starCount + Math.round(progressionEffects.atmosphereBoost * 200 * performanceBudget.sparkleScale)} factor={4} saturation={0} fade speed={decorativeAnimationsEnabled ? 1 + progressionEffects.atmosphereBoost * 0.15 : 0} />}
+      {effectsEnabled && <Stars radius={100} depth={50} count={performanceBudget.starCount + Math.round(progressionEffects.atmosphereBoost * 200 * performanceBudget.sparkleScale)} factor={4} saturation={0} fade speed={animationsEnabled ? 1 + progressionEffects.atmosphereBoost * 0.15 : 0} />}
       {effectsEnabled && <AmbientNight
         quality={ambientQuality}
-        reducedMotion={!decorativeAnimationsEnabled}
+        reducedMotion={!animationsEnabled}
         recording={isRecording}
         captureActive={captureActive}
       />}
 
       {/* Global Snow Effect */}
-      {effectsEnabled && <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} count={performanceBudget.snowCount} animationsEnabled={decorativeAnimationsEnabled} />}
+      {effectsEnabled && <Snow isExploded={isExploded} atmosphereBoost={progressionEffects.atmosphereBoost} count={performanceBudget.snowCount} animationsEnabled={animationsEnabled} />}
 
       {/* 3D Scene Elements */}
       <group position={[0, TREE_OFFSET_Y, 0]}>
-        <TreeMesh isExploded={isExploded} photos={photos} particleCount={treeParticleCount} leafDetail={performanceBudget.leafDetail} animationsEnabled={decorativeAnimationsEnabled} />
-        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} reducedMotion={!decorativeAnimationsEnabled} particleScale={performanceBudget.sparkleScale} showSpiral={effectsEnabled} showAutomaticOrnaments={automaticOrnamentsEnabled} dynamicLights={dynamicLightsEnabled} animationsEnabled={decorativeAnimationsEnabled} />
-        <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} sparkleScale={effectsEnabled ? performanceBudget.sparkleScale : 0} animationsEnabled={decorativeAnimationsEnabled} />
-        {giftsAndPhotosEnabled && !(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} animationsEnabled={decorativeAnimationsEnabled} />}
+        <TreeMesh isExploded={isExploded} photos={photos} particleCount={treeParticleCount} leafDetail={performanceBudget.leafDetail} animationsEnabled={animationsEnabled} />
+        <SpiralDecor isExploded={isExploded} photos={photos} lightBoost={progressionEffects.lightBoost} celebrating={isProgressionCelebrating} reducedMotion={!animationsEnabled} particleScale={performanceBudget.sparkleScale} showSpiral={effectsEnabled} showAutomaticOrnaments={automaticOrnamentsEnabled} dynamicLights={dynamicLightsEnabled} animationsEnabled={animationsEnabled} />
+        <Star isExploded={isExploded} glowBoost={progressionEffects.starGlowBoost} celebrating={isProgressionCelebrating} sparkleScale={effectsEnabled ? performanceBudget.sparkleScale : 0} animationsEnabled={animationsEnabled} />
+        {giftsAndPhotosEnabled && !(isRecording && recordingType === 'ALBUM') && <Presents isExploded={isExploded} specialGiftCount={progressionEffects.specialGiftCount} premiumGifts={premiumGifts} onPremiumGiftSelect={onPremiumGiftSelect} animationsEnabled={animationsEnabled} />}
 
         {/* Magic Flies / Sparkles around the tree */}
         {effectsEnabled && <Sparkles
@@ -752,14 +787,14 @@ const Scene: React.FC<SceneProps> = ({
           count={Math.max(24, Math.round((160 + progressionEffects.goldenParticleCount) * performanceBudget.sparkleScale))}
           scale={[12, 10, 12]}
           size={2}
-          speed={decorativeAnimationsEnabled ? 0.2 + progressionEffects.atmosphereBoost * 0.08 : 0}
+          speed={animationsEnabled ? 0.2 + progressionEffects.atmosphereBoost * 0.08 : 0}
           opacity={0.8}
           color="#fff1a1"
           material-toneMapped={false}
         />}
 
         {effectsEnabled && isProgressionCelebrating && (
-          <Sparkles position={[0, 0, 0]} count={Math.max(12, Math.round(48 * performanceBudget.sparkleScale))} scale={[13, 16, 13]} size={3} speed={decorativeAnimationsEnabled ? 0.65 : 0} opacity={0.9} color="#fff1a1" material-toneMapped={false} />
+          <Sparkles position={[0, 0, 0]} count={Math.max(12, Math.round(48 * performanceBudget.sparkleScale))} scale={[13, 16, 13]} size={3} speed={animationsEnabled ? 0.65 : 0} opacity={0.9} color="#fff1a1" material-toneMapped={false} />
         )}
 
         {dynamicLightsEnabled && progressionEffects.fullyEnchanted && <pointLight position={[0, 3, 7]} intensity={0.45} color="#fff1a1" distance={18} decay={2} />}
@@ -770,7 +805,7 @@ const Scene: React.FC<SceneProps> = ({
             data={photo}
             onPhotoClick={onPhotoClick}
             isExploded={isExploded}
-            animationsEnabled={decorativeAnimationsEnabled}
+            animationsEnabled={animationsEnabled}
           />
         ))}
         {ornaments.map((ornament) => (
@@ -779,7 +814,7 @@ const Scene: React.FC<SceneProps> = ({
             ornament={ornament}
             isNew={ornament.public_id === newOrnamentId}
             onSelect={onOrnamentSelect}
-            animationsEnabled={decorativeAnimationsEnabled}
+            animationsEnabled={animationsEnabled}
           />
         ))}
       </group>

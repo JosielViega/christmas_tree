@@ -4,23 +4,6 @@ import { Billboard, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { COLORS, TREE_CONFIG } from '../constants';
 
-const GlowTexture = () => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gradient.addColorStop(0, 'rgba(255, 255, 200, 1)');
-    gradient.addColorStop(0.4, 'rgba(255, 220, 100, 0.3)');
-    gradient.addColorStop(0.7, 'rgba(255, 200, 0, 0.05)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 128, 128);
-  }
-  return new THREE.CanvasTexture(canvas);
-}
-
 interface StarProps {
   isExploded?: boolean;
   glowBoost?: number;
@@ -40,8 +23,6 @@ const Star: React.FC<StarProps> = ({
   const glowRef = useRef<THREE.PointLight>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const explodeProgress = useRef(0);
-  const glowTexture = useMemo(() => GlowTexture(), []);
-  useEffect(() => () => glowTexture.dispose(), [glowTexture]);
 
   // Classic 5-Pointed Star Shape
   const starGeometry = useMemo(() => {
@@ -116,7 +97,31 @@ const Star: React.FC<StarProps> = ({
       <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
         <mesh scale={[16, 16, 1]}>
           <planeGeometry />
-          <meshBasicMaterial map={glowTexture} transparent opacity={0.3 + glowBoost * 0.12} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+          <shaderMaterial
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+            uniforms={{ uOpacity: { value: 0.3 + glowBoost * 0.12 } }}
+            vertexShader={`
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `}
+            fragmentShader={`
+              uniform float uOpacity;
+              varying vec2 vUv;
+              void main() {
+                float radius = length((vUv - vec2(0.5)) * 2.0);
+                if (radius >= 1.0) discard;
+                float alpha = pow(1.0 - smoothstep(0.0, 1.0, radius), 1.7) * uOpacity;
+                vec3 halo = mix(vec3(1.0, 0.78, 0.12), vec3(1.0, 1.0, 0.82), 1.0 - radius);
+                gl_FragColor = vec4(halo, alpha);
+              }
+            `}
+          />
         </mesh>
       </Billboard>
 

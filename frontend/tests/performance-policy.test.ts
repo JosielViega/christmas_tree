@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
+  ADAPTIVE_REQUIRED_STREAK,
+  advanceAdaptivePerformanceState,
+  createAdaptivePerformanceState,
   degradePerformanceQuality,
   getInitialPerformanceQuality,
   getPerformanceBudget,
@@ -37,6 +40,53 @@ test('quality transitions are bounded and require callers to supply the recovery
   assert.equal(degradePerformanceQuality('economy'), 'economy');
   assert.equal(improvePerformanceQuality('economy', 'balanced'), 'balanced');
   assert.equal(improvePerformanceQuality('balanced', 'balanced'), 'balanced');
+});
+
+test('adaptive quality requires sustained signals and never recovers above its initial ceiling', () => {
+  assert.equal(ADAPTIVE_REQUIRED_STREAK, 2);
+  let state = createAdaptivePerformanceState('high');
+  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
+  assert.equal(state.quality, 'high');
+  assert.equal(state.declineStreak, 1);
+  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
+  assert.equal(state.quality, 'high');
+  assert.equal(state.declineStreak, 0);
+  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
+  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
+  assert.equal(state.quality, 'balanced');
+  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
+  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
+  assert.equal(state.quality, 'high');
+  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
+  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
+  assert.equal(state.quality, 'high');
+});
+
+test('scene delays and resets adaptive sampling around startup, transitions and hidden tabs', () => {
+  const scene = readFileSync(new URL('../components/Scene.tsx', import.meta.url), 'utf8');
+  assert.match(scene, /ADAPTIVE_INITIAL_STABILIZATION_MS/);
+  assert.match(scene, /ADAPTIVE_TRANSITION_STABILIZATION_MS/);
+  assert.match(scene, /document\.visibilityState !== 'visible'/);
+  assert.match(scene, /addEventListener\('visibilitychange'/);
+  assert.match(scene, /iterations=\{12\}/);
+  assert.match(scene, /ms=\{500\}/);
+  assert.doesNotMatch(scene, /onFallback=/);
+  assert.doesNotMatch(scene, /activeQuality !== 'economy'.*animations/i);
+});
+
+test('procedural transparent particles discard their rectangular backing pixels', () => {
+  const snow = readFileSync(new URL('../components/Snow.tsx', import.meta.url), 'utf8');
+  const spiral = readFileSync(new URL('../components/SpiralDecor.tsx', import.meta.url), 'utf8');
+  const star = readFileSync(new URL('../components/Star.tsx', import.meta.url), 'utf8');
+  for (const [name, source] of [['Snow', snow], ['SpiralDecor', spiral], ['Star', star]] as const) {
+    assert.match(source, /discard;/, name);
+  }
+  assert.match(snow, /gl_PointCoord/);
+  assert.match(spiral, /gl_PointCoord/);
+  assert.match(star, /radius >= 1\.0/);
+  assert.doesNotMatch(snow, /CanvasTexture|uTexture/);
+  assert.doesNotMatch(spiral, /fluffTexture/);
+  assert.doesNotMatch(star, /GlowTexture|CanvasTexture/);
 });
 
 test('frame summaries report averages and slow-frame percentiles without inventing samples', () => {

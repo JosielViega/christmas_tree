@@ -10,25 +10,6 @@ const memoryCenters = Array.from({ length: 6 }, (_, index) => {
   return new THREE.Vector3(...slot.position);
 });
 
-// Generate a soft glow texture for the fluff particles
-const getFluffTexture = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        // Soft radial glow
-        const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 32, 32);
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
-}
-
 interface SpiralDecorProps {
   isExploded?: boolean;
   photos?: PhotoData[];
@@ -66,9 +47,6 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
     uTime: { value: 0 },
     uExplodeProgress: { value: 0 },
   }).current;
-
-  const fluffTexture = useMemo(() => getFluffTexture(), []);
-  useEffect(() => () => fluffTexture.dispose(), [fluffTexture]);
 
   // Calculate points for the tube geometry
   const curve = useMemo(() => {
@@ -397,7 +375,6 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
       {/* Fluffy Tinsel Particles */}
       {showSpiral && <points ref={pointsRef} geometry={tinselGeo}>
          <pointsMaterial
-            map={fluffTexture}
             color="#ffffff"
             vertexColors={true}
             size={0.18}
@@ -440,6 +417,15 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
                 // Simplified chase effect for performance
                 float chase = sin(vProgress * 10.0 - uTime * 3.0) * 0.5 + 0.5;
                 diffuseColor.rgb *= (0.2 + 0.8 * chase);
+                `
+              );
+              shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <alphatest_fragment>',
+                `
+                float pointRadius = distance(gl_PointCoord, vec2(0.5));
+                if (pointRadius >= 0.5) discard;
+                diffuseColor.a *= 1.0 - smoothstep(0.28, 0.5, pointRadius);
+                #include <alphatest_fragment>
                 `
               );
             }}

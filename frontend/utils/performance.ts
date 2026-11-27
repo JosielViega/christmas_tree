@@ -60,6 +60,18 @@ export const SCENE_PERFORMANCE_BUDGETS: Record<PerformanceQuality, ScenePerforma
 
 const qualityOrder: PerformanceQuality[] = ['economy', 'balanced', 'high'];
 
+export const ADAPTIVE_INITIAL_STABILIZATION_MS = 12_000;
+export const ADAPTIVE_TRANSITION_STABILIZATION_MS = 6_000;
+export const ADAPTIVE_REQUIRED_STREAK = 2;
+
+export interface AdaptivePerformanceState {
+  quality: PerformanceQuality;
+  declineStreak: number;
+  inclineStreak: number;
+}
+
+export type AdaptivePerformanceSignal = 'decline' | 'incline' | 'reset';
+
 export const pixelWorkload = ({
   devicePixelRatio = 1,
   viewportWidth = 0,
@@ -107,6 +119,34 @@ export const improvePerformanceQuality = (
 ): PerformanceQuality => {
   const next = Math.min(qualityOrder.indexOf(ceiling), qualityOrder.indexOf(quality) + 1);
   return qualityOrder[Math.max(0, next)];
+};
+
+export const createAdaptivePerformanceState = (quality: PerformanceQuality): AdaptivePerformanceState => ({
+  quality,
+  declineStreak: 0,
+  inclineStreak: 0,
+});
+
+export const advanceAdaptivePerformanceState = (
+  state: AdaptivePerformanceState,
+  signal: AdaptivePerformanceSignal,
+  ceiling: PerformanceQuality,
+): AdaptivePerformanceState => {
+  if (signal === 'reset') return createAdaptivePerformanceState(state.quality);
+
+  if (signal === 'decline') {
+    const declineStreak = state.declineStreak + 1;
+    if (declineStreak < ADAPTIVE_REQUIRED_STREAK) {
+      return { ...state, declineStreak, inclineStreak: 0 };
+    }
+    return createAdaptivePerformanceState(degradePerformanceQuality(state.quality));
+  }
+
+  const inclineStreak = state.inclineStreak + 1;
+  if (inclineStreak < ADAPTIVE_REQUIRED_STREAK) {
+    return { ...state, declineStreak: 0, inclineStreak };
+  }
+  return createAdaptivePerformanceState(improvePerformanceQuality(state.quality, ceiling));
 };
 
 export interface FrameSummary {

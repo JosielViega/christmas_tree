@@ -2,20 +2,6 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const getSnowTexture = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.beginPath();
-        ctx.arc(16, 16, 14, 0, 2 * Math.PI);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-    }
-    return new THREE.CanvasTexture(canvas);
-}
-
 const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number; count?: number; animationsEnabled?: boolean }> = ({
   isExploded = false,
   atmosphereBoost = 0,
@@ -25,9 +11,6 @@ const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number; count?: n
   const mesh = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const explodeProgress = useRef(0);
-
-  const texture = useMemo(() => getSnowTexture(), []);
-  useEffect(() => () => texture.dispose(), [texture]);
 
   const particles = useMemo(() => {
     const positions = new Float32Array(count * 3);
@@ -64,9 +47,8 @@ const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number; count?: n
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uExplodeProgress: { value: 0 },
-    uTexture: { value: texture },
     uSize: { value: 0.25 }
-  }), [texture]);
+  }), []);
 
   useFrame((state) => {
     if (!materialRef.current) return;
@@ -114,10 +96,11 @@ const Snow: React.FC<{ isExploded?: boolean; atmosphereBoost?: number; count?: n
           }
         `}
         fragmentShader={`
-          uniform sampler2D uTexture;
           void main() {
-            gl_FragColor = texture2D(uTexture, gl_PointCoord);
-            if (gl_FragColor.a < 0.1) discard;
+            float pointRadius = distance(gl_PointCoord, vec2(0.5));
+            if (pointRadius >= 0.5) discard;
+            float alpha = 1.0 - smoothstep(0.32, 0.5, pointRadius);
+            gl_FragColor = vec4(vec3(1.0), alpha);
           }
         `}
       />
