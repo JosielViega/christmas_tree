@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { markStartup, measureStartup } from './startup.ts';
+import { calculateContainRect } from './imageFit.ts';
 
 export const POLAROID_TEXTURE_MAX_SIZE = 512;
 export const POLAROID_TEXTURE_CONCURRENCY = 2;
@@ -142,12 +143,16 @@ const decodeTexture = (url: string, progress: TextureProgress): Promise<THREE.Te
     progress('decoded');
     try {
       const size = fittedTextureSize(image.naturalWidth, image.naturalHeight);
+      const canvasSize = Math.max(size.width, size.height);
       const canvas = document.createElement('canvas');
-      canvas.width = size.width;
-      canvas.height = size.height;
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) throw new TextureLoadError('canvas_unavailable');
-      context.drawImage(image, 0, 0, size.width, size.height);
+      context.fillStyle = '#f8f5eb';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      const frame = calculateContainRect(image.naturalWidth, image.naturalHeight, canvas.width, canvas.height);
+      context.drawImage(image, frame.x, frame.y, frame.width, frame.height);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.generateMipmaps = true;

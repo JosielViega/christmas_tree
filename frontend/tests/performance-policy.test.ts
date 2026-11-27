@@ -2,16 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
-  ADAPTIVE_REQUIRED_STREAK,
-  advanceAdaptivePerformanceState,
-  createAdaptivePerformanceState,
-  degradePerformanceQuality,
   getInitialPerformanceQuality,
   getPerformanceBudget,
   getPerformanceDpr,
   getSceneAmbientLightIntensity,
   getTreeParticleCount,
-  improvePerformanceQuality,
   summarizeFrameTimes,
 } from '../utils/performance.ts';
 
@@ -69,44 +64,11 @@ test('mobile quality uses one deterministic DPR policy and avoids a second pixel
   assert.doesNotMatch(scene, /pixelated/);
 });
 
-test('quality transitions are bounded and require callers to supply the recovery ceiling', () => {
-  assert.equal(degradePerformanceQuality('high'), 'balanced');
-  assert.equal(degradePerformanceQuality('balanced'), 'economy');
-  assert.equal(degradePerformanceQuality('economy'), 'economy');
-  assert.equal(improvePerformanceQuality('economy', 'balanced'), 'balanced');
-  assert.equal(improvePerformanceQuality('balanced', 'balanced'), 'balanced');
-});
-
-test('adaptive quality requires sustained signals and never recovers above its initial ceiling', () => {
-  assert.equal(ADAPTIVE_REQUIRED_STREAK, 2);
-  let state = createAdaptivePerformanceState('high');
-  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
-  assert.equal(state.quality, 'high');
-  assert.equal(state.declineStreak, 1);
-  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
-  assert.equal(state.quality, 'high');
-  assert.equal(state.declineStreak, 0);
-  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
-  state = advanceAdaptivePerformanceState(state, 'decline', 'high');
-  assert.equal(state.quality, 'balanced');
-  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
-  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
-  assert.equal(state.quality, 'high');
-  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
-  state = advanceAdaptivePerformanceState(state, 'incline', 'high');
-  assert.equal(state.quality, 'high');
-});
-
-test('scene delays and resets adaptive sampling around startup, transitions and hidden tabs', () => {
+test('production scene keeps its selected profile stable instead of sampling FPS', () => {
   const scene = readFileSync(new URL('../components/Scene.tsx', import.meta.url), 'utf8');
-  assert.match(scene, /ADAPTIVE_INITIAL_STABILIZATION_MS/);
-  assert.match(scene, /ADAPTIVE_TRANSITION_STABILIZATION_MS/);
-  assert.match(scene, /document\.visibilityState !== 'visible'/);
-  assert.match(scene, /addEventListener\('visibilitychange'/);
-  assert.match(scene, /iterations=\{12\}/);
-  assert.match(scene, /ms=\{500\}/);
-  assert.doesNotMatch(scene, /onFallback=/);
-  assert.doesNotMatch(scene, /activeQuality !== 'economy'.*animations/i);
+  assert.match(scene, /resolveGraphicsQuality\(qualityPreference, initialQuality\)/);
+  assert.doesNotMatch(scene, /PerformanceMonitor|onDecline|onIncline|adaptiveQuality/);
+  assert.match(scene, /safePostProcessing = initialQuality === 'high'/);
 });
 
 test('procedural transparent particles discard their rectangular backing pixels', () => {

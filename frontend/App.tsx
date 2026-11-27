@@ -32,6 +32,8 @@ import { STARTUP_TIMEOUT_MS, canAdvanceStartup, markStartup, measureStartup } fr
 import type { StartupPhase } from './utils/startup';
 import { getOrnamentNavigation, isEditableNavigationTarget, orderExistingOrnaments } from './utils/ornamentNavigation';
 import type { OrnamentNavigationDirection } from './utils/ornamentNavigation';
+import { loadGraphicsQualityPreference, saveGraphicsQualityPreference } from './utils/graphicsQuality';
+import type { GraphicsQualityPreference } from './utils/graphicsQuality';
 
 const initialBootstrap = window.__CHRISTMAS_TREE_BOOTSTRAP__;
 const giftPreviewEnabled = isGiftPreviewEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_GIFT_PREVIEW);
@@ -114,6 +116,7 @@ const App: React.FC = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQualityPreference>(() => loadGraphicsQualityPreference());
   const [createOwnTreeOpen, setCreateOwnTreeOpen] = useState(false);
   const [giftPreviewOpen, setGiftPreviewOpen] = useState(false);
   const [unlockedProgressionStage, setUnlockedProgressionStage] = useState<TreeProgressionStage | null>(null);
@@ -125,6 +128,11 @@ const App: React.FC = () => {
   const storyCaptureRef = useRef<StoryFrameCapture | null>(null);
   const storyVideoCaptureRef = useRef<StoryVideoSceneCapture | null>(null);
   const progressionDismissTimer = useRef<number | null>(null);
+
+  const handleGraphicsQualityChange = useCallback((preference: GraphicsQualityPreference) => {
+    setGraphicsQuality(preference);
+    saveGraphicsQualityPreference(preference);
+  }, []);
 
   useEffect(() => {
     markStartup('react_initialized');
@@ -640,6 +648,7 @@ const App: React.FC = () => {
         progressionEffects={progression.stage.effects}
         isProgressionCelebrating={isProgressionCelebrating}
         reducedMotion={reducedMotion}
+        qualityPreference={graphicsQuality}
         paused={giftPreviewOpen || memoriesPanelOpen}
         essentialReady={Boolean(tree && ornamentsReady)}
         onStartupEvent={handleStartupEvent}
@@ -653,6 +662,8 @@ const App: React.FC = () => {
         treeOwnerName={tree?.owner_name ?? null}
         optionsOpen={optionsOpen}
         onOptionsOpenChange={setOptionsOpen}
+        qualityPreference={graphicsQuality}
+        onQualityPreferenceChange={handleGraphicsQualityChange}
       />}
 
       {loadingVisible && <ChristmasLoadingScreen phase={startupPhase} onRetry={() => window.location.reload()} />}

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Environment, Lightformer, Sparkles, PerformanceMonitor } from '@react-three/drei';
+import { OrbitControls, Stars, Environment, Lightformer, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import TreeMesh from './TreeMesh';
@@ -27,17 +27,14 @@ import { storyCameraFrame } from '../utils/videoFraming';
 import { markStartup, measureStartup } from '../utils/startup';
 import { PREMIUM_GIFT_FOCUS_DISTANCE } from '../utils/premiumGiftLayout';
 import {
-  ADAPTIVE_INITIAL_STABILIZATION_MS,
-  ADAPTIVE_TRANSITION_STABILIZATION_MS,
-  advanceAdaptivePerformanceState,
-  createAdaptivePerformanceState,
   getInitialPerformanceQuality,
   getPerformanceBudget,
   getPerformanceDpr,
   getSceneAmbientLightIntensity,
   getTreeParticleCount,
 } from '../utils/performance';
-import type { PerformanceQuality } from '../utils/performance';
+import { resolveGraphicsQuality } from '../utils/graphicsQuality';
+import type { GraphicsQualityPreference } from '../utils/graphicsQuality';
 import {
   DEFAULT_DIAGNOSTIC_SETTINGS,
   PerformanceDiagnosticsPanel,
@@ -66,6 +63,7 @@ interface SceneProps {
   progressionEffects: TreeProgressionEffects;
   isProgressionCelebrating?: boolean;
   reducedMotion: boolean;
+  qualityPreference: GraphicsQualityPreference;
   paused?: boolean;
   essentialReady: boolean;
   onStartupEvent?: (event: 'webgl_ready' | 'scene_prepared' | 'first_frame' | 'ready' | 'error') => void;
@@ -623,6 +621,7 @@ const Scene: React.FC<SceneProps> = ({
   progressionEffects,
   isProgressionCelebrating = false,
   reducedMotion,
+  qualityPreference,
   paused = false,
   essentialReady,
   onStartupEvent,
@@ -636,16 +635,12 @@ const Scene: React.FC<SceneProps> = ({
     viewportHeight: window.innerHeight,
   }), []);
   const initialQuality = useMemo(() => getInitialPerformanceQuality(capabilities), [capabilities]);
-  const [adaptiveQuality, setAdaptiveQuality] = useState<PerformanceQuality>(initialQuality);
-  const adaptiveState = useRef(createAdaptivePerformanceState(initialQuality));
-  const adaptiveMonitoringStarted = useRef(false);
-  const [adaptiveMonitorReady, setAdaptiveMonitorReady] = useState(false);
   const [diagnosticSettings, setDiagnosticSettings] = useState<DiagnosticSettings>(DEFAULT_DIAGNOSTIC_SETTINGS);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
   const diagnosticsEnabled = import.meta.env.DEV && new URLSearchParams(window.location.search).get('perf') === '1';
   const activeQuality = diagnosticsEnabled && diagnosticSettings.quality !== 'auto'
     ? diagnosticSettings.quality
-    : adaptiveQuality;
+    : resolveGraphicsQuality(qualityPreference, initialQuality);
   const performanceBudget = getPerformanceBudget(activeQuality);
   const activeDpr = getPerformanceDpr(activeQuality, window.devicePixelRatio, diagnosticsEnabled && diagnosticSettings.reducedDpr);
   const treeParticleCount = getTreeParticleCount(activeQuality, TREE_CONFIG.PARTICLE_COUNT);
@@ -655,47 +650,7 @@ const Scene: React.FC<SceneProps> = ({
   const automaticOrnamentsEnabled = !diagnosticsEnabled || diagnosticSettings.automaticOrnaments;
   const giftsAndPhotosEnabled = !diagnosticsEnabled || diagnosticSettings.giftsAndPhotos;
   const animationsEnabled = !reducedMotion && (!diagnosticsEnabled || diagnosticSettings.animations);
-
-  useEffect(() => {
-    setAdaptiveMonitorReady(false);
-    adaptiveState.current = advanceAdaptivePerformanceState(adaptiveState.current, 'reset', initialQuality);
-    if (!essentialReady || paused || isRecording || diagnosticsEnabled) return;
-
-    let timer: number | undefined;
-    const schedule = (delay: number) => {
-      window.clearTimeout(timer);
-      setAdaptiveMonitorReady(false);
-      adaptiveState.current = advanceAdaptivePerformanceState(adaptiveState.current, 'reset', initialQuality);
-      if (document.visibilityState !== 'visible') return;
-      timer = window.setTimeout(() => {
-        adaptiveMonitoringStarted.current = true;
-        setAdaptiveMonitorReady(true);
-      }, delay);
-    };
-    const handleVisibilityChange = () => {
-      schedule(ADAPTIVE_TRANSITION_STABILIZATION_MS);
-    };
-
-    schedule(adaptiveMonitoringStarted.current
-      ? ADAPTIVE_TRANSITION_STABILIZATION_MS
-      : ADAPTIVE_INITIAL_STABILIZATION_MS);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [adaptiveQuality, diagnosticsEnabled, essentialReady, initialQuality, isRecording, paused]);
-
-  const handleDecline = () => {
-    const next = advanceAdaptivePerformanceState(adaptiveState.current, 'decline', initialQuality);
-    adaptiveState.current = next;
-    setAdaptiveQuality(next.quality);
-  };
-  const handleIncline = () => {
-    const next = advanceAdaptivePerformanceState(adaptiveState.current, 'incline', initialQuality);
-    adaptiveState.current = next;
-    setAdaptiveQuality(next.quality);
-  };
+  const safePostProcessing = initialQuality === 'high' ? performanceBudget.postProcessing : 'off';
 
   return (
     <>
@@ -724,14 +679,6 @@ const Scene: React.FC<SceneProps> = ({
       <color attach="background" args={[COLORS.BACKGROUND]} />
       <fog attach="fog" args={[COLORS.BACKGROUND, 55, 115]} />
       <PerformanceProbe enabled={diagnosticsEnabled} onMetrics={setPerformanceMetrics} />
-      {adaptiveMonitorReady && <PerformanceMonitor
-        key={adaptiveQuality}
-        iterations={12}
-        ms={500}
-        threshold={0.8}
-        onIncline={handleIncline}
-        onDecline={handleDecline}
-      />}
       <CameraController
         zoomLevel={zoomLevel}
         controlMode={controlMode}
@@ -826,7 +773,7 @@ const Scene: React.FC<SceneProps> = ({
         recordingType={recordingType}
         photos={photos}
         progressionGlow={progressionEffects.starGlowBoost}
-        quality={effectsEnabled ? performanceBudget.postProcessing : 'off'}
+        quality={effectsEnabled ? safePostProcessing : 'off'}
       />
     </Canvas>
     </SceneErrorBoundary>

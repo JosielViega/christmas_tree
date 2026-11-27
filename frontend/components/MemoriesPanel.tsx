@@ -30,7 +30,7 @@ const MemoriesPanel: React.FC<MemoriesPanelProps> = ({ memories, busy, onAdd, on
         {memories.map((memory) => {
           const caption = captions[memory.public_id] ?? memory.caption ?? '';
           return <article key={memory.public_id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <img src={memory.image_url} alt={memory.caption || 'Memória do ano'} className="aspect-square w-full rounded-xl object-cover" loading="lazy" />
+            <img src={memory.image_url} alt={memory.caption || 'Memória do ano'} className="aspect-square w-full rounded-xl bg-[#f8f5eb] object-contain" loading="lazy" />
             <label className="mt-3 block text-xs text-white/60">Legenda<input value={caption} maxLength={80} onChange={(event) => setCaptions((current) => ({ ...current, [memory.public_id]: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-black/30 px-3 text-sm text-white outline-none focus:border-[#fff1a1]/50" /></label>
             <div className="mt-3 flex flex-wrap gap-2">
               <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-white/15 px-3 text-xs"><RefreshCw size={14} /> Substituir<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) setReplacements((current) => ({ ...current, [memory.public_id]: file })); }} /></label>
