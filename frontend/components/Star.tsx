@@ -83,7 +83,7 @@ const Star: React.FC<StarProps> = ({
         glowRef.current.intensity = (3 + glowBoost * 2 + celebrationLight + (animationsEnabled ? Math.sin(time * 3) : 0)) * (1 - explodeProgress.current * 0.8);
       }
       if (materialRef.current) {
-        materialRef.current.emissiveIntensity = 1 + glowBoost * 0.9 + (celebrating ? 0.45 : 0);
+        materialRef.current.emissiveIntensity = 0.7 + glowBoost * 0.75 + (celebrating ? 0.35 : 0);
       }
     }
   });
@@ -131,9 +131,9 @@ const Star: React.FC<StarProps> = ({
           ref={materialRef}
           color={COLORS.STAR}
           emissive={COLORS.STAR_GLOW}
-          emissiveIntensity={1.0}
-          metalness={0.9}
-          roughness={0.1}
+          emissiveIntensity={0.7}
+          metalness={0.72}
+          roughness={0.26}
         />
       </mesh>
 

@@ -102,7 +102,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
         const c = baseColor.clone().lerp(glowColor, mix);
 
         // Add some random brightness variation
-        const brightness = 0.8 + Math.random() * 0.4;
+        const brightness = 0.9 + Math.random() * 0.2;
         colors[idx * 3] = c.r * brightness;
         colors[idx * 3 + 1] = c.g * brightness;
         colors[idx * 3 + 2] = c.b * brightness;
@@ -214,7 +214,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
 
     if (lineRef.current) {
         const material = lineRef.current.material as THREE.MeshStandardMaterial;
-        const pulse = reducedMotion || !animationsEnabled ? 0.72 : (Math.sin(time * 3.0) * 0.3 + 0.7);
+        const pulse = reducedMotion || !animationsEnabled ? 0.78 : (Math.sin(time * 3.0) * 0.18 + 0.78);
         const celebrationBoost = celebrating ? 0.7 : 0;
         material.emissiveIntensity = (3.0 + lightBoost * 3 + celebrationBoost) * pulse * (1 - explodeProgress.current);
         lineRef.current.scale.setScalar(1 - explodeProgress.current);
@@ -301,7 +301,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
     <group>
       {/* The Spiral String - Core */}
       {showSpiral && <mesh ref={lineRef}>
-        <tubeGeometry args={[curve, tubeSegments, SPIRAL_CONFIG.THICKNESS * 0.6, 8, false]} />
+        <tubeGeometry args={[curve, tubeSegments, SPIRAL_CONFIG.THICKNESS * 0.6, 10, false]} />
         <meshStandardMaterial
           color={COLORS.SPIRAL_LIGHT}
           emissive={COLORS.SPIRAL_LIGHT}
@@ -328,7 +328,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
               `
               #include <emissivemap_fragment>
               float chase = sin(vUv.x * 15.0 - uTime * 3.0) * 0.5 + 0.5;
-              totalEmissiveRadiance *= (0.4 + 0.6 * chase);
+              totalEmissiveRadiance *= (0.62 + 0.38 * chase);
               `
             );
           }}
@@ -338,7 +338,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
       {/* Volumetric Glow Shell */}
       {showSpiral && !isExploded && (
         <mesh>
-            <tubeGeometry args={[curve, glowSegments, SPIRAL_CONFIG.THICKNESS * 2.5, 6, false]} />
+            <tubeGeometry args={[curve, glowSegments, SPIRAL_CONFIG.THICKNESS * 2.5, 8, false]} />
             <meshBasicMaterial
                 color={COLORS.SPIRAL_LIGHT}
                 transparent
@@ -364,7 +364,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
                     `
                     #include <color_fragment>
                     float chase = sin(vUv.x * 15.0 - uTime * 3.0) * 0.5 + 0.5;
-                    diffuseColor.a *= (0.3 + 0.7 * chase);
+                    diffuseColor.a *= (0.55 + 0.45 * chase);
                     `
                   );
                 }}
@@ -416,7 +416,7 @@ const SpiralDecor: React.FC<SpiralDecorProps> = ({
                 #include <color_fragment>
                 // Simplified chase effect for performance
                 float chase = sin(vProgress * 10.0 - uTime * 3.0) * 0.5 + 0.5;
-                diffuseColor.rgb *= (0.2 + 0.8 * chase);
+                diffuseColor.rgb *= (0.5 + 0.5 * chase);
                 `
               );
               shader.fragmentShader = shader.fragmentShader.replace(

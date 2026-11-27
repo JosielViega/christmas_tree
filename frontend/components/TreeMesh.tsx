@@ -105,7 +105,7 @@ const TreeMesh: React.FC<TreeMeshProps> = ({
           depth: 0.2,
           bevelEnabled: true,
           bevelSegments: leafDetail === 'reduced' ? 1 : 3,
-          curveSegments: leafDetail === 'reduced' ? 6 : 12,
+          curveSegments: leafDetail === 'reduced' ? 8 : 12,
           steps: 1,
           bevelSize: 0.1,
           bevelThickness: 0.05,
@@ -355,11 +355,11 @@ const TreeMesh: React.FC<TreeMeshProps> = ({
       <instancedMesh ref={outerMeshRef} args={[leafGeometry, undefined, outerParticles.length]}>
         <meshStandardMaterial
           map={leafTexture}
-          roughness={0.5}
-          metalness={0.9}
-          emissive="#051005"
-          emissiveIntensity={0.5}
-          side={leafDetail === 'flat' ? THREE.DoubleSide : THREE.FrontSide}
+          roughness={leafDetail === 'reduced' ? 0.72 : 0.5}
+          metalness={leafDetail === 'reduced' ? 0.2 : 0.9}
+          emissive={leafDetail === 'reduced' ? '#0a2510' : '#051005'}
+          emissiveIntensity={leafDetail === 'reduced' ? 0.3 : 0.5}
+          side={leafDetail === 'full' ? THREE.FrontSide : THREE.DoubleSide}
         />
       </instancedMesh>
     </group>

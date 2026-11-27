@@ -124,6 +124,23 @@ test('procedural transparent particles discard their rectangular backing pixels'
   assert.doesNotMatch(star, /GlowTexture|CanvasTexture/);
 });
 
+test('mobile visual polish refines silhouettes without adding framebuffer antialiasing or post-processing', () => {
+  const tree = readFileSync(new URL('../components/TreeMesh.tsx', import.meta.url), 'utf8');
+  const spiral = readFileSync(new URL('../components/SpiralDecor.tsx', import.meta.url), 'utf8');
+  const star = readFileSync(new URL('../components/Star.tsx', import.meta.url), 'utf8');
+
+  assert.equal(getPerformanceBudget('balanced').maxDpr, 1.5);
+  assert.equal(getPerformanceBudget('balanced').antialias, false);
+  assert.equal(getPerformanceBudget('balanced').postProcessing, 'off');
+  assert.match(tree, /curveSegments: leafDetail === 'reduced' \? 8 : 12/);
+  assert.match(tree, /metalness=\{leafDetail === 'reduced' \? 0\.2 : 0\.9\}/);
+  assert.match(tree, /leafDetail === 'full' \? THREE\.FrontSide : THREE\.DoubleSide/);
+  assert.match(star, /metalness=\{0\.72\}/);
+  assert.match(star, /roughness=\{0\.26\}/);
+  assert.match(spiral, /SPIRAL_CONFIG\.THICKNESS \* 0\.6, 10, false/);
+  assert.match(spiral, /SPIRAL_CONFIG\.THICKNESS \* 2\.5, 8, false/);
+});
+
 test('frame summaries report averages and slow-frame percentiles without inventing samples', () => {
   const summary = summarizeFrameTimes([10, 20, 30, 40, 50]);
   assert.equal(Math.round(summary.averageFps), 33);
