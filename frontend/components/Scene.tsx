@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Environment, Lightformer, Sparkles, AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
+import { OrbitControls, Stars, Environment, Lightformer, Sparkles, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import TreeMesh from './TreeMesh';
@@ -731,7 +731,6 @@ const Scene: React.FC<SceneProps> = ({
         onIncline={handleIncline}
         onDecline={handleDecline}
       />}
-      {!diagnosticsEnabled && !isRecording && <AdaptiveDpr pixelated />}
       <CameraController
         zoomLevel={zoomLevel}
         controlMode={controlMode}

@@ -35,14 +35,15 @@ export const SCENE_PERFORMANCE_BUDGETS: Record<PerformanceQuality, ScenePerforma
     antialias: true,
   },
   balanced: {
-    maxDpr: 1.25,
+    maxDpr: 1.4,
     treeParticleScale: 0.4,
     leafDetail: 'reduced',
     starCount: 1_200,
     snowCount: 600,
     sparkleScale: 0.55,
     environmentResolution: 128,
-    postProcessing: 'reduced',
+    // Avoid the half-float composer target on mobile GPUs; direct rendering is sharper and more stable.
+    postProcessing: 'off',
     antialias: false,
   },
   economy: {
